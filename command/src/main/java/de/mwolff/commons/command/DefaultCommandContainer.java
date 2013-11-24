@@ -23,34 +23,20 @@ public class DefaultCommandContainer implements CommandContainer {
 		}
 	});
 
-	/* (non-Javadoc)
-	 * @see de.mwolff.commons.command.CommandList#addCommand(de.mwolff.commons.command.Command)
-	 */
 	public void addCommand(Command command) {
 		commandList.put(Integer.valueOf(0), command);
 	}
 
-	/* (non-Javadoc)
-	 * @see de.mwolff.commons.command.CommandList#addCommand(int, de.mwolff.commons.command.Command)
-	 */
 	public void addCommand(int priority, Command command) {
 		commandList.put(Integer.valueOf(priority), command);
 	}
 
-    /*
-     * (non-Javadoc)
-     * @see de.mwolff.commons.command.Command#execute(de.mwolff.commons.command.Context)
-     */
-	public void execute(Context context) {
+	public void execute(Context context) throws Exception {
 		for (Command command : commandList.values()) {
 			command.execute(context);
 		}
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see de.mwolff.commons.command.Command#executeAsChain(de.mwolff.commons.command.Context)
-	 */
 	public boolean executeAsChain(Context context) {
 		boolean result = true;
 		for (Command command : commandList.values()) {

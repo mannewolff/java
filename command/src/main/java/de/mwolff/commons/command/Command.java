@@ -12,7 +12,7 @@ public interface Command {
 	 * Executes the command.
 	 * @param context
 	 */
-	void execute(Context context);
+	void execute(Context context) throws Exception;
 
 	/**
 	 * Executes a command as a chain.

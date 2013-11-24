@@ -13,7 +13,7 @@ public class TestExampleCommand {
 	 * inserted.
 	 */
 	@Test
-	public void testExecuteCommandsWithoutContext() {
+	public void testExecuteCommandsWithoutContext() throws Exception {
 		CommandContainer container = new DefaultCommandContainer();
 		container.addCommand(new PriorityOneTestCommand());
 		container.addCommand(new PriorityTwoTestCommand());

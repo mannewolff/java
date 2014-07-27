@@ -6,7 +6,7 @@ package de.mwolff.commons.command;
  * @author mwolff
  *
  */
-public interface CommandContainer extends Command {
+public interface CommandContainer<T extends Context> extends Command<T> {
 
 	/**
 	 * Adds a <code>Command</code> to the list. Because a
@@ -15,7 +15,7 @@ public interface CommandContainer extends Command {
 	 * 
 	 * @param command
 	 */
-	void addCommand(Command command);
+	void addCommand(Command<T> command);
 
 	/**
 	 * Adds a <code>Command</code> to the list via priority. Because a
@@ -25,5 +25,5 @@ public interface CommandContainer extends Command {
 	 * @param priority
 	 * @param command
 	 */
-	void addCommand(int priority, Command command);
+	void addCommand(int priority, Command<T> command);
 }

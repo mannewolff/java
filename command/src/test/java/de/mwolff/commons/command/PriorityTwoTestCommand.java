@@ -1,8 +1,8 @@
 package de.mwolff.commons.command;
 
-public class PriorityTwoTestCommand implements Command {
+public class PriorityTwoTestCommand<T extends Context> implements Command<T> {
 
-	public void execute(Context context) {
+	public void execute(T context) {
 		if (context != DefaultContext.NULLCONTEXT) {
 			context.put("PriorityTwoTestCommand", "PriorityTwoTestCommand");
 			String priorString = context.getAsString("priority");
@@ -13,7 +13,7 @@ public class PriorityTwoTestCommand implements Command {
 		}
 	}
 
-	public boolean executeAsChain(Context context) {
+	public boolean executeAsChain(T context) {
 		String priorString = context.getAsString("priority");
 		priorString += "B-";
 		context.put("priority", priorString);

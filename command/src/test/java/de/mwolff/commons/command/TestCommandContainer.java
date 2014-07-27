@@ -13,10 +13,10 @@ public class TestCommandContainer {
 	@Test
 	public void testAddNoPriorityInCommandContainer() throws Exception {
 		Context context = new DefaultContext();
-		CommandContainer commandContainer = new DefaultCommandContainer();
-		commandContainer.addCommand(new PriorityOneTestCommand());
-		commandContainer.addCommand(new PriorityTwoTestCommand());
-		commandContainer.addCommand(new PriorityThreeTestCommand());
+		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
+		commandContainer.addCommand(new PriorityOneTestCommand<Context>());
+		commandContainer.addCommand(new PriorityTwoTestCommand<Context>());
+		commandContainer.addCommand(new PriorityThreeTestCommand<Context>());
 		commandContainer.execute(context);
 		String priorString = context.getAsString("priority");
 		assertEquals("1-2-3-", priorString);
@@ -32,10 +32,10 @@ public class TestCommandContainer {
 	@Test
 	public void testAddCommandWithPriorityInCommandContainer() throws Exception {
 		Context context = new DefaultContext();
-		CommandContainer commandContainer = new DefaultCommandContainer();
-		commandContainer.addCommand(2, new PriorityThreeTestCommand());
-		commandContainer.addCommand(1, new PriorityOneTestCommand());
-		commandContainer.addCommand(1, new PriorityTwoTestCommand());
+		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
+		commandContainer.addCommand(2, new PriorityThreeTestCommand<Context>());
+		commandContainer.addCommand(1, new PriorityOneTestCommand<Context>());
+		commandContainer.addCommand(1, new PriorityTwoTestCommand<Context>());
 		commandContainer.execute(context);
 		String priorString = context.getAsString("priority");
 		assertEquals("1-2-3-", priorString);
@@ -51,13 +51,13 @@ public class TestCommandContainer {
 	public void testMixedModeInCommandContainer() throws Exception {
 
 		Context context = new DefaultContext();
-		CommandContainer commandContainer = new DefaultCommandContainer();
-		commandContainer.addCommand(1, new PriorityOneTestCommand());
-		commandContainer.addCommand(2, new PriorityTwoTestCommand());
-		commandContainer.addCommand(3, new PriorityThreeTestCommand());
+		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
+		commandContainer.addCommand(1, new PriorityOneTestCommand<Context>());
+		commandContainer.addCommand(2, new PriorityTwoTestCommand<Context>());
+		commandContainer.addCommand(3, new PriorityThreeTestCommand<Context>());
 		
-		CommandContainer mixedList = new DefaultCommandContainer();
-		mixedList.addCommand(new SimpleTestCommand());
+		CommandContainer<Context> mixedList = new DefaultCommandContainer<Context>();
+		mixedList.addCommand(new SimpleTestCommand<Context>());
 		mixedList.addCommand(commandContainer);
 		
 		mixedList.execute(context);

@@ -6,19 +6,19 @@ package de.mwolff.commons.command;
  * @author mwolff
  *
  */
-public interface Command {
+public interface Command<T extends Context> {
 
 	/**
 	 * Executes the command.
 	 * @param context
 	 */
-	void execute(Context context) throws Exception;
+	void execute(T context) throws Exception;
 
 	/**
 	 * Executes a command as a chain.
 	 * @param context
 	 * @return False if there was an error or the task is completed.
 	 */
-	boolean executeAsChain(Context context);
+	boolean executeAsChain(T context);
 
 }

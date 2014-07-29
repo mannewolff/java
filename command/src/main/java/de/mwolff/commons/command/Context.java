@@ -1,10 +1,14 @@
+/**
+ * Simple command framework.
+ * 
+ * Framework for easy building software that fits the open-close-principle.
+ * @author Manfred Wolff <wolff@manfred-wolff.de>
+ *         (c) neusta software development
+ */
 package de.mwolff.commons.command;
 
 /**
- * Simple context for pass values across commands.
- * 
- * @author mwolff
- *
+ * Simple context interface for pass values across commands.
  */
 public interface Context {
 

@@ -1,17 +1,27 @@
+/**
+ * Simple command framework.
+ * 
+ * Framework for easy building software that fits the open-close-principle.
+ * @author Manfred Wolff <wolff@manfred-wolff.de>
+ *         (c) neusta software development
+ */
 package de.mwolff.commons.command;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A simple implementation of a generic context.
+ */
 public class DefaultContext implements Context {
-	
+
 	/**
 	 * A null context to execute commands without a context.
 	 */
 	public static final Context NULLCONTEXT = null;
 
 	private Map<String, Object> genericMap = new HashMap<String, Object>();
-	
+
 	public void put(String key, Object value) {
 		genericMap.put(key, value);
 	}
@@ -27,5 +37,4 @@ public class DefaultContext implements Context {
 		return object.toString();
 	}
 
-	
 }

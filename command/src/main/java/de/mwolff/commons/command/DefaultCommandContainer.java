@@ -1,3 +1,10 @@
+/**
+ * Simple command framework.
+ * 
+ * Framework for easy building software that fits the open-close-principle.
+ * @author Manfred Wolff <wolff@manfred-wolff.de>
+ *         (c) neusta software development
+ */
 package de.mwolff.commons.command;
 
 import java.util.Comparator;
@@ -5,23 +12,25 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * CommandContainer that holds Command-objects. Should have the same behavior as a command (Composite Pattern).
- * 
- * @author mwolff
+ * CommandContainer that holds Command-objects. Should have the same behavior as
+ * a command (Composite Pattern).
  *
  */
-public class DefaultCommandContainer<T extends Context> implements CommandContainer<T> {
-	
-	private Map<Integer, Command<T>> commandList = new TreeMap<Integer, Command<T>>(new Comparator<Integer>() {
-		public int compare(Integer o1, Integer o2) {
-			// First wins if there are two commands with the same priority
-			if (o1.intValue() >= o2.intValue()) {
-				return 1;
-			} else {
-				return -1;
-			} // returning 0 would merge keys
-		}
-	});
+public class DefaultCommandContainer<T extends Context> implements
+		CommandContainer<T> {
+
+	private Map<Integer, Command<T>> commandList = new TreeMap<Integer, Command<T>>(
+			new Comparator<Integer>() {
+				public int compare(Integer o1, Integer o2) {
+					// First wins if there are two commands with the same
+					// priority
+					if (o1.intValue() >= o2.intValue()) {
+						return 1;
+					} else {
+						return -1;
+					} // returning 0 would merge keys
+				}
+			});
 
 	public void addCommand(Command<T> command) {
 		commandList.put(Integer.valueOf(0), command);

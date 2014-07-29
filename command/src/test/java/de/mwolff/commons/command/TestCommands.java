@@ -4,7 +4,7 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
-public class TestTestCommands {
+public class TestCommands {
 
 	@Test
 	public void testCommandInterface() throws Exception {

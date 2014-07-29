@@ -12,8 +12,8 @@ import java.util.List;
 
 import de.mwolff.commons.command.Command;
 import de.mwolff.commons.command.CommandContainer;
+import de.mwolff.commons.command.Context;
 import de.mwolff.commons.command.DefaultCommandContainer;
-import de.mwolff.commons.command.DefaultContext;
 
 /**
  * Generic chain builder for configuration with the spring framework.
@@ -23,20 +23,20 @@ import de.mwolff.commons.command.DefaultContext;
 */
 public class SpringChainBuilder implements ChainBuilder {
 
-	private List<Command<DefaultContext>> commands = new ArrayList<Command<DefaultContext>>();
+	private List<Command<Context>> commands = new ArrayList<Command<Context>>();
 
 	/**
 	 * Injection point for the dependency framework.
 	 * 
 	 * @param commands
 	 */
-	public void setValidators(final List<Command<DefaultContext>> commands) {
+	public void setComands(final List<Command<Context>> commands) {
 		this.commands = commands;
 	}
 
-	private CommandContainer<DefaultContext> buildChain() {
-		CommandContainer<DefaultContext> commandContainer = new DefaultCommandContainer<DefaultContext>();
-		for (Command<DefaultContext> command : commands) {
+	private CommandContainer<Context> buildChain() {
+		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
+		for (Command<Context> command : commands) {
 			commandContainer.addCommand(command);
 		}
 		return commandContainer;
@@ -49,7 +49,7 @@ public class SpringChainBuilder implements ChainBuilder {
 	 * de.mwolff.command.chainbuilder.ChainBuilder#executeAsChain(de.mwolff.
 	 * commons.command.DefaultContext)
 	 */
-	public boolean executeAsChain(final DefaultContext context) {
+	public boolean executeAsChain(final Context context) {
 		return buildChain().executeAsChain(context);
 	}
 

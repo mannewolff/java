@@ -1,6 +1,5 @@
 package de.neusta.login.validator;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import javax.annotation.Resource;
@@ -10,14 +9,14 @@ import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import de.mwolff.commons.command.Context;
+import de.mwolff.command.chainbuilder.ChainBuilder;
 
 @ContextConfiguration({ "file:src/test/resources/applicationcontext.xml" })
 @RunWith(SpringJUnit4ClassRunner.class)
-public class TestLoginChainBuilder {
+public class TestSpringChainBuilder {
 
 	@Resource
-	LoginChainBuilder builder;
+	ChainBuilder builder;
 
 	@Resource
 	LengthValidator<LoginContext> lengthValidator;

@@ -51,22 +51,18 @@ public class TestCommands {
 		assertTrue(result);
 	}
 
-	@Test(expected=Exception.class)
+	@Test
 	public void testException() throws Exception {
 		Command<DefaultContext> command = new ExceptionCommand<DefaultContext>();
 		DefaultContext context = new DefaultContext();
-		command.execute(context);
+		assertFalse(command.executeAsChain(context));
 	}
 
 	@Test
 	public void testDefaultBehaviorWithException() throws Exception {
 		Command<DefaultContext> command = new ExceptionCommand<DefaultContext>();
 		DefaultContext context = new DefaultContext();
-		try {
-			command.execute(context);
-		} catch (Exception e) {
-			// Not the exception is tested !
-		}
+		command.executeAsChain(context);
 		String result = context.getAsString("executed");
 		assertEquals("true", result);
 	}

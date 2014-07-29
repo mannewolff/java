@@ -22,31 +22,8 @@
 		</filter>
 	</appender>
 
-	<appender name="SW_ROLLING_FILE" class="org.apache.log4j.RollingFileAppender">
-		<param name="File" value="/users/codyburleson/dev/sw.log" />
-		<param name="Append" value="true" />
-		<param name="MaxFileSize" value="500KB" />
-		<param name="MaxBackupIndex" value="5" />
-		<layout class="org.apache.log4j.PatternLayout">
-			<param name="ConversionPattern" value="[%d{ISO8601}] %-5p %m%n" />
-		</layout>
-	</appender>
-
-	<!-- -->
-	<!-- Declare the SMTPAppender -->
-	<!-- -->
-	<!-- <appender name="EMAIL" class="org.apache.log4j.net.SMTPAppender"> <param 
-		name="BufferSize" value="512" /> <param name="SMTPHost" value="smtp.mail.yahoo.com" 
-		/> <param name="From" value="whoever@wherever.com" /> <param name="To" value="whoever@wherever.com" 
-		/> <param name="Subject" value="[SMTPAppender] Application message" /> <layout 
-		class="org.apache.log4j.PatternLayout"> <param name="ConversionPattern" value="[%d{ISO8601}]%n%n%-5p%n%n%c%n%n%m%n%n" 
-		/> </layout> <filter class="org.apache.log4j.varia.LevelRangeFilter"> <param 
-		name="LevelMin" value="FATAL" /> <param name="LevelMax" value="FATAL" /> 
-		</filter> </appender> -->
-
 	<logger name="de.neusta" additivity="false">
 		<level value="debug" />
-		<appender-ref ref="SW_ROLLING_FILE" />
 		<appender-ref ref="STDOUT" />
 	</logger>
 
@@ -55,7 +32,6 @@
 	<root>
 		<level value="ERROR" />
 		<appender-ref ref="STDERR" />
-		<!-- <appender-ref ref="EMAIL" /> -->
 	</root>
 
 

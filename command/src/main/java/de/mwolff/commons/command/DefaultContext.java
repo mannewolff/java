@@ -20,21 +20,35 @@ public class DefaultContext implements GenericContext {
 	 */
 	public static final GenericContext NULLCONTEXT = null;
 
+	/**
+	 * A generic map storing the key/value pairs.
+	 */
 	private Map<String, Object> genericMap = new HashMap<String, Object>();
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.GenericContext#put(java.lang.String, java.lang.Object)
+	 */
 	public void put(String key, Object value) {
 		genericMap.put(key, value);
 	}
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.GenericContext#get(java.lang.String)
+	 */
 	public Object get(String key) {
 		return genericMap.get(key);
 	}
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.GenericContext#getAsString(java.lang.String)
+	 */
 	public String getAsString(String key) {
 		Object object = genericMap.get(key);
 		if (object == null)
 			object = "NullObject";
 		return object.toString();
 	}
-
 }

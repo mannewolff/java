@@ -12,10 +12,25 @@ package de.mwolff.commons.command;
  */
 public interface GenericContext extends Context{
 
+	/**
+	 * Saves an object to the key.
+	 * @param key
+	 * @param value
+	 */
 	void put(String key, Object value);
 
+	/**
+	 * Returns the object of the given key.
+	 * @param key
+	 * @return
+	 */
 	Object get(String key);
 
+	/**
+	 * Returns the object of the given key as String.
+	 * @param key
+	 * @return
+	 */
 	String getAsString(String key);
 
 }

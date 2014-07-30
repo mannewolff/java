@@ -12,45 +12,45 @@ import java.util.List;
 
 import de.mwolff.commons.command.Command;
 import de.mwolff.commons.command.CommandContainer;
-import de.mwolff.commons.command.GenericContext;
+import de.mwolff.commons.command.Context;
 import de.mwolff.commons.command.DefaultCommandContainer;
+import de.mwolff.commons.command.GenericContext;
 
 /**
  * Generic chain builder for configuration with the spring framework.
- *
- * Note: The test of this builder is in the command-example package because I
- * don't want to have any spring dependencies in this framework. 
-*/
-public class InjectionChainBuilder implements ChainBuilder {
+ */
+public class InjectionChainBuilder<T extends Context> implements
+		ChainBuilder<T> {
 
-	private List<Command<GenericContext>> commands = new ArrayList<Command<GenericContext>>();
+	private List<Command<T>> commands = new ArrayList<Command<T>>();
 
 	/**
 	 * Injection point for the dependency framework.
 	 * 
 	 * @param commands
 	 */
-	public void setCommands(final List<Command<GenericContext>> commands) {
+	public void setCommands(final List<Command<T>> commands) {
 		this.commands = commands;
 	}
 
-	private CommandContainer<GenericContext> buildChain() {
-		CommandContainer<GenericContext> commandContainer = new DefaultCommandContainer<GenericContext>();
-		for (Command<GenericContext> command : commands) {
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.command.chainbuilder.ChainBuilder#executeAsChain(de.mwolff.commons.command.Context)
+	 */
+	public boolean executeAsChain(final T context) {
+		return buildChain().executeAsChain(context);
+	}
+
+	/**
+	 * Builder method.
+	 * @return
+	 */
+	private CommandContainer<T> buildChain() {
+
+		CommandContainer<T> commandContainer = new DefaultCommandContainer<T>();
+		for (Command<T> command : commands) {
 			commandContainer.addCommand(command);
 		}
 		return commandContainer;
 	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see
-	 * de.mwolff.command.chainbuilder.ChainBuilder#executeAsChain(de.mwolff.
-	 * commons.command.DefaultContext)
-	 */
-	public boolean executeAsChain(final GenericContext context) {
-		return buildChain().executeAsChain(context);
-	}
-
 }

@@ -14,13 +14,15 @@ package de.mwolff.commons.command;
 public class DefaultCommand<T extends Context> implements Command<T> {
 
 	/**
-	 * {@inheritDoc}
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.Command#execute(de.mwolff.commons.command.Context)
 	 */
 	public void execute(T context) throws Exception {
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.Command#executeAsChain(de.mwolff.commons.command.Context)
 	 */
 	public boolean executeAsChain(T context) {
 		boolean result = true;

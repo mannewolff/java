@@ -7,13 +7,19 @@
  */
 package de.mwolff.command.chainbuilder;
 
-import de.mwolff.commons.command.GenericContext;
+import de.mwolff.commons.command.Context;
 
 /**
  * A chain builder interface to build chains via a configuration file.
  */
-public interface ChainBuilder {
+public interface ChainBuilder<T extends Context> {
 
-	public abstract boolean executeAsChain(GenericContext context);
+	/**
+	 * Executes the chain build by this builder.
+	 * 
+	 * @param context An implementation of a context
+	 * @return True if all commands returned true.
+	 */
+	boolean executeAsChain(final T context);
 
 }

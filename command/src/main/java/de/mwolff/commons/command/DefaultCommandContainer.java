@@ -32,20 +32,36 @@ public class DefaultCommandContainer<T extends Context> implements
 				}
 			});
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.CommandContainer#addCommand(de.mwolff.commons.command.Command)
+	 */
 	public void addCommand(Command<T> command) {
 		commandList.put(Integer.valueOf(0), command);
 	}
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.CommandContainer#addCommand(int, de.mwolff.commons.command.Command)
+	 */
 	public void addCommand(int priority, Command<T> command) {
 		commandList.put(Integer.valueOf(priority), command);
 	}
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.Command#execute(de.mwolff.commons.command.Context)
+	 */
 	public void execute(T context) throws Exception {
 		for (Command<T> command : commandList.values()) {
 			((Command<T>) command).execute(context);
 		}
 	}
 
+	/**
+	 * (non-Javadoc)
+	 * @see de.mwolff.commons.command.Command#executeAsChain(de.mwolff.commons.command.Context)
+	 */
 	public boolean executeAsChain(T context) {
 		boolean result = true;
 		for (Command<T> command : commandList.values()) {
@@ -55,5 +71,4 @@ public class DefaultCommandContainer<T extends Context> implements
 		}
 		return result;
 	}
-
 }

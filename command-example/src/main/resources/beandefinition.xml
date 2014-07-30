@@ -15,18 +15,18 @@
 
 	<!-- Login Validators -->
 	<bean id="lengthValidator" class="de.neusta.login.validator.LengthValidator">
-		<property name="length" value="14" />
-	</bean>
-	
-	<bean id="oneCapitalValidator" class="de.neusta.login.validator.OneCapitalValidator">
-		<property name="length" value="14" />
+		<property name="length" value="12" />
 	</bean>
 
-	<bean id="loginChainBuilder" class="de.neusta.login.validator.DefaultLoginChainBuilder">
-		<property name="validators">
+	<bean id="capitalValidator" class="de.neusta.login.validator.CapitalValidator">
+		<property name="countOfCapitalCharacters" value="1" />
+	</bean>
+
+	<bean id="chainBuilder" class="de.mwolff.command.chainbuilder.InjectionChainBuilder">
+		<property name="commands">
 			<list>
-				<ref bean="lengthValidator"/>
-				<ref bean="oneCapitalValidator"
+				<ref bean="lengthValidator" />
+				<ref bean="capitalValidator" />
 			</list>
 		</property>
 	</bean>

@@ -1,6 +1,6 @@
 package de.neusta.login.validator;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 
@@ -34,6 +34,17 @@ public class TestLoginValidators {
 	
 	@Test
 	public void testLengthValidatorAsChain() throws Exception {
-		
 	}
+
+	@Test(expected=Exception.class)
+	public void testCapitalValidator() throws Exception {
+		LoginContext context = new LoginContext();
+		CapitalValidator<LoginContext> capitalValidator = new CapitalValidator<LoginContext>();
+		capitalValidator.setCountOfCapitalCharacters(1);
+		context.setOriginalPasswd("12characters");
+		capitalValidator.execute(context);
+		assertEquals("The password has to be as minimum 1 capital character",
+				context.getErrorMessage());
+	}
+
 }

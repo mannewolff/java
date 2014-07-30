@@ -21,7 +21,7 @@ import de.mwolff.commons.command.DefaultCommandContainer;
  * Note: The test of this builder is in the command-example package because I
  * don't want to have any spring dependencies in this framework. 
 */
-public class SpringChainBuilder implements ChainBuilder {
+public class InjectionChainBuilder implements ChainBuilder {
 
 	private List<Command<GenericContext>> commands = new ArrayList<Command<GenericContext>>();
 
@@ -30,7 +30,7 @@ public class SpringChainBuilder implements ChainBuilder {
 	 * 
 	 * @param commands
 	 */
-	public void setComands(final List<Command<GenericContext>> commands) {
+	public void setCommands(final List<Command<GenericContext>> commands) {
 		this.commands = commands;
 	}
 

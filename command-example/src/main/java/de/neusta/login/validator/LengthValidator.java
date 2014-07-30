@@ -5,6 +5,7 @@ import de.mwolff.commons.command.DefaultCommand;
 
 public class LengthValidator<T extends LoginContext> extends DefaultCommand<T> implements Command<T> {
 
+	private static final String ERROR_MESSAGE = "The password has to be as minimum %d characters";
 	private int length;
 	
 	@Override
@@ -12,11 +13,10 @@ public class LengthValidator<T extends LoginContext> extends DefaultCommand<T> i
 
 		int actLength = context.getOriginalPasswd().length();
 		if (actLength < length) {
-			String errorString = String.format("The password has to be as minimum %d characters", length);
+			String errorString = String.format(ERROR_MESSAGE, length);
 			context.setErrorMessage(errorString);
 			throw new Exception(errorString);
 		}
-	
 	}
 	
 	public void setLength(final int length) {

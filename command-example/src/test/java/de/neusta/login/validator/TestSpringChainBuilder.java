@@ -1,6 +1,6 @@
 package de.neusta.login.validator;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
@@ -16,25 +16,32 @@ import de.mwolff.command.chainbuilder.ChainBuilder;
 public class TestSpringChainBuilder {
 
 	@Resource
-	ChainBuilder builder;
+	ChainBuilder chainBuilder;
 
 	@Resource
 	LengthValidator<LoginContext> lengthValidator;
+
+	@Resource
+	CapitalValidator<LoginContext> capitalValidator;
 	
 	@Test
 	public void testBuilderExists() throws Exception {
-		assertNotNull(builder);
+		assertNotNull(chainBuilder);
 	}
 	
 	@Test
 	public void testLengthValidatorExists() throws Exception {
 		assertNotNull(lengthValidator);
-		
 		//assertEquals(14, lengthValidator.getLength());
 	}
 	
 	public void testValidatorListIsSet() throws Exception {
-		//int size = builder.getValidators().size();
-		//assertTrue(size > 0);
+		//int size = builder.getCommands().size();
+		//assertTrue(size == 2);
+	}
+	
+	@Test
+	public void testCapitalValidatorExists() throws Exception {
+		assertNotNull(capitalValidator);
 	}
 }

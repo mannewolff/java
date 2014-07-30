@@ -17,11 +17,16 @@
 	<bean id="lengthValidator" class="de.neusta.login.validator.LengthValidator">
 		<property name="length" value="14" />
 	</bean>
+	
+	<bean id="oneCapitalValidator" class="de.neusta.login.validator.OneCapitalValidator">
+		<property name="length" value="14" />
+	</bean>
 
 	<bean id="loginChainBuilder" class="de.neusta.login.validator.DefaultLoginChainBuilder">
 		<property name="validators">
 			<list>
 				<ref bean="lengthValidator"/>
+				<ref bean="oneCapitalValidator"
 			</list>
 		</property>
 	</bean>

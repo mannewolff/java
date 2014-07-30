@@ -66,7 +66,7 @@
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="aYx0t2nT1U+9vrT5CovtjgAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="z4n79HHdnUCilTq84e9gggAA">
 <XPD:ATTR name="FontStyle" type="integer">1</XPD:ATTR>
-<XPD:ATTR name="Text" type="string">Command</XPD:ATTR>
+<XPD:ATTR name="Text" type="string">Command&lt;T extend Context)</XPD:ATTR>
 </XPD:OBJ>
 <XPD:OBJ name="StereotypeLabel" type="LabelView" guid="LG8NzTbr3E2t9MrI5JTKxAAA">
 <XPD:ATTR name="Text" type="string">&lt;&lt;interface&gt;&gt;</XPD:ATTR>
@@ -95,7 +95,7 @@
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="Hc/aQPWUyk2+f+gbHp7TdwAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="Gyd+eX3f4kKBkwMbZhEkaQAA">
 <XPD:ATTR name="FontStyle" type="integer">1</XPD:ATTR>
-<XPD:ATTR name="Text" type="string">CommandContainer</XPD:ATTR>
+<XPD:ATTR name="Text" type="string">CommandContainer&lt;T extend Context)</XPD:ATTR>
 </XPD:OBJ>
 <XPD:OBJ name="StereotypeLabel" type="LabelView" guid="HrxMH5wnqk+DLLks+kJ4+wAA">
 <XPD:ATTR name="Text" type="string">&lt;&lt;interface&gt;&gt;</XPD:ATTR>
@@ -574,7 +574,7 @@
 </XPD:OBJ>
 <XPD:ATTR name="#OwnedElements" type="integer">16</XPD:ATTR>
 <XPD:OBJ name="OwnedElements[0]" type="UMLInterface" guid="wP9vHd7hXEicDBCsfooUEQAA">
-<XPD:ATTR name="Name" type="string">Command</XPD:ATTR>
+<XPD:ATTR name="Name" type="string">Command&lt;T extend Context)</XPD:ATTR>
 <XPD:REF name="Namespace">1JIyVj1uS0ihP+7tq9dhGAAA</XPD:REF>
 <XPD:ATTR name="#Views" type="integer">3</XPD:ATTR>
 <XPD:REF name="Views[0]">HqQpfN0KfEuUc6h7UNCG0wAA</XPD:REF>
@@ -591,8 +591,8 @@
 <XPD:ATTR name="Name" type="string">execute</XPD:ATTR>
 <XPD:REF name="Owner">wP9vHd7hXEicDBCsfooUEQAA</XPD:REF>
 <XPD:ATTR name="#Parameters" type="integer">1</XPD:ATTR>
-<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="whX7yZVEOUi5kmOK+/bi7QAA">
-<XPD:ATTR name="Name" type="string">Context context</XPD:ATTR>
+<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="aRnZfZsHs0Gtu6gkeJiHuwAA">
+<XPD:ATTR name="Name" type="string">T context</XPD:ATTR>
 <XPD:REF name="BehavioralFeature">uuCZs+r8i0G3Bt+I2N51ZAAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>
@@ -600,8 +600,8 @@
 <XPD:ATTR name="Name" type="string">boolean executeAsChain</XPD:ATTR>
 <XPD:REF name="Owner">wP9vHd7hXEicDBCsfooUEQAA</XPD:REF>
 <XPD:ATTR name="#Parameters" type="integer">1</XPD:ATTR>
-<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="JMV2/+Fpuk2s8Hh9TX02bAAA">
-<XPD:ATTR name="Name" type="string">Context context</XPD:ATTR>
+<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="mtkQ+RQgTU6r+UWzwGMr4QAA">
+<XPD:ATTR name="Name" type="string">T context</XPD:ATTR>
 <XPD:REF name="BehavioralFeature">SG4bcm1/2ka0RJ5GqGZdUgAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>
@@ -610,7 +610,7 @@
 <XPD:REF name="Associations[1]">c59PP8ZxpU6x5/ow51titwAA</XPD:REF>
 </XPD:OBJ>
 <XPD:OBJ name="OwnedElements[1]" type="UMLInterface" guid="pkrY64jbmU+xpDtCGTdVcQAA">
-<XPD:ATTR name="Name" type="string">CommandContainer</XPD:ATTR>
+<XPD:ATTR name="Name" type="string">CommandContainer&lt;T extend Context)</XPD:ATTR>
 <XPD:REF name="Namespace">1JIyVj1uS0ihP+7tq9dhGAAA</XPD:REF>
 <XPD:ATTR name="#Views" type="integer">3</XPD:ATTR>
 <XPD:REF name="Views[0]">IfeCxQ7ACUi6cM6Ph60ntQAA</XPD:REF>
@@ -626,8 +626,8 @@
 <XPD:ATTR name="Name" type="string">addCommand</XPD:ATTR>
 <XPD:REF name="Owner">pkrY64jbmU+xpDtCGTdVcQAA</XPD:REF>
 <XPD:ATTR name="#Parameters" type="integer">1</XPD:ATTR>
-<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="/bBa1qg4A0CL5IxhMW5NggAA">
-<XPD:ATTR name="Name" type="string">Command command</XPD:ATTR>
+<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="ek8CBH5GaUSJL+tWRrdBnwAA">
+<XPD:ATTR name="Name" type="string">Command&lt;T&gt; command</XPD:ATTR>
 <XPD:REF name="BehavioralFeature">fsKgo4IhZUGWEpTMW7BHigAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>
@@ -635,12 +635,12 @@
 <XPD:ATTR name="Name" type="string">addCommand</XPD:ATTR>
 <XPD:REF name="Owner">pkrY64jbmU+xpDtCGTdVcQAA</XPD:REF>
 <XPD:ATTR name="#Parameters" type="integer">2</XPD:ATTR>
-<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="VaabhXW9gUycI0h4bWtV5QAA">
+<XPD:OBJ name="Parameters[0]" type="UMLParameter" guid="29sVWm5Hs0WVcwiDokyMVQAA">
 <XPD:ATTR name="Name" type="string">int priority</XPD:ATTR>
 <XPD:REF name="BehavioralFeature">E+ey3XeFGEywUE0z3OFnbQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Parameters[1]" type="UMLParameter" guid="FUvps+k/Y0GMvYzu2zfE2wAA">
-<XPD:ATTR name="Name" type="string">Command command</XPD:ATTR>
+<XPD:OBJ name="Parameters[1]" type="UMLParameter" guid="0q58EF62oEOnImcCKivjPAAA">
+<XPD:ATTR name="Name" type="string">Command&lt;T&gt; command</XPD:ATTR>
 <XPD:REF name="BehavioralFeature">E+ey3XeFGEywUE0z3OFnbQAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>

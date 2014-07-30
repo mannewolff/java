@@ -3,10 +3,10 @@ package de.neusta.login.validator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import de.mwolff.commons.command.Context;
+import de.mwolff.commons.command.GenericContext;
 import de.mwolff.commons.command.DefaultContext;
 
-public class LoginContext extends DefaultContext implements Context {
+public class LoginContext extends DefaultContext implements GenericContext {
 
 	private String name;
 	private String passwd;

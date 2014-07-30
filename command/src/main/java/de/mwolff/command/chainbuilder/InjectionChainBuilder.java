@@ -14,7 +14,6 @@ import de.mwolff.commons.command.Command;
 import de.mwolff.commons.command.CommandContainer;
 import de.mwolff.commons.command.Context;
 import de.mwolff.commons.command.DefaultCommandContainer;
-import de.mwolff.commons.command.GenericContext;
 
 /**
  * Generic chain builder for configuration with the spring framework.

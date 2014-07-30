@@ -7,7 +7,7 @@
  */
 package de.mwolff.commons.command;
 
-public class SimpleTestCommand<T extends Context> implements Command<T> {
+public class SimpleTestCommand<T extends GenericContext> implements Command<T> {
 
 	/* (non-Javadoc)
 	 * @see de.mwolff.commons.command.Command#execute()

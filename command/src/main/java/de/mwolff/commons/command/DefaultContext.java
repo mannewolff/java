@@ -13,12 +13,12 @@ import java.util.Map;
 /**
  * A simple implementation of a generic context.
  */
-public class DefaultContext implements Context {
+public class DefaultContext implements GenericContext {
 
 	/**
 	 * A null context to execute commands without a context.
 	 */
-	public static final Context NULLCONTEXT = null;
+	public static final GenericContext NULLCONTEXT = null;
 
 	private Map<String, Object> genericMap = new HashMap<String, Object>();
 

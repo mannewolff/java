@@ -16,7 +16,7 @@ public class TestContext {
 	private static final String INTEGER_VALUE = "IntegerValue";
 	private static final String STRING_VALUE = "StringValue";
 
-	private Context context = new DefaultContext();
+	private GenericContext context = new DefaultContext();
 
 	@Test
 	public void testContextInterface() throws Exception {
@@ -46,7 +46,7 @@ public class TestContext {
 
 	@Test
 	public void testNullContext() throws Exception {
-		Context nullContext = DefaultContext.NULLCONTEXT;
+		GenericContext nullContext = DefaultContext.NULLCONTEXT;
 		assertNull(nullContext);
 	}
 

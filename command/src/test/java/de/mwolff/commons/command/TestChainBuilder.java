@@ -14,9 +14,9 @@ public class TestChainBuilder {
 	public void testSpringChainBuilder() throws Exception {
 		
 		SpringChainBuilder builder = new SpringChainBuilder();
-		List<Command<Context>> commandList = new ArrayList<Command<Context>>();
-		Context context = new DefaultContext();
-		Command<Context> command = new ExceptionCommand<Context>();
+		List<Command<GenericContext>> commandList = new ArrayList<Command<GenericContext>>();
+		GenericContext context = new DefaultContext();
+		Command<GenericContext> command = new ExceptionCommand<GenericContext>();
 		commandList.add(command);
 		builder.setComands(commandList);
 		

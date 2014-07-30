@@ -19,11 +19,11 @@ public class TestCommandContainer {
 	 */
 	@Test
 	public void testAddNoPriorityInCommandContainer() throws Exception {
-		Context context = new DefaultContext();
-		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
-		commandContainer.addCommand(new PriorityOneTestCommand<Context>());
-		commandContainer.addCommand(new PriorityTwoTestCommand<Context>());
-		commandContainer.addCommand(new PriorityThreeTestCommand<Context>());
+		GenericContext context = new DefaultContext();
+		CommandContainer<GenericContext> commandContainer = new DefaultCommandContainer<GenericContext>();
+		commandContainer.addCommand(new PriorityOneTestCommand<GenericContext>());
+		commandContainer.addCommand(new PriorityTwoTestCommand<GenericContext>());
+		commandContainer.addCommand(new PriorityThreeTestCommand<GenericContext>());
 		commandContainer.execute(context);
 		String priorString = context.getAsString("priority");
 		assertEquals("1-2-3-", priorString);
@@ -38,11 +38,11 @@ public class TestCommandContainer {
 	 */
 	@Test
 	public void testAddCommandWithPriorityInCommandContainer() throws Exception {
-		Context context = new DefaultContext();
-		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
-		commandContainer.addCommand(2, new PriorityThreeTestCommand<Context>());
-		commandContainer.addCommand(1, new PriorityOneTestCommand<Context>());
-		commandContainer.addCommand(1, new PriorityTwoTestCommand<Context>());
+		GenericContext context = new DefaultContext();
+		CommandContainer<GenericContext> commandContainer = new DefaultCommandContainer<GenericContext>();
+		commandContainer.addCommand(2, new PriorityThreeTestCommand<GenericContext>());
+		commandContainer.addCommand(1, new PriorityOneTestCommand<GenericContext>());
+		commandContainer.addCommand(1, new PriorityTwoTestCommand<GenericContext>());
 		commandContainer.execute(context);
 		String priorString = context.getAsString("priority");
 		assertEquals("1-2-3-", priorString);
@@ -57,14 +57,14 @@ public class TestCommandContainer {
 	@Test
 	public void testMixedModeInCommandContainer() throws Exception {
 
-		Context context = new DefaultContext();
-		CommandContainer<Context> commandContainer = new DefaultCommandContainer<Context>();
-		commandContainer.addCommand(1, new PriorityOneTestCommand<Context>());
-		commandContainer.addCommand(2, new PriorityTwoTestCommand<Context>());
-		commandContainer.addCommand(3, new PriorityThreeTestCommand<Context>());
+		GenericContext context = new DefaultContext();
+		CommandContainer<GenericContext> commandContainer = new DefaultCommandContainer<GenericContext>();
+		commandContainer.addCommand(1, new PriorityOneTestCommand<GenericContext>());
+		commandContainer.addCommand(2, new PriorityTwoTestCommand<GenericContext>());
+		commandContainer.addCommand(3, new PriorityThreeTestCommand<GenericContext>());
 		
-		CommandContainer<Context> mixedList = new DefaultCommandContainer<Context>();
-		mixedList.addCommand(new SimpleTestCommand<Context>());
+		CommandContainer<GenericContext> mixedList = new DefaultCommandContainer<GenericContext>();
+		mixedList.addCommand(new SimpleTestCommand<GenericContext>());
 		mixedList.addCommand(commandContainer);
 		
 		mixedList.execute(context);

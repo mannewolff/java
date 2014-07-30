@@ -7,7 +7,7 @@
  */
 package de.mwolff.commons.command;
 
-public class PriorityThreeTestCommand<T extends Context> implements Command<T> {
+public class PriorityThreeTestCommand<T extends GenericContext> implements Command<T> {
 
 	public void execute(T context) {
 		context.put("PriorityThreeTestCommand", "PriorityThreeTestCommand");

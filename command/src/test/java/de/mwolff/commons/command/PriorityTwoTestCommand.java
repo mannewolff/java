@@ -7,7 +7,7 @@
  */
 package de.mwolff.commons.command;
 
-public class PriorityTwoTestCommand<T extends Context> implements Command<T> {
+public class PriorityTwoTestCommand<T extends GenericContext> implements Command<T> {
 
 	public void execute(T context) {
 		if (context != DefaultContext.NULLCONTEXT) {

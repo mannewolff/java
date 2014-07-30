@@ -22,6 +22,8 @@ public class PriorityOneTestCommand<T extends GenericContext> implements Command
 
 	public boolean executeAsChain(T context) {
 		String priorString = context.getAsString("priority");
+		if ("NullObject".equals(priorString))
+			priorString = "";
 		priorString += "A-";
 		context.put("priority", priorString);
 		return true;

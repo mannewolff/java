@@ -2,10 +2,23 @@
 
 <h3>Simple command implementation</h3>
 
-<p>The command package is a really simple way to work with commands or chains. To reduce the complexity of the code it is often a good way to split it up to little pieces. Each piece offers a part of the functionality and this pieces can be combined to chains to execute the logic piece by piece</p>
+<pre>
+/**
+ * Simple command framework.
+ * 
+ * Framework for easy building software that fits the open-close-principle.
+ * @author Manfred Wolff <wolff@manfred-wolff.de>
+ *         (c) neusta software development
+ */
+</pre>
+
+<p>The command package is a really simple way to work with commands or chains. 
+To reduce the complexity of the code it is often a good way to split it up to little pieces. 
+Each piece offers a part of the functionality and this pieces can be combined to chains to 
+execute the logic piece by piece</p>
 
 <p>
-<img src="Main.jpg"/>
+<img src="ClassDiagram.jpg"/>
 </p>
 
 
@@ -97,4 +110,40 @@
 		String priorString = context.getAsString("priority");
 		assertEquals("S-A-B-C-", priorString);
 	}
+	
+	/**
+	 * You can use the builder to build and execute the chain. Usually you will
+	 * use the builder together with a dependency framework just as Spring. In this
+	 * case Spring instantiates the builder as well as all commands and injects all
+	 * commands as a list.
+	 * 
+	 * &lt;bean id="firstCommand" class="de.mwolff.commons.command.PriorityOneCommand"&gt;
+	 * &lt;/bean&gt;
+     *
+	 * &lt;bean id="secondCommand" class="de.mwolff.commons.command.PriorityTwoCommand"&gt;
+	 * &lt;/bean&gt;
+     *
+	 * &lt;bean id="chainBuilder" class="de.mwolff.command.chainbuilder.InjectionChainBuilder"&gt;
+	 *   &lt;property name="commands"&gt;
+	 *     &lt;list&gt;
+	 *       &lt;ref bean="firstCommand" /&gt;
+	 *       &lt;ref bean="secondCommand" /&gt;
+	 *     &lt;/list&gt;
+	 *   &lt;/property&gt;
+	 * &lt;/bean&gt;
+	 */
+	@Test
+	public void testBuilderExample() throws Exception {
+		List<Command<GenericContext>> commands = new ArrayList<Command<GenericContext>>();
+		commands.add(new PriorityOneTestCommand<GenericContext>());
+		commands.add(new PriorityTwoTestCommand<GenericContext>());
+		InjectionChainBuilder<GenericContext> builder = new InjectionChainBuilder<GenericContext>();
+		// injection usually will be done by a injection container
+		builder.setCommands(commands);
+		GenericContext context = new DefaultContext();
+		builder.executeAsChain(context);
+		String priorString = context.getAsString("priority");
+		assertEquals("A-B-", priorString);
+	}
+
 </pre>

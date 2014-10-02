@@ -15,7 +15,6 @@ import java.util.List;
 
 import org.junit.Test;
 
-import de.mwolff.command.chainbuilder.ChainBuilder;
 import de.mwolff.command.chainbuilder.InjectionChainBuilder;
 
 public class TestExampleCommand {

@@ -13,21 +13,7 @@
         http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd"
 	default-autowire="byName">
 
-	<!-- Login Validators -->
-	<bean id="lengthValidator" class="de.neusta.login.validator.LengthValidator">
-		<property name="length" value="12" />
+	<bean id="chainbuilder" class="de.mwolff.command.chainbuilder.InjectionChainBuilder">
 	</bean>
 
-	<bean id="capitalValidator" class="de.neusta.login.validator.CapitalValidator">
-		<property name="countOfCapitalCharacters" value="1" />
-	</bean>
-
-	<bean id="chainBuilder" class="de.mwolff.command.chainbuilder.InjectionChainBuilder">
-		<property name="commands">
-			<list>
-				<ref bean="lengthValidator" />
-				<ref bean="capitalValidator" />
-			</list>
-		</property>
-	</bean>
 </beans>

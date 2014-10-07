@@ -2,6 +2,7 @@ package de.neusta.login.validator;
 
 import de.mwolff.commons.command.Command;
 import de.mwolff.commons.command.DefaultCommand;
+import de.neusta.freitag.context.LoginContext;
 
 public class LengthValidator<T extends LoginContext> extends DefaultCommand<T> implements Command<T> {
 

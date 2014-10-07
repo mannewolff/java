@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+import de.neusta.freitag.context.LoginContext;
+
 public class TestLoginValidators {
 
 	@Test

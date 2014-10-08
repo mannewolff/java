@@ -15,7 +15,7 @@
     
 
    <context:annotation-config/>
-   <context:component-scan base-package="de.neusta"/>
+   <!--   <context:component-scan base-package="de.neusta"/> -->
 	
 	<import resource="../../main/resources/beandefinition.xml"/>
 

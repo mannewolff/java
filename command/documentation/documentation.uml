@@ -58,7 +58,7 @@
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
 <XPD:ATTR name="Left" type="integer">100</XPD:ATTR>
-<XPD:ATTR name="Top" type="integer">84</XPD:ATTR>
+<XPD:ATTR name="Top" type="integer">80</XPD:ATTR>
 <XPD:ATTR name="Width" type="integer">255</XPD:ATTR>
 <XPD:ATTR name="Height" type="integer">84</XPD:ATTR>
 <XPD:ATTR name="StereotypeDisplay" type="UMLStereotypeDisplayKind">sdkNone</XPD:ATTR>
@@ -66,7 +66,7 @@
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="aYx0t2nT1U+9vrT5CovtjgAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="z4n79HHdnUCilTq84e9gggAA">
 <XPD:ATTR name="FontStyle" type="integer">1</XPD:ATTR>
-<XPD:ATTR name="Text" type="string">Command&lt;T extend Context)</XPD:ATTR>
+<XPD:ATTR name="Text" type="string">Command&lt;T extend Context&gt;</XPD:ATTR>
 </XPD:OBJ>
 <XPD:OBJ name="StereotypeLabel" type="LabelView" guid="LG8NzTbr3E2t9MrI5JTKxAAA">
 <XPD:ATTR name="Text" type="string">&lt;&lt;interface&gt;&gt;</XPD:ATTR>
@@ -95,7 +95,7 @@
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="Hc/aQPWUyk2+f+gbHp7TdwAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="Gyd+eX3f4kKBkwMbZhEkaQAA">
 <XPD:ATTR name="FontStyle" type="integer">1</XPD:ATTR>
-<XPD:ATTR name="Text" type="string">CommandContainer&lt;T extend Context)</XPD:ATTR>
+<XPD:ATTR name="Text" type="string">CommandContainer&lt;T extend Context&gt;</XPD:ATTR>
 </XPD:OBJ>
 <XPD:OBJ name="StereotypeLabel" type="LabelView" guid="HrxMH5wnqk+DLLks+kJ4+wAA">
 <XPD:ATTR name="Text" type="string">&lt;&lt;interface&gt;&gt;</XPD:ATTR>
@@ -116,7 +116,7 @@
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
 <XPD:ATTR name="LineStyle" type="LineStyleKind">lsRectilinear</XPD:ATTR>
-<XPD:ATTR name="Points" type="Points">328,224;328,167</XPD:ATTR>
+<XPD:ATTR name="Points" type="Points">328,224;328,163</XPD:ATTR>
 <XPD:REF name="Model">xxUT1lPCaESoNMPOfchISQAA</XPD:REF>
 <XPD:REF name="Head">HqQpfN0KfEuUc6h7UNCG0wAA</XPD:REF>
 <XPD:REF name="Tail">IfeCxQ7ACUi6cM6Ph60ntQAA</XPD:REF>
@@ -315,10 +315,10 @@
 <XPD:OBJ name="OwnedViews[7]" type="UMLClassView" guid="QcpI0gAT1E6HHukp5l6SlAAA">
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
-<XPD:ATTR name="Left" type="integer">536</XPD:ATTR>
+<XPD:ATTR name="Left" type="integer">532</XPD:ATTR>
 <XPD:ATTR name="Top" type="integer">388</XPD:ATTR>
-<XPD:ATTR name="Width" type="integer">149</XPD:ATTR>
-<XPD:ATTR name="Height" type="integer">65</XPD:ATTR>
+<XPD:ATTR name="Width" type="integer">161</XPD:ATTR>
+<XPD:ATTR name="Height" type="integer">73</XPD:ATTR>
 <XPD:REF name="Model">rOmfXdrfb0WdD9L3pC5VsgAA</XPD:REF>
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="+dsXrkl6BEOUhG3aMAWYzQAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="RY3vxBYHu0yjQ3OGi1PPrwAA">
@@ -464,7 +464,7 @@
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
 <XPD:ATTR name="LineStyle" type="LineStyleKind">lsRectilinear</XPD:ATTR>
-<XPD:ATTR name="Points" type="Points">148,388;148,167</XPD:ATTR>
+<XPD:ATTR name="Points" type="Points">148,388;148,163</XPD:ATTR>
 <XPD:REF name="Model">Nq/MMIPyKE+7e+blSxtVdQAA</XPD:REF>
 <XPD:REF name="Head">HqQpfN0KfEuUc6h7UNCG0wAA</XPD:REF>
 <XPD:REF name="Tail">AH96TNsuVU+4hdKjgkM/CgAA</XPD:REF>
@@ -574,7 +574,7 @@
 </XPD:OBJ>
 <XPD:ATTR name="#OwnedElements" type="integer">16</XPD:ATTR>
 <XPD:OBJ name="OwnedElements[0]" type="UMLInterface" guid="wP9vHd7hXEicDBCsfooUEQAA">
-<XPD:ATTR name="Name" type="string">Command&lt;T extend Context)</XPD:ATTR>
+<XPD:ATTR name="Name" type="string">Command&lt;T extend Context&gt;</XPD:ATTR>
 <XPD:REF name="Namespace">1JIyVj1uS0ihP+7tq9dhGAAA</XPD:REF>
 <XPD:ATTR name="#Views" type="integer">3</XPD:ATTR>
 <XPD:REF name="Views[0]">HqQpfN0KfEuUc6h7UNCG0wAA</XPD:REF>
@@ -610,7 +610,7 @@
 <XPD:REF name="Associations[1]">c59PP8ZxpU6x5/ow51titwAA</XPD:REF>
 </XPD:OBJ>
 <XPD:OBJ name="OwnedElements[1]" type="UMLInterface" guid="pkrY64jbmU+xpDtCGTdVcQAA">
-<XPD:ATTR name="Name" type="string">CommandContainer&lt;T extend Context)</XPD:ATTR>
+<XPD:ATTR name="Name" type="string">CommandContainer&lt;T extend Context&gt;</XPD:ATTR>
 <XPD:REF name="Namespace">1JIyVj1uS0ihP+7tq9dhGAAA</XPD:REF>
 <XPD:ATTR name="#Views" type="integer">3</XPD:ATTR>
 <XPD:REF name="Views[0]">IfeCxQ7ACUi6cM6Ph60ntQAA</XPD:REF>

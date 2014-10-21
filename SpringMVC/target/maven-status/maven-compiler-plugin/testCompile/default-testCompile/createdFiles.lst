@@ -1,6 +1,0 @@
-de\neusta\common\controller\TestHelloWorldController.class
-de\neusta\login\validator\TestLoginValidators.class
-de\neusta\service\person\TestPersonService.class
-de\neusta\service\person\TestuserDao.class
-de\neusta\common\controller\TestIndexController.class
-de\neusta\login\validator\TestLoginChainBuilder.class

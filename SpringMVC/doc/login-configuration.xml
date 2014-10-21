@@ -1,0 +1,15 @@
+<login-configuration>
+
+    <validators>
+	    <validator name="LengthValidator">
+	        org.mwolff.login.validator.LengthValidator
+	    </validator>
+    </validators>
+
+    <login-chain>
+        <validator name="LengthValidator"/>
+    </login-chain>
+
+    <persistor name="org.mwolff.login.persistor.DBPersistor"/>
+
+</login-configuration>

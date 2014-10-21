@@ -1,0 +1,12 @@
+de\neusta\persistence\dao\UserDao.class
+de\neusta\common\controller\IndexController.class
+de\neusta\service\person\PersonService.class
+de\neusta\login\validator\LoginChainBuilder.class
+de\neusta\login\validator\LoginContext.class
+de\neusta\common\controller\ControllerConstants.class
+de\neusta\persistence\dao\DefaultUserDao.class
+de\neusta\service\person\DefaultPersonService.class
+de\neusta\login\validator\LengthValidator.class
+de\neusta\common\controller\HelloWorldController.class
+de\neusta\persistence\entity\User.class
+de\neusta\login\validator\DefaultLoginChainBuilder.class

@@ -22,6 +22,12 @@ public class TestSessionSupport {
 	HttpServletRequest request;
 	
 	@Test
+	public void uglyTestBecauseOnlyStaticMehods() throws Exception {
+		SessionSupport sessionSupport = new SessionSupport();
+		assertNotNull(sessionSupport);
+	}
+	
+	@Test
 	public void sessionIsNull() throws Exception {
 		Mockito.when(request.getSession()).thenReturn(null);
 		assertFalse(SessionSupport.validateSessionOnLogon(request));

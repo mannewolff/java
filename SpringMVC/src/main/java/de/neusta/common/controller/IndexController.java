@@ -1,6 +1,6 @@
 package de.neusta.common.controller;
 
-import static de.neusta.common.controller.ControllerConstants.index_page;
+import static de.neusta.common.controller.ControllerConstants.INDEX_PAGE;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -32,7 +32,7 @@ public class IndexController extends AbstractController {
 
 		validateLogin(request);
 
-		ModelAndView model = new ModelAndView(index_page);
+		ModelAndView model = new ModelAndView(INDEX_PAGE);
 
 		// logging
 		Long actTime = Long.valueOf(System.currentTimeMillis() - time);

@@ -10,13 +10,14 @@ public class TestPropertyLoader {
 
 	@Test
 	public void propertyResourceNotExsists() throws Exception {
-		@SuppressWarnings("unused")
 		PropertyLoader propertyLoader = new PropertyLoader("/notExists.properties");
+		assertEquals(null, propertyLoader.getProperties().getProperty("key"));
 	}
-	
+
 	@Test
 	public void propertyLoadedFromClasspath() throws Exception {
-		PropertyLoader propertyLoader = new PropertyLoader("/example.properties");
+		PropertyLoader propertyLoader = new PropertyLoader(
+				"/example.properties");
 		assertEquals("value", propertyLoader.getProperties().getProperty("key"));
 	}
 

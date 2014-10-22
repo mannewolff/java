@@ -13,7 +13,7 @@ public class TestLoginValidators {
 		loginContext.setName("mwolff");
 		assertEquals("mwolff", loginContext.getName());
 
-		loginContext.setOriginalPasswd("geheim");
+		loginContext.setOriginalPasswd("geheim", "MD5");
 		assertEquals("d5819db235972a3998f7c290ae583664",
 				loginContext.getPasswd());
 
@@ -25,7 +25,7 @@ public class TestLoginValidators {
 		LoginContext context = new LoginContext();
 		LengthValidator<LoginContext> lengthValidator = new LengthValidator<LoginContext>();
 		lengthValidator.setLength(14);
-		context.setOriginalPasswd("12Characters");
+		context.setOriginalPasswd("12Characters", "MD5");
 		lengthValidator.execute(context);
 		assertEquals("The password has to be as minimum 14 characters",
 				context.getErrorMessage());
@@ -38,10 +38,15 @@ public class TestLoginValidators {
 		LoginContext context = new LoginContext();
 		LengthValidator<LoginContext> lengthValidator = new LengthValidator<LoginContext>();
 		lengthValidator.setLength(14);
-		context.setOriginalPasswd("14CharactersOK");
+		context.setOriginalPasswd("14CharactersOK", "MD5");
 		lengthValidator.execute(context);
 		assertNull(context.getErrorMessage());
-
+	}
+	
+	@Test(expected=RuntimeException.class)
+	public void testIlligialMethod() throws Exception {
+		LoginContext context = new LoginContext();
+		context.setOriginalPasswd("14CharactersOK", "MD8");
 	}
 
 }

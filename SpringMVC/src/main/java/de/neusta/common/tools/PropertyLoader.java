@@ -18,11 +18,19 @@ public class PropertyLoader {
 	private Properties properties = new Properties();
 	static Logger log = Logger.getLogger(PropertyLoader.class);
 
-	public PropertyLoader(String resource) throws IOException {
+	public PropertyLoader(String resource) {
 		super();
 		InputStream is = this.getClass().getResourceAsStream(resource);
 		if (is != null) {
-		properties.load(is);
+			loadProperties(is);
+		}
+	}
+
+	private void loadProperties(InputStream is) {
+		try {
+			properties.load(is);
+		} catch (IOException e) {
+			// never done
 		}
 	}
 

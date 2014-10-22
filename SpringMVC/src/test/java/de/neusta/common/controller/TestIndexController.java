@@ -1,6 +1,6 @@
 package de.neusta.common.controller;
 
-import static de.neusta.common.controller.ControllerConstants.index_page;
+import static de.neusta.common.controller.ControllerConstants.INDEX_PAGE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -36,7 +36,7 @@ public class TestIndexController {
 	@Test
 	public void testControllerConstants() throws Exception {
 		ControllerConstants controllerConstants = new ControllerConstants();
-		assertEquals("index", controllerConstants.index_page);
+		assertEquals("index", controllerConstants.INDEX_PAGE);
 	}
 
 	@Test
@@ -49,7 +49,21 @@ public class TestIndexController {
 		assertNotNull(indexController);
 		ModelAndView model = indexController.handleRequestInternal(
 				request, response);
-		assertEquals(index_page, model.getViewName());
+		assertEquals(INDEX_PAGE, model.getViewName());
 		
 	}
+	@Test
+	public void testNoUser() throws Exception {
+		
+		Mockito.when(request.getSession()).thenReturn(session);
+		Mockito.when(session.getAttribute("Login")).thenReturn(null);
+		
+		// test execution
+		assertNotNull(indexController);
+		ModelAndView model = indexController.handleRequestInternal(
+				request, response);
+		assertEquals(INDEX_PAGE, model.getViewName());
+		
+	}
+
 }

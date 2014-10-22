@@ -21,21 +21,21 @@ public class LoginContext extends DefaultContext implements Context {
 		return originalPasswd;
 	}
 
-	public void setOriginalPasswd(String originalPasswd) {
+	public void setOriginalPasswd(String originalPasswd, String method) {
 		
 		this.originalPasswd = originalPasswd;
 		
 		try {
             long current = 12341234l;
 			byte[] now = new Long(current).toString().getBytes();
-			MessageDigest md = MessageDigest.getInstance("MD5");
+			MessageDigest md = MessageDigest.getInstance(method);
 
 			md.update(originalPasswd.getBytes());
 			md.update(now);
 
 			this.passwd = toHex(md.digest());
 		} catch (NoSuchAlgorithmException e) {
-			//
+			throw new RuntimeException("Illegial Algrotithm.");
 		}
 	}
 

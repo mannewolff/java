@@ -1,28 +1,28 @@
 package de.neusta.common.tools;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
 /**
  * Loads a property file from the class path.
+ * 
  * @author Manfred Wolff
  * @since 1.0
- *
+ * 
  */
 public class PropertyLoader {
 
 	private Properties properties = new Properties();
-	static Logger log =  Logger.getLogger(PropertyLoader.class);
+	static Logger log = Logger.getLogger(PropertyLoader.class);
 
-	
-	public PropertyLoader(String resource) {
+	public PropertyLoader(String resource) throws IOException {
 		super();
-		try {
-			properties.load(this.getClass().getResourceAsStream(resource));
-		} catch (IOException e) {
-			log.error("error creating resource: " + resource);
+		InputStream is = this.getClass().getResourceAsStream(resource);
+		if (is != null) {
+		properties.load(is);
 		}
 	}
 

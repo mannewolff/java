@@ -2,11 +2,13 @@ package de.neusta.common.tools;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.IOException;
+
 import org.junit.Test;
 
 public class TestPropertyLoader {
 
-	@Test(expected=Exception.class)
+	@Test
 	public void propertyResourceNotExsists() throws Exception {
 		@SuppressWarnings("unused")
 		PropertyLoader propertyLoader = new PropertyLoader("/notExists.properties");

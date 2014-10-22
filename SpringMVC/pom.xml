@@ -7,31 +7,47 @@
 	<version>1.0-SNAPSHOT</version>
 	<name>SpringMVC Maven Webapp</name>
 	<url>http://maven.apache.org</url>
+
+	<properties>
+		<jdk.version>1.7</jdk.version>
+		<spring.version>3.0.1.RELEASE</spring.version>
+		<spring.security.version>3.0.1.RELEASE</spring.security.version>
+		<jstl.version>1.2</jstl.version>
+	</properties>
+
 	<dependencies>
-		<!-- <dependency> <groupId>junit</groupId> <artifactId>junit</artifactId> 
-			<version>3.8.1</version> <scope>test</scope> </dependency> -->
 
 		<!-- Spring MVC framework -->
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-webmvc</artifactId>
-			<version>3.0.1.RELEASE</version>
+			<version>${spring.version}</version>
 		</dependency>
 
-		<!-- Spring MVC framework -->
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-orm</artifactId>
-			<version>3.0.1.RELEASE</version>
+			<version>${spring.version}</version>
 		</dependency>
 
-		<!-- Spring MVC framework -->
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-test</artifactId>
-			<version>3.0.1.RELEASE</version>
+			<version>${spring.version}</version>
 		</dependency>
 
+		<!-- Spring security framework -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-web</artifactId>
+			<version>${spring.security.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-config</artifactId>
+			<version>${spring.security.version}</version>
+		</dependency>
 		<!-- Log4J -->
 		<dependency>
 			<groupId>log4j</groupId>
@@ -74,6 +90,17 @@
 			<scope>compile</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>org.apache.velocity</groupId>
+			<artifactId>velocity</artifactId>
+			<version>1.7</version>
+		</dependency>
+
+		<dependency>
+			<groupId>mwolff-commons</groupId>
+			<artifactId>command</artifactId>
+			<version>1.0.0</version>
+		</dependency>
 
 		<!-- JSTL -->
 		<dependency>
@@ -117,16 +144,6 @@
 			<scope>compile</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>org.apache.velocity</groupId>
-			<artifactId>velocity</artifactId>
-			<version>1.7</version>
-		</dependency>
-		<dependency>
-			<groupId>mwolff-commons</groupId>
-			<artifactId>command</artifactId>
-			<version>1.0.0</version>
-		</dependency>
 	</dependencies>
 
 	<build>

@@ -1,17 +1,22 @@
 package de.neusta.common.controller;
 
-import static org.junit.Assert.*;
-import static de.neusta.common.controller.ControllerConstants.*;
+import static de.neusta.common.controller.ControllerConstants.index_page;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.springframework.web.servlet.ModelAndView;
+
+import de.neusta.common.tools.LoginSessionInformation;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TestIndexController {
@@ -25,6 +30,9 @@ public class TestIndexController {
 	@Mock
 	HttpServletResponse response;
 	
+	@Mock
+	HttpSession session;
+
 	@Test
 	public void testControllerConstants() throws Exception {
 		ControllerConstants controllerConstants = new ControllerConstants();
@@ -33,6 +41,9 @@ public class TestIndexController {
 
 	@Test
 	public void testRedirection() throws Exception {
+		
+		Mockito.when(request.getSession()).thenReturn(session);
+		Mockito.when(session.getAttribute("Login")).thenReturn(new LoginSessionInformation());
 		
 		// test execution
 		assertNotNull(indexController);

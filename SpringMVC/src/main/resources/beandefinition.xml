@@ -12,23 +12,27 @@
         http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
         http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd"
 	default-autowire="byName">
-
-	<bean id="personService" class="de.neusta.service.person.DefaultPersonService">
+	
+	<alias alias="personService" name="defaultPersonService"/>
+	<bean id="defaultPersonService" class="de.neusta.service.person.DefaultPersonService">
 	</bean>
 
-	<bean id="userDao" class="de.neusta.persistence.dao.DefaultUserDao">
+	<alias alias="userDao" name="defaultUserDao"/>
+	<bean id="defaultUserDao" class="de.neusta.persistence.dao.DefaultUserDao">
 	</bean>
 
-	<!-- Login Validators -->
+	<!-- Login validator -->
 	<bean id="lengthValidator" class="de.neusta.login.validator.LengthValidator">
 		<property name="length" value="14" />
 	</bean>
 
-	<bean id="loginChainBuilder" class="de.neusta.login.validator.DefaultLoginChainBuilder">
-		<property name="validators">
+	<bean id="loginChainBuilder" class="de.mwolff.command.chainbuilder.InjectionChainBuilder">
+		<property name="commands">
 			<list>
-				<ref bean="lengthValidator"/>
+				<ref bean="lengthValidator" />
 			</list>
 		</property>
 	</bean>
+
+
 </beans>

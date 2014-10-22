@@ -20,10 +20,11 @@ public class HelloWorldController extends AbstractController {
 	static Logger log = Logger.getLogger(HelloWorldController.class);
 
 	@Resource
-	PersonService personService;
+	UserDao userDao;
 
 	@Resource
-	UserDao userDao;
+	PersonService personService;
+
 
 	@Override
 	@RequestMapping("/welcome.do")

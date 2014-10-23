@@ -26,4 +26,24 @@ public class User {
 		this.name = name;
 	}
 
+	protected String login;
+
+	public String getLogin() {
+		return login;
+	}
+
+	public void setLogin(String login) {
+		this.login = login;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	protected String password;
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
 }

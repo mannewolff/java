@@ -18,8 +18,22 @@ public class PropertyLoader {
 	private Properties properties = new Properties();
 	static Logger log = Logger.getLogger(PropertyLoader.class);
 
-	public PropertyLoader(String resource) {
+	public static enum Methods {
+		CLASSPATH
+	};
+
+	public PropertyLoader(String resource, Methods method) {
 		super();
+		if (method == Methods.CLASSPATH) {
+			loadPerClathpath(resource);
+		}
+	}
+
+	public Properties getProperties() {
+		return (Properties) properties.clone();
+	}
+
+	private void loadPerClathpath(String resource) {
 		InputStream is = this.getClass().getResourceAsStream(resource);
 		if (is != null) {
 			loadProperties(is);
@@ -30,12 +44,8 @@ public class PropertyLoader {
 		try {
 			properties.load(is);
 		} catch (IOException e) {
-			// never done
+			log.error("Error loading property file per classpath " + is.toString());
 		}
-	}
-
-	public Properties getProperties() {
-		return (Properties) properties.clone();
 	}
 
 }

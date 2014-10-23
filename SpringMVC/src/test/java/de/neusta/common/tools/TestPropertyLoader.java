@@ -2,22 +2,22 @@ package de.neusta.common.tools;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.IOException;
-
 import org.junit.Test;
+
+import de.neusta.common.tools.PropertyLoader.Methods;
 
 public class TestPropertyLoader {
 
 	@Test
 	public void propertyResourceNotExsists() throws Exception {
-		PropertyLoader propertyLoader = new PropertyLoader("/notExists.properties");
+		PropertyLoader propertyLoader = new PropertyLoader("/notExists.properties", Methods.CLASSPATH);
 		assertEquals(null, propertyLoader.getProperties().getProperty("key"));
 	}
 
 	@Test
 	public void propertyLoadedFromClasspath() throws Exception {
 		PropertyLoader propertyLoader = new PropertyLoader(
-				"/example.properties");
+				"/example.properties", Methods.CLASSPATH);
 		assertEquals("value", propertyLoader.getProperties().getProperty("key"));
 	}
 

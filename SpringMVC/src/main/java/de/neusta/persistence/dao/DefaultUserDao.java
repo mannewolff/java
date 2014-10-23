@@ -35,5 +35,10 @@ public class DefaultUserDao implements UserDao {
 	public void remove(User user) {
 		em.remove(user);
 	}
+
+	@Override
+	public User getUserPerLogin(String login) {
+		return (User) em.createQuery("from User u where login = '" + login + "'").getSingleResult();
+	}
 	
 }

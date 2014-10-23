@@ -30,5 +30,12 @@ public interface UserDao {
 	 * @param user
 	 */
 	void remove(User user);
+
+	/**
+	 * Searches a user per login.
+	 * @param login
+	 * @return
+	 */
+	User getUserPerLogin(String login);
 	
 }

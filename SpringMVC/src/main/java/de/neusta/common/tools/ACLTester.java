@@ -1,7 +1,8 @@
 package de.neusta.common.tools;
 
-import java.io.IOException;
 import java.util.Properties;
+
+import de.neusta.common.tools.PropertyLoader.Methods;
 
 public class ACLTester {
 
@@ -9,7 +10,7 @@ public class ACLTester {
 	
 	public ACLTester()  {
 		PropertyLoader loader = null;
-		loader = new PropertyLoader("/acl.properties");
+		loader = new PropertyLoader("/acl.properties", Methods.CLASSPATH);
 		properties = loader.getProperties();
 	}
 

@@ -30,6 +30,5 @@ public class TestPersonService {
 	public void testServiceGetName() throws Exception {
 		assertEquals("hello world autowired", personService.getName());
 	}
-
-
+	
 }

@@ -1,41 +1,24 @@
 package de.neusta.persistence.dao;
 
-import java.util.List;
+import org.springframework.stereotype.Repository;
 
 import de.neusta.persistence.entity.User;
 
-public interface UserDao {
-	
-	/**
-	 * Returns a list of all users.
-	 * @return
-	 */
-	List<User> findAllUsers();
-	
-	/**
-	 * Creates and modifies users.
-	 * @param user
-	 */
-	void save(User user);
-	
-	/**
-	 * Searches a user per name.
-	 * @param name
-	 * @return
-	 */
-	User getUserPerName(String name);
-	
-	/**
-	 * Removes a user from the database.
-	 * @param user
-	 */
-	void remove(User user);
+@Repository
+public class UserDao extends GenericDao<User> {
 
-	/**
-	 * Searches a user per login.
-	 * @param login
-	 * @return
-	 */
-	User getUserPerLogin(String login);
+
+	public User getUserPerName(String name)  {
+		return (User) em.createQuery("from User u where name = '" + name + "'").getSingleResult();
+	}
+
+	public User getUserPerLogin(String login) {
+		return (User) em.createQuery("from User u where login = '" + login + "'").getSingleResult();
+	}
+
+	@Override
+	public String getDataBaseName() {
+		return "User";
+	}
 	
 }

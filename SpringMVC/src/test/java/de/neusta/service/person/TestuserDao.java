@@ -1,6 +1,7 @@
 package de.neusta.service.person;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.util.List;
 
@@ -37,7 +38,7 @@ public class TestuserDao {
 		User user = new User();
 		user.setName("testSaveNotExist");
 		userDao.save(user);
-		User savedUser = userDao.findAllUsers().get(0);
+		User savedUser = userDao.findAll().get(0);
 		Assert.assertEquals("User should be equal to saved user", user,
 				savedUser);
 	}
@@ -48,14 +49,14 @@ public class TestuserDao {
 		user.setName("testSaveExist");
 		userDao.save(user);
 
-		User savedUser = userDao.findAllUsers().get(0);
+		User savedUser = userDao.findAll().get(0);
 		user.setName("newname");
 		userDao.save(savedUser);
 		user.setLogin("newname");
 
-		List<User> allUsers = userDao.findAllUsers();
+		List<User> allUsers = userDao.findAll();
 		Assert.assertEquals("There should be one user", 1, allUsers.size());
-		savedUser = userDao.findAllUsers().get(0);
+		savedUser = userDao.findAll().get(0);
 		Assert.assertEquals("User name should be newname", "newname",
 				savedUser.getName());
 	}
@@ -115,7 +116,7 @@ public class TestuserDao {
 		userDao.save(user);
 
 		userDao.remove(user);
-		List<User> userList = userDao.findAllUsers();
+		List<User> userList = userDao.findAll();
 		Assert.assertEquals("There should be no user in list.", 0,
 				userList.size());
 

@@ -35,8 +35,7 @@ public class TestIndexController {
 
 	@Test
 	public void testControllerConstants() throws Exception {
-		ControllerConstants controllerConstants = new ControllerConstants();
-		assertEquals("index", controllerConstants.INDEX_PAGE);
+		assertEquals("index", ControllerConstants.INDEX_PAGE);
 	}
 
 	@Test

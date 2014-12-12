@@ -22,7 +22,7 @@ public class PropertyLoader {
 		CLASSPATH
 	};
 
-	public PropertyLoader(String resource, Methods method) {
+	public PropertyLoader(final String resource, final Methods method) {
 		super();
 		if (method == Methods.CLASSPATH) {
 			loadPerClathpath(resource);
@@ -33,14 +33,14 @@ public class PropertyLoader {
 		return (Properties) properties.clone();
 	}
 
-	private void loadPerClathpath(String resource) {
-		InputStream is = this.getClass().getResourceAsStream(resource);
+	private void loadPerClathpath(final String resource) {
+		final InputStream is = this.getClass().getResourceAsStream(resource);
 		if (is != null) {
 			loadProperties(is);
 		}
 	}
 
-	private void loadProperties(InputStream is) {
+	private void loadProperties(final InputStream is) {
 		try {
 			properties.load(is);
 		} catch (IOException e) {

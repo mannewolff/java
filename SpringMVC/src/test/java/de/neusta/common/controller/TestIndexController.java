@@ -48,6 +48,7 @@ public class TestIndexController {
 		assertNotNull(indexController);
 		ModelAndView model = indexController.handleRequestInternal(
 				request, response);
+		
 		assertEquals(INDEX_PAGE, model.getViewName());
 		
 	}

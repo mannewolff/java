@@ -44,6 +44,7 @@ public class IndexController extends AbstractController {
 	}
 
 	public void validateLogin(HttpServletRequest request) {
+		
 		boolean result = SessionSupport.validateSessionOnLogon(request);
 		if (result) {
 			if (log.isDebugEnabled()) {

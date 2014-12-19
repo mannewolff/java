@@ -10,7 +10,11 @@ public class ACLTester {
 	
 	public ACLTester()  {
 		PropertyLoader loader = null;
-		loader = new PropertyLoader("/acl.properties", Methods.CLASSPATH);
+		try {
+			loader = new PropertyLoader("/acl.properties", Methods.CLASSPATH);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		properties = loader.getProperties();
 	}
 

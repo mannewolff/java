@@ -1,6 +1,5 @@
 package de.neusta.common.tools;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
@@ -19,10 +18,11 @@ public class PropertyLoader {
 	static Logger log = Logger.getLogger(PropertyLoader.class);
 
 	public static enum Methods {
-		CLASSPATH
+		CLASSPATH,
+		DEFAULT
 	};
 
-	public PropertyLoader(final String resource, final Methods method) {
+	public PropertyLoader(final String resource, final Methods method) throws Exception {
 		super();
 		if (method == Methods.CLASSPATH) {
 			loadPerClathpath(resource);
@@ -33,19 +33,15 @@ public class PropertyLoader {
 		return (Properties) properties.clone();
 	}
 
-	private void loadPerClathpath(final String resource) {
+	private void loadPerClathpath(final String resource) throws Exception {
 		final InputStream is = this.getClass().getResourceAsStream(resource);
 		if (is != null) {
 			loadProperties(is);
 		}
 	}
 
-	private void loadProperties(final InputStream is) {
-		try {
+	private void loadProperties(final InputStream is) throws Exception {
 			properties.load(is);
-		} catch (IOException e) {
-			log.error("Error loading property file per classpath " + is.toString());
-		}
 	}
 
 }

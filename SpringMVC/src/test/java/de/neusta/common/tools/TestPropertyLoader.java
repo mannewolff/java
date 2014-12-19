@@ -1,6 +1,6 @@
 package de.neusta.common.tools;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 
@@ -21,4 +21,10 @@ public class TestPropertyLoader {
 		assertEquals("value", propertyLoader.getProperties().getProperty("key"));
 	}
 
+	@Test
+	public void propertyLoadedNOTFromClasspath() throws Exception {
+		PropertyLoader propertyLoader = new PropertyLoader(
+				"/example.properties", Methods.DEFAULT);
+		assertNull("value", propertyLoader.getProperties().getProperty("key"));
+	}
 }

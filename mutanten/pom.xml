@@ -1,0 +1,35 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>mutanten</groupId>
+	<artifactId>mutanten</artifactId>
+	<version>1.0.0</version>
+	<name>Mutanten</name>
+	<description>Testprojekt für Mutanten und JUnit neue Features</description>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.pitest</groupId>
+				<artifactId>pitest-maven</artifactId>
+				<version>1.1.2</version>
+				<configuration>
+					<targetClasses>
+						<param>de.neusta.mwolff*</param>
+					</targetClasses>
+					<targetTests>
+						<param>de.neusta.mwolff*</param>
+					</targetTests>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
+		</dependency>
+	</dependencies>
+</project>

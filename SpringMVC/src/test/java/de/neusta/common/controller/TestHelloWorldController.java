@@ -27,7 +27,7 @@ public class TestHelloWorldController {
 	PersonService personService;
 
 	@Mock
-	UserDao userDoa;
+	UserDao userDao;
 
 	@Mock
 	HttpServletRequest request;
@@ -51,7 +51,7 @@ public class TestHelloWorldController {
 
 		// test verification
 		Mockito.verify(personService, Mockito.times(1)).getName();
-		Mockito.verify(userDoa).save(Mockito.any(User.class));
+		Mockito.verify(userDao).save(Mockito.any(User.class));
 				
 		// model verification
 		Assert.assertEquals("hello world autowired", model.getModel().get("msg"));

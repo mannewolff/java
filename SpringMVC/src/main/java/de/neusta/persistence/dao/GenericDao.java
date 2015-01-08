@@ -8,23 +8,24 @@ import javax.persistence.PersistenceContext;
 import de.neusta.persistence.entity.DataBaseEntity;
 
 public abstract class GenericDao<T extends DataBaseEntity> {
-	
-		@PersistenceContext
-		protected EntityManager em;
-		
-		public abstract String getDataBaseName();
 
-		@SuppressWarnings("unchecked")
-		public List<T> findAll() {
-			return em.createQuery("from " + getDataBaseName() + "").getResultList();
-		}
+	@PersistenceContext
+	protected EntityManager em;
 
-		public void save(T dao) {
-			em.persist(dao);
-		}
-		
-		public void remove(T dao) {
-			em.remove(dao);
-		}
+	@SuppressWarnings("unchecked")
+	public List<T> findAll() {
+		return this.em.createQuery("from " + getDataBaseName() + "")
+				.getResultList();
+	}
+
+	public abstract String getDataBaseName();
+
+	public void remove(final T dao) {
+		this.em.remove(dao);
+	}
+
+	public void save(final T dao) {
+		this.em.persist(dao);
+	}
 
 }

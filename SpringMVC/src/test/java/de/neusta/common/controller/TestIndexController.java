@@ -29,7 +29,7 @@ public class TestIndexController {
 
 	@Mock
 	HttpServletResponse response;
-	
+
 	@Mock
 	HttpSession session;
 
@@ -39,31 +39,33 @@ public class TestIndexController {
 	}
 
 	@Test
-	public void testRedirection() throws Exception {
-		
-		Mockito.when(request.getSession()).thenReturn(session);
-		Mockito.when(session.getAttribute("Login")).thenReturn(new LoginSessionInformation());
-		
-		// test execution
-		assertNotNull(indexController);
-		ModelAndView model = indexController.handleRequestInternal(
-				request, response);
-		
-		assertEquals(INDEX_PAGE, model.getViewName());
-		
-	}
-	@Test
 	public void testNoUser() throws Exception {
-		
-		Mockito.when(request.getSession()).thenReturn(session);
-		Mockito.when(session.getAttribute("Login")).thenReturn(null);
-		
+
+		Mockito.when(this.request.getSession()).thenReturn(this.session);
+		Mockito.when(this.session.getAttribute("Login")).thenReturn(null);
+
 		// test execution
-		assertNotNull(indexController);
-		ModelAndView model = indexController.handleRequestInternal(
-				request, response);
+		assertNotNull(this.indexController);
+		final ModelAndView model = this.indexController.handleRequestInternal(
+				this.request, this.response);
 		assertEquals(INDEX_PAGE, model.getViewName());
-		
+
+	}
+
+	@Test
+	public void testRedirection() throws Exception {
+
+		Mockito.when(this.request.getSession()).thenReturn(this.session);
+		Mockito.when(this.session.getAttribute("Login")).thenReturn(
+				new LoginSessionInformation());
+
+		// test execution
+		assertNotNull(this.indexController);
+		final ModelAndView model = this.indexController.handleRequestInternal(
+				this.request, this.response);
+
+		assertEquals(INDEX_PAGE, model.getViewName());
+
 	}
 
 }

@@ -6,24 +6,24 @@ import de.neusta.common.tools.PropertyLoader.Methods;
 
 public class ACLTester {
 
-	private Properties properties;
-	
-	public ACLTester()  {
+	private final Properties properties;
+
+	public ACLTester() {
 		PropertyLoader loader = null;
 		try {
 			loader = new PropertyLoader("/acl.properties", Methods.CLASSPATH);
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			e.printStackTrace();
 		}
-		properties = loader.getProperties();
+		this.properties = loader.getProperties();
 	}
 
-	public String getACLForSite(String key) {
-		return properties.getProperty(key);
+	public String getACLForSite(final String key) {
+		return this.properties.getProperty(key);
 	}
 
-	public boolean isACLPossible(String indexPage, String acl) {
-		String result = properties.getProperty(indexPage);
+	public boolean isACLPossible(final String indexPage, final String acl) {
+		final String result = this.properties.getProperty(indexPage);
 		return acl.equals(result);
 	}
 

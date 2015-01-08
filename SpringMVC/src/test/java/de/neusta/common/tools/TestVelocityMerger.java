@@ -11,11 +11,12 @@ public class TestVelocityMerger {
 
 	@Test
 	public void mergeSimpleKey() throws Exception {
-		VelocityMerger velocityMerger = new VelocityMerger("simplemerge.vm");
-		Properties properties = new PropertyLoader("/example.properties", Methods.CLASSPATH)
-				.getProperties();
+		final VelocityMerger velocityMerger = new VelocityMerger(
+				"simplemerge.vm");
+		final Properties properties = new PropertyLoader("/example.properties",
+				Methods.CLASSPATH).getProperties();
 		velocityMerger.addProperties(properties);
-		String result = velocityMerger.getMergedResult();
+		final String result = velocityMerger.getMergedResult();
 		Assert.assertEquals("Hallo meine Welt merged.", result);
 	}
 }

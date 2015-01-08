@@ -25,39 +25,39 @@ public class HelloWorldController extends AbstractController {
 	@Resource
 	PersonService personService;
 
-
-	@Override
-	@RequestMapping("/welcome.do")
-	protected ModelAndView handleRequestInternal(HttpServletRequest request,
-			HttpServletResponse response) throws Exception {
-
-		// logging
-		long time = System.currentTimeMillis(); 
-		log.debug("Performing request mapping: /welcome.do.");
-		
-		// performing
-		ModelAndView model = getPersonenName();
-		User user = addAUser();
-		model.addObject("user", user);
-
-		// logging
-		Long actTime = Long.valueOf(System.currentTimeMillis() - time);
-		log.debug("Operation took " + actTime.toString() + " milliseconds");
-		
-		return model;
-	}
-
 	private User addAUser() {
-		User user = new User();
+		final User user = new User();
 		user.setName("welcome.do erstellt User");
-		userDao.save(user);
+		this.userDao.save(user);
 		return user;
 	}
 
 	private ModelAndView getPersonenName() {
-		String message = personService.getName();
-		ModelAndView model = new ModelAndView("HelloWorldPage");
+		final String message = this.personService.getName();
+		final ModelAndView model = new ModelAndView("HelloWorldPage");
 		model.addObject("msg", message);
+		return model;
+	}
+
+	@Override
+	@RequestMapping("/welcome.do")
+	protected ModelAndView handleRequestInternal(
+			final HttpServletRequest request, final HttpServletResponse response)
+			throws Exception {
+
+		// logging
+		final long time = System.currentTimeMillis();
+		log.debug("Performing request mapping: /welcome.do.");
+
+		// performing
+		final ModelAndView model = getPersonenName();
+		final User user = addAUser();
+		model.addObject("user", user);
+
+		// logging
+		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
+		log.debug("Operation took " + actTime.toString() + " milliseconds");
+
 		return model;
 	}
 

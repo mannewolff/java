@@ -12,37 +12,37 @@ public class User implements DataBaseEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	protected Long id;
 
-	public Long getId() {
-		return id;
-	}
-
 	protected String name;
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
 
 	protected String login;
 
-	public String getLogin() {
-		return login;
+	protected String password;
+
+	public Long getId() {
+		return this.id;
 	}
 
-	public void setLogin(String login) {
-		this.login = login;
+	public String getLogin() {
+		return this.login;
+	}
+
+	public String getName() {
+		return this.name;
 	}
 
 	public String getPassword() {
-		return password;
+		return this.password;
 	}
 
-	protected String password;
+	public void setLogin(final String login) {
+		this.login = login;
+	}
 
-	public void setPassword(String password) {
+	public void setName(final String name) {
+		this.name = name;
+	}
+
+	public void setPassword(final String password) {
 		this.password = password;
 	}
 

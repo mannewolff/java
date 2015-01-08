@@ -7,19 +7,20 @@ import org.mockito.MockitoAnnotations;
 
 public class MockRule implements TestRule {
 
-    private final Object target;
+	private final Object target;
 
-    public MockRule(Object target) {
-        this.target = target;
-    }
+	public MockRule(final Object target) {
+		this.target = target;
+	}
 
-    public Statement apply(final Statement base, Description description) {
-        return new Statement() {
-            @Override
-            public void evaluate() throws Throwable {
-                MockitoAnnotations.initMocks(target);
-                base.evaluate();
-            }
-        };
-    }
+	@Override
+	public Statement apply(final Statement base, final Description description) {
+		return new Statement() {
+			@Override
+			public void evaluate() throws Throwable {
+				MockitoAnnotations.initMocks(MockRule.this.target);
+				base.evaluate();
+			}
+		};
+	}
 }

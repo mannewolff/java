@@ -14,18 +14,20 @@ public class SpringContextRule implements TestRule {
 	/** The target test. */
 	private final Object target;
 
-	public SpringContextRule(String[] locations, Object target) {
+	public SpringContextRule(final String[] locations, final Object target) {
 		this.locations = locations;
 		this.target = target;
 	}
 
-	public Statement apply(final Statement base, Description description) {
+	@Override
+	public Statement apply(final Statement base, final Description description) {
 		return new Statement() {
 			@Override
 			public void evaluate() throws Throwable {
-				ConfigurableApplicationContext context = new ClassPathXmlApplicationContext(
-						locations);
-				context.getAutowireCapableBeanFactory().autowireBean(target);
+				final ConfigurableApplicationContext context = new ClassPathXmlApplicationContext(
+						SpringContextRule.this.locations);
+				context.getAutowireCapableBeanFactory().autowireBean(
+						SpringContextRule.this.target);
 				context.start();
 				try {
 					base.evaluate();

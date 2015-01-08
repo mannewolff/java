@@ -21,21 +21,22 @@ public class IndexController extends AbstractController {
 
 	@Override
 	@RequestMapping("/index.do")
-	protected ModelAndView handleRequestInternal(HttpServletRequest request,
-			HttpServletResponse response) throws Exception {
+	protected ModelAndView handleRequestInternal(
+			final HttpServletRequest request, final HttpServletResponse response)
+			throws Exception {
 
 		// logging
-		long time = System.currentTimeMillis();
+		final long time = System.currentTimeMillis();
 		if (log.isDebugEnabled()) {
 			log.debug("Performing request mapping: /index.do.");
 		}
 
 		validateLogin(request);
 
-		ModelAndView model = new ModelAndView(INDEX_PAGE);
+		final ModelAndView model = new ModelAndView(INDEX_PAGE);
 
 		// logging
-		Long actTime = Long.valueOf(System.currentTimeMillis() - time);
+		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
 		if (log.isDebugEnabled()) {
 			log.debug("Operation took " + actTime.toString() + " milliseconds");
 		}
@@ -43,9 +44,9 @@ public class IndexController extends AbstractController {
 		return model;
 	}
 
-	public void validateLogin(HttpServletRequest request) {
-		
-		boolean result = SessionSupport.validateSessionOnLogon(request);
+	public void validateLogin(final HttpServletRequest request) {
+
+		final boolean result = SessionSupport.validateSessionOnLogon(request);
 		if (result) {
 			if (log.isDebugEnabled()) {
 				log.debug("Login in session is set.");
@@ -54,7 +55,8 @@ public class IndexController extends AbstractController {
 			if (log.isDebugEnabled()) {
 				log.debug("No login in session is set.");
 			}
-			request.getSession().setAttribute("Login", new LoginSessionInformation());
+			request.getSession().setAttribute("Login",
+					new LoginSessionInformation());
 		}
 	}
 }

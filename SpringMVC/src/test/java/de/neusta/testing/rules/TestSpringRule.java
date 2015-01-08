@@ -10,17 +10,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import de.neusta.framework.rules.SpringContextRule;
 
 public class TestSpringRule {
-		
+
 	@Rule
 	public TestRule contextRule = new SpringContextRule(
-			new String[] { "file:src/test/resources/applicationcontext.xml" }, this);
+			new String[] { "file:src/test/resources/applicationcontext.xml" },
+			this);
 
 	@Autowired
 	public String bar;
 
 	@Test
 	public void testBaz() throws Exception {
-		assertEquals("bar", bar);
+		assertEquals("bar", this.bar);
 	}
 
 }

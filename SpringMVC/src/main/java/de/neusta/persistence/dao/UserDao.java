@@ -7,18 +7,19 @@ import de.neusta.persistence.entity.User;
 @Repository
 public class UserDao extends GenericDao<User> {
 
-
-	public User getUserPerName(String name)  {
-		return (User) em.createQuery("from User u where name = '" + name + "'").getSingleResult();
-	}
-
-	public User getUserPerLogin(String login) {
-		return (User) em.createQuery("from User u where login = '" + login + "'").getSingleResult();
-	}
-
 	@Override
 	public String getDataBaseName() {
 		return "User";
 	}
-	
+
+	public User getUserPerLogin(final String login) {
+		return (User) this.em.createQuery(
+				"from User u where login = '" + login + "'").getSingleResult();
+	}
+
+	public User getUserPerName(final String name) {
+		return (User) this.em.createQuery(
+				"from User u where name = '" + name + "'").getSingleResult();
+	}
+
 }

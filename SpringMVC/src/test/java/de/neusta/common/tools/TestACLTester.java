@@ -38,6 +38,7 @@ public class TestACLTester {
 		assertEquals(ANONYMOUS, acl);
 	}
 
+	
 	@Test
 	public void isACLNotPossible() throws Exception {
 		final boolean possible = this.aclTester.isACLPossible(INDEX_PAGE,

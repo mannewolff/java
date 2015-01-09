@@ -32,9 +32,10 @@ public class HelloWorldController extends AbstractController {
 		return user;
 	}
 
+	
 	private ModelAndView getPersonenName() {
 		final String message = this.personService.getName();
-		final ModelAndView model = new ModelAndView("HelloWorldPage");
+		final ModelAndView model = new ModelAndView("HelloWorldPage.vm");
 		model.addObject("msg", message);
 		return model;
 	}

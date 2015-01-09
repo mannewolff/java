@@ -41,12 +41,6 @@
 		<res-auth>Container</res-auth>
 	</resource-ref>
 
-	<welcome-file-list>
-		<welcome-file>
-      welcome.htm
-    </welcome-file>
-	</welcome-file-list>
-
 	<!-- <context-param> <param-name>contextConfigLocation</param-name> <param-value> 
 		/WEB-INF/spring-security.xml </param-value> </context-param> <filter> <filter-name>springSecurityFilterChain</filter-name> 
 		<filter-class>org.springframework.web.filter.DelegatingFilterProxy </filter-class> 

@@ -25,6 +25,7 @@ import de.neusta.persistence.entity.User;
 @Transactional
 public class TestuserDao {
 
+	
 	@Resource
 	UserDao userDao;
 

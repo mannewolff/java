@@ -6,11 +6,19 @@
 	<table border="0" cellpadding="5" cellspacing="0" bgcolor="#E0E0E0">
     <tr>
       <td align="right">Vorname:</td>
-      <td><input name="Vorname" type="text" size="30" maxlength="40"></td>
+      <td><input name="prename" type="text" size="30" maxlength="40" value="$User.prename"></td>
     </tr>
     <tr>
       <td align="right">Name:</td>
-      <td><input name="name" type="text" size="30" maxlength="30" value=""></td>
+      <td><input name="name" type="text" size="30" maxlength="30" value="$User.name"></td>
+    </tr>
+    <tr>
+      <td align="right">Login:</td>
+      <td><input name="login" type="text" size="30" maxlength="40" value="$User.login"></td>
+    </tr>
+    <tr>
+      <td align="right">Paﬂwort:</td>
+      <td><input name="name" type="password" size="30" maxlength="30" value="$User.password"></td>
     </tr>
     <tr>
       <td align="right" valign="top">Kommentar:</td>

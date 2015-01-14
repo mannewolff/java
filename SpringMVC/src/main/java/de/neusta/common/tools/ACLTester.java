@@ -6,14 +6,18 @@ import de.neusta.common.tools.PropertyLoader.Methods;
 
 public class ACLTester {
 
-	private final Properties properties;
+	private Properties properties;
 
-	public ACLTester() {
+	public ACLTester()  {
+		initialize();
+	}
+
+	private void initialize()  {
 		PropertyLoader loader = null;
 		try {
 			loader = new PropertyLoader("/acl.properties", Methods.CLASSPATH);
-		} catch (final Exception e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			// could never be
 		}
 		this.properties = loader.getProperties();
 	}

@@ -17,7 +17,7 @@ import de.neusta.common.tools.SessionSupport;
 @Controller
 public class IndexController extends AbstractController {
 
-	static Logger log = Logger.getLogger(HelloWorldController.class);
+	static Logger log = Logger.getLogger(IndexController.class);
 
 	@Override
 	@RequestMapping("/index")

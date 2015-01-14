@@ -1,0 +1,29 @@
+<html>
+<body>
+
+	<h1>Eingabe von Userdaten</h1>
+	<form name="adduser" action="adduser" method="post">
+	<table border="0" cellpadding="5" cellspacing="0" bgcolor="#E0E0E0">
+    <tr>
+      <td align="right">Vorname:</td>
+      <td><input name="Vorname" type="text" size="30" maxlength="40"></td>
+    </tr>
+    <tr>
+      <td align="right">Name:</td>
+      <td><input name="name" type="text" size="30" maxlength="30" value=""></td>
+    </tr>
+    <tr>
+      <td align="right" valign="top">Kommentar:</td>
+      <td><textarea name="Text" rows="10" cols="50"></textarea></td>
+    </tr>
+    <tr>
+      <td align="right">Formular:</td>
+      <td>
+        <input type="submit" value=" Absenden ">
+        <input type="reset" value=" Abbrechen">
+      </td>
+    </tr>
+    </table>
+	
+</body>
+</html>

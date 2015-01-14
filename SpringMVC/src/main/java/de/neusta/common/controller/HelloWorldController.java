@@ -1,6 +1,7 @@
 package de.neusta.common.controller;
 
 import static de.neusta.common.controller.ControllerConstants.HELLO_WORLD_PAGE;
+
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -13,7 +14,7 @@ import org.springframework.web.servlet.mvc.AbstractController;
 
 import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.User;
-import de.neusta.service.person.PersonService;
+import de.neusta.service.user.UserService;
 
 @Controller
 public class HelloWorldController extends AbstractController {
@@ -24,7 +25,7 @@ public class HelloWorldController extends AbstractController {
 	UserDao userDao;
 
 	@Resource
-	PersonService personService;
+	UserService personService;
 
 	private User addAUser() {
 		final User user = new User();

@@ -1,4 +1,4 @@
-package de.neusta.service.person;
+package de.neusta.service.user;
 
 import static org.junit.Assert.assertNotNull;
 

@@ -1,4 +1,4 @@
-package de.neusta.service.person;
+package de.neusta.service.user;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -11,14 +11,17 @@ import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import de.neusta.service.user.DefaultUserService;
+import de.neusta.service.user.UserService;
+
 @ContextConfiguration({ "file:src/test/resources/applicationcontext.xml" })
 @RunWith(SpringJUnit4ClassRunner.class)
-public class TestPersonService {
+public class TestUserService {
 
-	static Logger log = Logger.getLogger(DefaultPersonService.class);
+	static Logger log = Logger.getLogger(DefaultUserService.class);
 
 	@Resource
-	PersonService personService;
+	UserService personService;
 
 	@Test
 	public void testServiceExists() throws Exception {

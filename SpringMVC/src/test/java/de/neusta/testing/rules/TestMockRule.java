@@ -15,7 +15,7 @@ import de.neusta.framework.rules.MockRule;
 import de.neusta.framework.rules.SpringContextRule;
 
 public class TestMockRule {
-
+	
 	@Rule
 	public TestRule contextRule = new SpringContextRule(
 			new String[] { "file:src/test/resources/applicationcontext.xml" },

@@ -15,7 +15,7 @@ import org.springframework.web.servlet.ModelAndView;
 
 import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.User;
-import de.neusta.service.person.PersonService;
+import de.neusta.service.user.UserService;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TestHelloWorldController {
@@ -24,7 +24,7 @@ public class TestHelloWorldController {
 	HelloWorldController helloWorldController;
 
 	@Mock
-	PersonService personService;
+	UserService personService;
 
 	@Mock
 	UserDao userDao;

@@ -31,7 +31,7 @@ public class TestACLTester {
 				"properties");
 		assertNotNull(props);
 	}
-
+	
 	@Test
 	public void getACLListFor() throws Exception {
 		final String acl = this.aclTester.getACLForSite(INDEX_PAGE);

@@ -18,6 +18,21 @@ public abstract class GenericDao<T extends DataBaseEntity> {
 				.getResultList();
 	}
 
+	@SuppressWarnings("unchecked")
+	public T getPerID(final long id) {
+
+		T item = null;
+		String lid = Long.valueOf(id).toString();
+		String statement = "from " + getDataBaseName() + " where id = " + lid;
+		List<T> result = this.em.createQuery(statement).getResultList();
+		if (result != null && result.size() > 0) {
+			item = result.get(0);
+		}
+		
+		return (item != null) ? item : null;
+
+	}
+
 	public abstract String getDataBaseName();
 
 	public void remove(final T dao) {

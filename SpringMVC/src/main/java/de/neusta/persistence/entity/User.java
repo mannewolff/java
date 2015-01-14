@@ -1,9 +1,15 @@
 package de.neusta.persistence.entity;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
 
 @Entity
 public class User implements DataBaseEntity {
@@ -14,36 +20,63 @@ public class User implements DataBaseEntity {
 
 	protected String name;
 
+	protected String prename;
+
 	protected String login;
 
 	protected String password;
+	
+	@OneToMany(fetch = FetchType.EAGER)
+	protected Set<Address> addresses = new HashSet<Address>();
+	
+	public Set<Address> getAddresses() {
+		return this.addresses;
+	}
+	
 
-	public Long getId() {
-		return this.id;
+	public void setAddresses(Set<Address> addresses) {
+		this.addresses = addresses;
 	}
 
-	public String getLogin() {
-		return this.login;
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
 	}
 
 	public String getName() {
-		return this.name;
+		return name;
 	}
 
-	public String getPassword() {
-		return this.password;
-	}
-
-	public void setLogin(final String login) {
-		this.login = login;
-	}
-
-	public void setName(final String name) {
+	public void setName(String name) {
 		this.name = name;
 	}
 
-	public void setPassword(final String password) {
+	public String getPrename() {
+		return prename;
+	}
+
+	public void setPrename(String prename) {
+		this.prename = prename;
+	}
+
+	public String getLogin() {
+		return login;
+	}
+
+	public void setLogin(String login) {
+		this.login = login;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
 		this.password = password;
 	}
+
 
 }

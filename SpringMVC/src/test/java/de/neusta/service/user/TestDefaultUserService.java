@@ -1,11 +1,14 @@
 package de.neusta.service.user;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.util.List;
 
 import javax.annotation.Resource;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
@@ -14,6 +17,7 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.persistence.dao.UserDao;
+import de.neusta.persistence.entity.Address;
 import de.neusta.persistence.entity.User;
 
 
@@ -95,6 +99,22 @@ public class TestDefaultUserService {
 		Thread.sleep(1000);
 		User userChanged = userdao.getPerID(pk);
 		assertEquals("Changed", userChanged.getName());
+	}
+	
+	@Test
+	@Ignore
+	public void testGetUserAdresses() throws Exception {
+		
+		User user = new User();
+		user.setName("Meier");
+		user.setPrename("Jan");
+		userdao.save(user);
+		Address adress = new Address();
+		adress.setCity("Bremen");
+		userdao.setAddress(user, adress);
+		//List<Address> addresses = userService.getUserAddresses();
+		//assertEquals(1, addresses.size());
+		
 	}
 	
 	private Long createUser(String name, String prename) {

@@ -59,7 +59,7 @@ public class DefaultUserService implements UserService {
 	}
 
 	@Override
-	public List<Address> getUserAddresses() {
+	public List<Address> getUserAddresses(final User user) {
 		return null;
 	}
 

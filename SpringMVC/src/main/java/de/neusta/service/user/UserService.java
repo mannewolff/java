@@ -21,7 +21,7 @@ public interface UserService {
 	
 	void createOrUpdateUser(final User user);
 
-	List<Address> getUserAddresses();
+	List<Address> getUserAddresses(final User user);
 	
 	void addAdress(Address address);
 }

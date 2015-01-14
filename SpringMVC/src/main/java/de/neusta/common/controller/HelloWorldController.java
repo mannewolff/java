@@ -41,7 +41,7 @@ public class HelloWorldController extends AbstractController {
 	}
 
 	@Override
-	@RequestMapping("/welcome.do")
+	@RequestMapping("/welcome")
 	protected ModelAndView handleRequestInternal(
 			final HttpServletRequest request, final HttpServletResponse response)
 			throws Exception {

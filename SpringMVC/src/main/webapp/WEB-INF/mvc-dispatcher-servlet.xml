@@ -22,14 +22,15 @@
 		class="org.springframework.web.servlet.view.velocity.VelocityViewResolver">
 	</bean>
 
-	<!-- Alte Konfiguration für JSP-Seiten.
-	<bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver"> 
+    <!--   
+	<bean id="viewResolverJSP" class="org.springframework.web.servlet.view.InternalResourceViewResolver"> 
     	<property name="prefix"> 
     	    <value>/WEB-INF/pages/</value> 
     	</property> 
     	<property name="suffix"> 
     	    <value>.jsp</value> 
     	</property> 
-     </bean> -->
+     </bean>
+     -->
 
 </beans>

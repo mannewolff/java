@@ -1,13 +1,10 @@
 <html>
 <body>
 	<h1>Welcome to mwolff.info</h1>
-
-	<a href="welcome.do">Zur Welcome Page.</a>
-	#set ($a = "Velocity")
-
-<p>
-Der Wert der Variable a ist: $a oder ${a}
-</p>
+	<p>
+	<a href="welcome">Zur Welcome Page.</a><br/>
+	<a href="preUserDataInput">Zur Eingabe von User Daten.</a>
+	</p>
 
 </body>
 </html>

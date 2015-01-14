@@ -20,7 +20,7 @@ public class IndexController extends AbstractController {
 	static Logger log = Logger.getLogger(HelloWorldController.class);
 
 	@Override
-	@RequestMapping("/index.do")
+	@RequestMapping("/index")
 	protected ModelAndView handleRequestInternal(
 			final HttpServletRequest request, final HttpServletResponse response)
 			throws Exception {

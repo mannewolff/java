@@ -1,5 +1,6 @@
 package de.neusta.common.controller;
 
+import static de.neusta.common.controller.ControllerConstants.HELLO_WORLD_PAGE;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -35,7 +36,7 @@ public class HelloWorldController extends AbstractController {
 	
 	private ModelAndView getPersonenName() {
 		final String message = this.personService.getName();
-		final ModelAndView model = new ModelAndView("HelloWorldPage.vm");
+		final ModelAndView model = new ModelAndView(HELLO_WORLD_PAGE);
 		model.addObject("msg", message);
 		return model;
 	}
@@ -48,7 +49,7 @@ public class HelloWorldController extends AbstractController {
 
 		// logging
 		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /welcome.do.");
+		log.debug("Performing request mapping: /welcome");
 
 		// performing
 		final ModelAndView model = getPersonenName();

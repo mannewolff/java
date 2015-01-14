@@ -1,5 +1,7 @@
 package de.neusta.common.controller;
 
+import static de.neusta.common.controller.ControllerConstants.USER_INPUT_PAGE;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -10,7 +12,6 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 
 import de.neusta.persistence.entity.User;
-
 @Controller
 public class PreUserDataInputController extends AbstractController {
 
@@ -24,10 +25,10 @@ public class PreUserDataInputController extends AbstractController {
 
 		// logging
 		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /preUserDataInput.do.");
+		log.debug("Performing request mapping: /preUserDataInput");
 
 		// performing
-		final ModelAndView model = new ModelAndView("UserDataInputPage.vm");
+		final ModelAndView model = new ModelAndView(USER_INPUT_PAGE);
 		User user = new User();
 		user.setName("Default");
 		model.addObject("User", user);

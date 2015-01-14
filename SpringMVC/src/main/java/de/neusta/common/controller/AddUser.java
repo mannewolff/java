@@ -24,7 +24,7 @@ public class AddUser {//extends AbstractController {
 
 		// logging
 		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /preUserDataInput.do.");
+		log.debug("Performing request mapping: /adduser");
 
 		// performing
 		log.debug("Name in scope is: " + user.getName());

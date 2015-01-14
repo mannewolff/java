@@ -5,20 +5,20 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.mvc.AbstractController;
 
 import de.neusta.persistence.entity.User;
 
 @Controller
-public class PreUserDataInputController extends AbstractController {
+public class AddUser {//extends AbstractController {
 
-	static Logger log = Logger.getLogger(PreUserDataInputController.class);
+	static Logger log = Logger.getLogger(AddUser.class);
 
-	@Override
-	@RequestMapping("/preUserDataInput")
+	@RequestMapping("/adduser")
 	protected ModelAndView handleRequestInternal(
+			@ModelAttribute User user,
 			final HttpServletRequest request, final HttpServletResponse response)
 			throws Exception {
 
@@ -27,16 +27,13 @@ public class PreUserDataInputController extends AbstractController {
 		log.debug("Performing request mapping: /preUserDataInput.do.");
 
 		// performing
-		final ModelAndView model = new ModelAndView("UserDataInputPage.vm");
-		User user = new User();
-		user.setName("Default");
-		model.addObject("User", user);
+		log.debug("Name in scope is: " + user.getName());
 
 		// logging
 		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
 		log.debug("Operation took " + actTime.toString() + " milliseconds");
 
-		return model;
+		return new ModelAndView("index.vm");
 	}
 
 }

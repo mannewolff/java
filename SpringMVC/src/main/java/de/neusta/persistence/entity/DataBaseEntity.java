@@ -7,5 +7,4 @@ package de.neusta.persistence.entity;
  *
  */
 public interface DataBaseEntity {
-
 }

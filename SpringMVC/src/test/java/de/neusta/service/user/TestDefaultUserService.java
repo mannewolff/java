@@ -66,11 +66,11 @@ public class TestDefaultUserService {
 	public void testDeleteUserPerId() throws Exception {
 		Long pk = createUser("Knoop", "Jan");
 		Thread.sleep(100);
-		User user = userdao.getPerID(pk);
+		User user = userdao.getPerID(pk, User.class);
 		assertNotNull(user);
 		userService.deleteUser(pk);
 		Thread.sleep(500);
-		user = userdao.getPerID(pk);
+		user = userdao.getPerID(pk, User.class);
 		assertNull(user);
 	}
 	
@@ -85,7 +85,7 @@ public class TestDefaultUserService {
 		assertNotNull(user);
 		userService.deleteUser(user);
 		Thread.sleep(1000);
-		user = userdao.getPerID(pk);
+		user = userdao.getPerID(pk, User.class);
 		assertNull(user);
 	}
 
@@ -93,11 +93,11 @@ public class TestDefaultUserService {
 	public void testUpdateUser() throws Exception {
 		
 		Long pk = createUser("Rogge", "Helmut");
-		User user = userdao.getPerID(pk);
+		User user = userdao.getPerID(pk, User.class);
 		user.setName("Changed");
 		userService.updateUser(user);
 		Thread.sleep(1000);
-		User userChanged = userdao.getPerID(pk);
+		User userChanged = userdao.getPerID(pk, User.class);
 		assertEquals("Changed", userChanged.getName());
 	}
 	

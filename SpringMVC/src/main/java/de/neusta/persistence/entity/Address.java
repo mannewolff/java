@@ -90,6 +90,4 @@ public class Address implements DataBaseEntity {
 	public void setEmailbusiness(String emailbusiness) {
 		this.emailbusiness = emailbusiness;
 	}
-
-
 }

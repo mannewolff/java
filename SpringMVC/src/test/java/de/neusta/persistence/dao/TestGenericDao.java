@@ -37,7 +37,7 @@ public class TestGenericDao {
 		user2.setName("Gabi");
 		userdao.save(user2);
 		
-		List<User> userlist = userdao.findAll();
+		List<User> userlist = userdao.findAll(User.class);
 		Assert.assertEquals(2, userlist.size());
 	}
 
@@ -50,14 +50,29 @@ public class TestGenericDao {
 		
 		Long id = user1.getId();
 		
-		User user2 = userdao.getPerID(id);
+		User user2 = userdao.getPerID(id, User.class);
 		assertEquals(user1.getName(), user2.getName());
 	}
 	
 	@Test
 	public void testGetPerIdNull() throws Exception {
-		User user = userdao.getPerID(22l);
+		User user = userdao.getPerID(22l, User.class);
 		assertNull(user);
 	}
 	
+	@Test
+	public void testRemove() throws Exception {
+
+		User user1 = new User();
+		user1.setName("Manfred");
+		this.userdao.save(user1);
+		
+		User user = userdao.getPerID(user1.getId(), User.class);
+		assertNotNull(user);
+		
+		userdao.remove(user1);
+		
+		user = userdao.getPerID(user1.getId(), User.class);
+		assertNull(user);
+	}
 }

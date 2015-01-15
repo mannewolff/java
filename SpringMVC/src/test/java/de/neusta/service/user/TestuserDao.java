@@ -1,6 +1,7 @@
 package de.neusta.service.user;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.util.List;
 import java.util.Set;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.login.validator.LoginContext;
 import de.neusta.persistence.dao.AddressDao;
+import de.neusta.persistence.dao.GenericDao;
 import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.Address;
 import de.neusta.persistence.entity.User;
@@ -26,7 +28,7 @@ import de.neusta.persistence.entity.User;
 @RunWith(SpringJUnit4ClassRunner.class)
 @Transactional
 public class TestuserDao {
-	
+
 	@Resource
 	UserDao userDao;
 	
@@ -39,7 +41,8 @@ public class TestuserDao {
 		final long saveId = initializeTwoUser();
 
 		user = this.userDao.getUserPerLogin("mannewolff");
-		assertEquals("User name should be mannewolff", "mannewolff", user.getLogin());
+		assertEquals("User name should be mannewolff", "mannewolff",
+				user.getLogin());
 		assertEquals("User id should be the saved id", Long.valueOf(saveId),
 				user.getId());
 	}
@@ -58,7 +61,7 @@ public class TestuserDao {
 		user.setName("Rosenbaum");
 		user.setLogin("grosserose");
 		this.userDao.save(user);
-		
+
 		user = new User();
 		user.setId(12l);
 		Long l = user.getId();
@@ -74,7 +77,8 @@ public class TestuserDao {
 
 		user = this.userDao.getUserPerName("Wolff");
 		assertEquals("User name should be Wolff", "Wolff", user.getName());
-		assertEquals("User prename should be Manfred", "Manfred", user.getPrename());
+		assertEquals("User prename should be Manfred", "Manfred",
+				user.getPrename());
 		assertEquals("User id should be the saved id", Long.valueOf(saveId),
 				user.getId());
 	}
@@ -89,7 +93,7 @@ public class TestuserDao {
 		this.userDao.save(user);
 
 		this.userDao.remove(user);
-		final List<User> userList = this.userDao.findAll();
+		final List<User> userList = this.userDao.findAll(User.class);
 		Assert.assertEquals("There should be no user in list.", 0,
 				userList.size());
 
@@ -120,14 +124,14 @@ public class TestuserDao {
 		user.setName("testSaveExist");
 		this.userDao.save(user);
 
-		User savedUser = this.userDao.findAll().get(0);
+		User savedUser = this.userDao.findAll(User.class).get(0);
 		user.setName("newname");
 		this.userDao.save(savedUser);
 		user.setLogin("newname");
 
-		final List<User> allUsers = this.userDao.findAll();
+		final List<User> allUsers = this.userDao.findAll(User.class);
 		Assert.assertEquals("There should be one user", 1, allUsers.size());
-		savedUser = this.userDao.findAll().get(0);
+		savedUser = this.userDao.findAll(User.class).get(0);
 		Assert.assertEquals("User name should be newname", "newname",
 				savedUser.getName());
 	}
@@ -137,45 +141,46 @@ public class TestuserDao {
 		final User user = new User();
 		user.setName("testSaveNotExist");
 		this.userDao.save(user);
-		final User savedUser = this.userDao.findAll().get(0);
+		final User savedUser = this.userDao.findAll(User.class).get(0);
 		Assert.assertEquals("User should be equal to saved user", user,
 				savedUser);
 	}
-	
+
 	@Test
 	public void testUserHasAdresses() throws Exception {
-			Address address;
-			address = new Address();
-			address.setZipcode("28176");
-			address.setCity("Bremen");
-			address.setStreet("Woltmershauser Str. 22");
-			address.setPhone("0421 555123");
-			address.setMobile("0151 3234555");
-			address.setEmailhome("anonymous@email.com");
-			address.setEmailbusiness("business@email.com");
-			addressDao.save(address);
-			
-			User user = new User();
-			user.setName("Wolff");
-			userDao.save(user);
-			
-			userDao.setAddress(user, address);
 
-			address = new Address();
-			address.setZipcode("34567");
-			address.setCity("Hannover");
-			address.setStreet("Limmer Str. 12");
-			address.setPhone("0421 555444");
-			address.setMobile("0151 5443555");
-			address.setEmailhome("anonymous@email.com");
-			address.setEmailbusiness("business@email.com");
-			addressDao.save(address);
+		Address address;
+		address = new Address();
+		address.setZipcode("28176");
+		address.setCity("Bremen");
+		address.setStreet("Woltmershauser Str. 22");
+		address.setPhone("0421 555123");
+		address.setMobile("0151 3234555");
+		address.setEmailhome("anonymous@email.com");
+		address.setEmailbusiness("business@email.com");
+		addressDao.save(address);
 
-			Set<Address> addresses = user.getAddresses();
-			addresses.add(address);
-			user.setAddresses(addresses);
+		User user = new User();
+		user.setName("Wolff");
+		userDao.save(user);
 
-			addresses = user.getAddresses();
-			Assert.assertEquals(2, addresses.size());
+		userDao.setAddress(user, address);
+
+		address = new Address();
+		address.setZipcode("34567");
+		address.setCity("Hannover");
+		address.setStreet("Limmer Str. 12");
+		address.setPhone("0421 555444");
+		address.setMobile("0151 5443555");
+		address.setEmailhome("anonymous@email.com");
+		address.setEmailbusiness("business@email.com");
+		addressDao.save(address);
+
+		Set<Address> addresses = user.getAddresses();
+		addresses.add(address);
+		user.setAddresses(addresses);
+
+		addresses = user.getAddresses();
+		Assert.assertEquals(2, addresses.size());
 	}
 }

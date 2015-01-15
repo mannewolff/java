@@ -26,12 +26,12 @@ public class DefaultUserService implements UserService {
 
 	@Override
 	public List<User> getUserList() {
-		return userdao.findAll();
+		return userdao.findAll(User.class);
 	}
 
 	@Override
 	public void deleteUser(Long userId) {
-		User user = userdao.getPerID(userId);
+		User user = userdao.getPerID(userId, User.class);
 		if (user != null) {
 			userdao.remove(user);
 		}
@@ -69,7 +69,7 @@ public class DefaultUserService implements UserService {
 
 	@Override
 	public User getUser(Long userId) {
-		return userdao.getPerID(userId.longValue());
+		return userdao.getPerID(userId.longValue(), User.class);
 	}
 
 }

@@ -77,6 +77,4 @@ public class User implements DataBaseEntity {
 	public void setPassword(String password) {
 		this.password = password;
 	}
-
-
 }

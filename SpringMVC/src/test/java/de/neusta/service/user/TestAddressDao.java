@@ -1,7 +1,5 @@
 package de.neusta.service.user;
 
-import static org.junit.Assert.assertNotNull;
-
 import java.util.List;
 
 import javax.annotation.Resource;
@@ -24,14 +22,11 @@ import de.neusta.persistence.entity.Address;
 public class TestAddressDao {
 	
 	@Resource
-	AddressDao adressDao;
-
-	@Test
-	public void testAddressDaoInjected() throws Exception {
-		assertNotNull(this.adressDao);
-	}
-
+	private AddressDao addressdao;
+	
 	private long initializeTwoAddresses() {
+		
+		//GenericDao<Address> adressDao = new GenericDao<Address>();
 		Address address;
 		address = new Address();
 		address.setZipcode("28176");
@@ -41,7 +36,7 @@ public class TestAddressDao {
 		address.setMobile("0151 3234555");
 		address.setEmailhome("anonymous@email.com");
 		address.setEmailbusiness("business@email.com");
-		adressDao.save(address);
+		addressdao.save(address);
 		final long saveId = address.getId();
 
 		address = new Address();
@@ -52,7 +47,7 @@ public class TestAddressDao {
 		address.setMobile("0151 5443555");
 		address.setEmailhome("anonymous@email.com");
 		address.setEmailbusiness("business@email.com");
-		adressDao.save(address);
+		addressdao.save(address);
 		
 		return saveId;
 	}
@@ -61,9 +56,9 @@ public class TestAddressDao {
 	public void testAdressesSaveExists() throws Exception {
 
 		initializeTwoAddresses();
-		final List<Address> allAdresses = this.adressDao.findAll();
+		final List<Address> allAdresses = addressdao.findAll(Address.class);
 		Assert.assertEquals("There should be two addresses", 2, allAdresses.size());
-		Address address = this.adressDao.findAll().get(1);
+		Address address = addressdao.findAll(Address.class).get(1);
 		Assert.assertEquals("Adress city should be Hannover", "Hannover", address.getCity());
 		Assert.assertEquals("Adress zip code should be 34567", "34567", address.getZipcode());
 		Assert.assertEquals("Adress street should be Limmer Str. 12", "Limmer Str. 12", address.getStreet());

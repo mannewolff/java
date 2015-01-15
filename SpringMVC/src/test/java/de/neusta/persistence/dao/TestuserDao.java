@@ -1,6 +1,7 @@
 package de.neusta.persistence.dao;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.util.List;
 import java.util.Set;
@@ -16,9 +17,6 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.login.validator.LoginContext;
-import de.neusta.persistence.dao.AddressDao;
-import de.neusta.persistence.dao.GenericDao;
-import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.Address;
 import de.neusta.persistence.entity.User;
 
@@ -33,7 +31,7 @@ public class TestuserDao {
 	
 	@Resource
 	AddressDao addressDao;
-
+	
 	@Test
 	public void testGetUserPerLogin() throws Exception {
 		User user = null;

@@ -49,6 +49,14 @@ public class DefaultUserService implements UserService {
 	}
 
 	@Override
+	@Transactional
+	public void mergeUser(User user) {
+		if (user != null) {
+			userdao.merge(user);
+		}
+	}
+
+	@Override
 	public List<Address> getUserAddresses(final User user) {
 		return userdao.getAddresses(user);
 	}

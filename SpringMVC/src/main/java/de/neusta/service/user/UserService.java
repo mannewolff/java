@@ -20,4 +20,6 @@ public interface UserService {
 	List<Address> getUserAddresses(final User user);
 	
 	void addAddress(final User user, final Address address);
+
+	void mergeUser(User user);
 }

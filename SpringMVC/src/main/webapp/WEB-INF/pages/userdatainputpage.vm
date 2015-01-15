@@ -5,9 +5,13 @@
 </head>
 
 <body>
-	<h1>Eingabe von Userdaten</h1>
+	<h1 align="center">Eingabe von Userdaten</h1>
 	<form name="adduser" action="adduser.do" method="post">
-	<table border="0" cellpadding="5" cellspacing="0" bgcolor="#E0E0E0">
+	<table align="center" border="0" cellpadding="5" cellspacing="0" bgcolor="#E0E0E0">
+    <tr>
+      <td align="right">Id:</td>
+      <td><input name="id" type="text" size="30" maxlength="40" #if ($User.id > 0) value="$User.id" #end DISABLED>  </td>
+    </tr>
     <tr>
       <td align="right">Vorname:</td>
       <td><input name="prename" type="text" size="30" maxlength="40" value="$User.prename"></td>

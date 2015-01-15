@@ -53,6 +53,7 @@ public class UserController {
 			user.setPassword("");
 		} else {
 			log.debug("Fetching existing user from database.");
+			user = userService.getUser(id);
 		}
 		model.addObject("User", user);
 
@@ -78,14 +79,20 @@ public class UserController {
 			log.error("User in scope is null.");
 			
 		}
-		log.debug("Saving user " + user.getPrename() + " " + user.getName());
-		userService.saveUser(user); 
+		if ("".equals(user.getId())) {
+			log.debug("Saving user " + user.getId() + " " + user.getPrename() + " " + user.getName());
+			userService.saveUser(user); 
+		} else {
+			log.debug("Merging user " + user.getId() + " " + user.getPrename() + " " + user.getName());
+			userService.mergeUser(user); 
+		}
+			
 
 		// logging
 		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
 		log.debug("Operation took " + actTime.toString() + " milliseconds");
 
-		return new ModelAndView(USER_LIST);
+		return listUser();
 	}
 	
 	@RequestMapping("/listuser")

@@ -1,12 +1,12 @@
 package de.neusta.persistence.dao;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 import java.util.List;
 
 import javax.annotation.Resource;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -26,8 +26,12 @@ public class TestGenericDao {
 	
 	@Resource
 	UserDao userdao;
+
+	@PersistenceContext
+	protected EntityManager em;
 	
 	@Test
+	@Transactional
 	public void testFindAll() throws Exception {
 		
 		User user1 = new User();
@@ -75,5 +79,17 @@ public class TestGenericDao {
 		
 		user = userdao.getPerID(user1.getId(), User.class);
 		assertNull(user);
+	}
+	
+	@Test
+	public void testMerge() throws Exception {
+		
+		User user1 = new User();
+		user1.setName("Manfred");
+		this.userdao.save(user1);
+
+		user1.setName("Helmut");
+		userdao.merge(user1);
+		
 	}
 }

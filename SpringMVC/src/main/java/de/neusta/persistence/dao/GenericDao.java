@@ -6,6 +6,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.persistence.entity.DataBaseEntity;
 
@@ -26,12 +27,18 @@ public class GenericDao<T extends DataBaseEntity> {
 		return this.em.find(type, new Long(id));
 	}
 
+	@Transactional
 	public void remove(final T dao) {
 		this.em.remove(dao);
 	}
 
+	@Transactional
 	public void save(final T dao) {
 		this.em.persist(dao);
 	}
 
+	@Transactional
+	public void update (final T dao) {
+		this.em.merge(dao);
+	}
 }

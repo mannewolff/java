@@ -38,4 +38,8 @@ public class UserDao extends GenericDao<User> {
 		return addresslist;
 	}
 
+	public void merge(User user) {
+		em.merge(user);
+	}
+
 }

@@ -13,12 +13,10 @@
         http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd"
 	default-autowire="byName">
 	
-	<alias alias="userService" name="defaultUserService"/>
-	<bean id="defaultUserService" class="de.neusta.service.user.DefaultUserService">
+	<bean id="userService" class="de.neusta.service.user.DefaultUserService">
 	</bean>
 
-	<alias alias="userDao" name="defaultUserDao"/>
-	<bean id="defaultUserDao" class="de.neusta.persistence.dao.UserDao">
+	<bean id="userDao" class="de.neusta.persistence.dao.UserDao">
 	</bean>
 
 	<!-- Login validator -->

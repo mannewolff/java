@@ -1,8 +1,12 @@
 <html>
-<body>
 
+<head>
+    <link rel="stylesheet" href="resources/mwolff.css" type="text/css">
+</head>
+
+<body>
 	<h1>Eingabe von Userdaten</h1>
-	<form name="adduser" action="adduser" method="post">
+	<form name="adduser" action="adduser.do" method="post">
 	<table border="0" cellpadding="5" cellspacing="0" bgcolor="#E0E0E0">
     <tr>
       <td align="right">Vorname:</td>
@@ -18,7 +22,7 @@
     </tr>
     <tr>
       <td align="right">Paﬂwort:</td>
-      <td><input name="name" type="password" size="30" maxlength="30" value="$User.password"></td>
+      <td><input name="password" type="password" size="30" maxlength="30" value="$User.password"></td>
     </tr>
     <tr>
       <td align="right" valign="top">Kommentar:</td>

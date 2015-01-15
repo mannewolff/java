@@ -2,6 +2,7 @@ package de.neusta.common.controller;
 
 import static de.neusta.common.controller.ControllerConstants.*;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -13,11 +14,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
 import de.neusta.persistence.entity.User;
+import de.neusta.service.user.UserService;
 
 @Controller
 public class UserController {
 
 	static Logger log = Logger.getLogger(UserController.class);
+	
+	@Resource
+	UserService userService;
 
 	/**
 	 * Prepares the data for creating and updating a user.
@@ -25,20 +30,25 @@ public class UserController {
 	 * @return
 	 * @throws Exception
 	 */
-	@RequestMapping("/preUserDataInput")
+	@RequestMapping("/preuser")
 	protected ModelAndView prepareUserDataInput(@RequestParam Long id) throws Exception {
 
 		// logging
 		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /preUserDataInput");
+		log.debug("Performing request mapping: /preuser.");
 
 		// performing
 		final ModelAndView model = new ModelAndView(USER_INPUT_PAGE);
+		log.debug("Creating new User.");
 		User user = new User();
 		if ((id == null) || (id == 0)) {
-			// Get Userdata from Service
+			log.debug("Nothing else to do.");
+			user.setName("");
+			user.setPrename("");
+			user.setLogin("");
+			user.setPassword("");
 		} else {
-			
+			log.debug("Fetching existing user from database.");
 		}
 		model.addObject("User", user);
 
@@ -59,7 +69,12 @@ public class UserController {
 		log.debug("Performing request mapping: /adduser");
 
 		// performing
-		// Saves or modifies user
+		if (user == null) {
+			log.error("User in scope is null.");
+			
+		}
+		log.debug("Saving user " + user.getPrename() + " " + user.getName());
+		userService.saveUser(user); 
 
 		// logging
 		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);

@@ -1,6 +1,8 @@
 package de.neusta.persistence.dao;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.util.List;
 
@@ -15,7 +17,6 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.persistence.entity.User;
-
 
 @TransactionConfiguration
 @ContextConfiguration({ "file:src/test/resources/applicationcontext.xml" })

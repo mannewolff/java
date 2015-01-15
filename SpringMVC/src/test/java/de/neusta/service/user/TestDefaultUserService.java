@@ -20,19 +20,18 @@ import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.Address;
 import de.neusta.persistence.entity.User;
 
-
 @TransactionConfiguration
 @ContextConfiguration({ "file:src/test/resources/applicationcontext.xml" })
 @RunWith(SpringJUnit4ClassRunner.class)
 @Transactional
 public class TestDefaultUserService {
-	
+
 	@Resource
 	UserService userService;
-	
+
 	@Resource
 	UserDao userdao;
-		
+
 	@Test
 	public void testGetUserId() throws Exception {
 		assertNotNull(userService);
@@ -41,17 +40,6 @@ public class TestDefaultUserService {
 		assertEquals("Wolff", user.getName());
 	}
 
-	@Test
-	public void testCreateUser() throws Exception {
-		User user = new User();
-		user.setName("Wolff");
-		user.setPrename("Manfred");
-		userService.createUser(user);
-		Thread.sleep(100);
-	    user = userdao.getUserPerName("Wolff");
-	    assertNotNull(user);
-	}
-	
 	@Test
 	public void testGetUserList() throws Exception {
 
@@ -73,7 +61,7 @@ public class TestDefaultUserService {
 		user = userdao.getPerID(pk, User.class);
 		assertNull(user);
 	}
-	
+
 	@Test
 	public void testDeleteUser() throws Exception {
 		User user = new User();
@@ -90,21 +78,21 @@ public class TestDefaultUserService {
 	}
 
 	@Test
-	public void testUpdateUser() throws Exception {
-		
+	public void testSaveUser() throws Exception {
+
 		Long pk = createUser("Rogge", "Helmut");
 		User user = userdao.getPerID(pk, User.class);
 		user.setName("Changed");
-		userService.updateUser(user);
+		userService.saveUser(user);
 		Thread.sleep(1000);
 		User userChanged = userdao.getPerID(pk, User.class);
 		assertEquals("Changed", userChanged.getName());
 	}
-	
+
 	@Test
 	@Ignore
 	public void testGetUserAdresses() throws Exception {
-		
+
 		User user = new User();
 		user.setName("Meier");
 		user.setPrename("Jan");
@@ -112,11 +100,11 @@ public class TestDefaultUserService {
 		Address adress = new Address();
 		adress.setCity("Bremen");
 		userdao.setAddress(user, adress);
-		//List<Address> addresses = userService.getUserAddresses();
-		//assertEquals(1, addresses.size());
-		
+		// List<Address> addresses = userService.getUserAddresses();
+		// assertEquals(1, addresses.size());
+
 	}
-	
+
 	private Long createUser(String name, String prename) {
 		User user = new User();
 		user.setName(name);

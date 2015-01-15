@@ -7,8 +7,6 @@ import de.neusta.persistence.entity.User;
 
 public interface UserService {
 
-	void createUser(final User user);
-	
 	List<User> getUserList();
 	
 	User getUser(final Long userId);
@@ -17,9 +15,7 @@ public interface UserService {
 	
 	void deleteUser(final User user);
 	
-	void updateUser(final User user);
-	
-	void createOrUpdateUser(final User user);
+	void saveUser(final User user);
 
 	List<Address> getUserAddresses(final User user);
 	

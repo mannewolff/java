@@ -18,13 +18,6 @@ public class DefaultUserService implements UserService {
 	UserDao userdao;
 
 	@Override
-	public void createUser(User user) {
-		if (user != null) {
-			userdao.save(user);
-		}
-	}
-
-	@Override
 	public List<User> getUserList() {
 		return userdao.findAll(User.class);
 	}
@@ -45,14 +38,7 @@ public class DefaultUserService implements UserService {
 	}
 
 	@Override
-	public void updateUser(User user) {
-		if (user != null) {
-			userdao.save(user);
-		}
-	}
-
-	@Override
-	public void createOrUpdateUser(User user) {
+	public void saveUser(User user) {
 		if (user != null) {
 			userdao.save(user);
 		}

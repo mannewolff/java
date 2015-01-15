@@ -35,8 +35,10 @@ public class UserController {
 		// performing
 		final ModelAndView model = new ModelAndView(USER_INPUT_PAGE);
 		User user = new User();
-		if (id != null) {
+		if ((id == null) || (id == 0)) {
 			// Get Userdata from Service
+		} else {
+			
 		}
 		model.addObject("User", user);
 
@@ -63,7 +65,7 @@ public class UserController {
 		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
 		log.debug("Operation took " + actTime.toString() + " milliseconds");
 
-		return new ModelAndView("userlistpage.vm");
+		return new ModelAndView(USER_LIST);
 	}
 
 }

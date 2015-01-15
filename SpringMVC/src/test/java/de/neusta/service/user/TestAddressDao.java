@@ -26,7 +26,6 @@ public class TestAddressDao {
 	
 	private long initializeTwoAddresses() {
 		
-		//GenericDao<Address> adressDao = new GenericDao<Address>();
 		Address address;
 		address = new Address();
 		address.setZipcode("28176");

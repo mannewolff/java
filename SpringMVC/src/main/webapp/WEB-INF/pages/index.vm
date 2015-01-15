@@ -2,9 +2,7 @@
 <body>
 	<h1>Welcome to mwolff.info</h1>
 	<p>
-	<a href="welcome">Zur Welcome Page.</a><br/>
-	<a href="preUserDataInput">Zur Eingabe von User Daten.</a>
+	<a href="preUserDataInput.do">Zur Eingabe von User Daten.</a>
 	</p>
-
 </body>
 </html>

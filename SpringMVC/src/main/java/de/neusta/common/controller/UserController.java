@@ -1,6 +1,9 @@
 package de.neusta.common.controller;
 
-import static de.neusta.common.controller.ControllerConstants.*;
+import static de.neusta.common.controller.ControllerConstants.USER_INPUT_PAGE;
+import static de.neusta.common.controller.ControllerConstants.USER_LIST;
+
+import java.util.List;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -8,6 +11,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -60,6 +64,7 @@ public class UserController {
 	}
 
 	@RequestMapping("/adduser")
+	@Transactional
 	protected ModelAndView addUser(@ModelAttribute User user,
 			final HttpServletRequest request, final HttpServletResponse response)
 			throws Exception {
@@ -82,5 +87,29 @@ public class UserController {
 
 		return new ModelAndView(USER_LIST);
 	}
+	
+	@RequestMapping("/listuser")
+	@Transactional
+	protected ModelAndView listUser()
+			throws Exception {
+
+		// logging
+		final long time = System.currentTimeMillis();
+		log.debug("Performing request mapping: /listuser");
+
+		// performing
+		final ModelAndView model = new ModelAndView(USER_LIST);
+		List<User> userlist = userService.getUserList();
+		model.addObject("Userlist", userlist);
+
+		// logging
+		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
+		log.debug("Operation took " + actTime.toString() + " milliseconds");
+
+		
+		return model;
+		
+	}
+	
 
 }

@@ -92,7 +92,7 @@ public class TestuserDao {
 		this.userDao.save(user);
 
 		this.userDao.remove(user);
-		final List<User> userList = this.userDao.findAll(User.class);
+		final List<User> userList = this.userDao.findAll(User.class, "", "");
 		Assert.assertEquals("There should be no user in list.", 0,
 				userList.size());
 
@@ -123,14 +123,14 @@ public class TestuserDao {
 		user.setName("testSaveExist");
 		this.userDao.save(user);
 
-		User savedUser = this.userDao.findAll(User.class).get(0);
+		User savedUser = this.userDao.findAll(User.class, "", "").get(0);
 		user.setName("newname");
 		this.userDao.save(savedUser);
 		user.setLogin("newname");
 
-		final List<User> allUsers = this.userDao.findAll(User.class);
+		final List<User> allUsers = this.userDao.findAll(User.class, "", "");
 		Assert.assertEquals("There should be one user", 1, allUsers.size());
-		savedUser = this.userDao.findAll(User.class).get(0);
+		savedUser = this.userDao.findAll(User.class, "", "").get(0);
 		Assert.assertEquals("User name should be newname", "newname",
 				savedUser.getName());
 	}
@@ -140,7 +140,7 @@ public class TestuserDao {
 		final User user = new User();
 		user.setName("testSaveNotExist");
 		this.userDao.save(user);
-		final User savedUser = this.userDao.findAll(User.class).get(0);
+		final User savedUser = this.userDao.findAll(User.class, "", "").get(0);
 		Assert.assertEquals("User should be equal to saved user", user,
 				savedUser);
 	}

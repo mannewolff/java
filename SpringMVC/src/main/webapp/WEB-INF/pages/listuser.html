@@ -1,0 +1,21 @@
+<html>
+<head>
+<link rel="stylesheet" href="../../resources/mwolff.css" type="text/css">
+</head>
+<body>
+
+	<h1>Liste der Personen</h1>
+	<table width="100%" cellpadding="5" cellspacing="0">
+	#set ($counter = 1)
+	#foreach( $user in $Userlist )
+	
+		<tr #if ($counter %2 == 0) bgcolor="#E0E0E0" #end 
+		    #if ($counter %2 != 0) bgcolor="#FFFFFF" #end>
+			<td>$user.id</td>
+			<td>$user.name</td>
+			<td>$user.prename</td>
+		</tr>
+	#end	
+	</table>
+</body>
+</html>

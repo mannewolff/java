@@ -5,6 +5,8 @@ import static de.neusta.common.controller.ControllerConstants.USER_LIST;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.util.List;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -74,5 +76,15 @@ public class TestUserController {
 		assertEquals("", user.getName());
 		assertEquals("", user.getPrename());
 
+	}
+	
+	@Test
+	public void testListUser() throws Exception {
+
+		final ModelAndView model = this.userController.listUser();
+		assertEquals(USER_LIST, model.getViewName());
+		List<User> userlist = (List<User>) model.getModel().get("userlist");
+		//assertEquals(true, userlist.size() > 0);
+		
 	}
 }

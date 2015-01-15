@@ -16,8 +16,8 @@ public class GenericDao<T extends DataBaseEntity> {
 	protected EntityManager em;
 
 	@SuppressWarnings("unchecked")
-	public List<T> findAll(final Class<T> type) {
-		return this.em.createQuery("from " + type.getName() + "")
+	public List<T> findAll(final Class<T> type, final String whereClause, final String orderByClause) {
+		return this.em.createQuery("from " + type.getName() + " " + whereClause + " "  + orderByClause)
 				.getResultList();
 	}
 

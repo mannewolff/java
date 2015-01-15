@@ -55,9 +55,9 @@ public class TestAddressDao {
 	public void testAdressesSaveExists() throws Exception {
 
 		initializeTwoAddresses();
-		final List<Address> allAdresses = addressdao.findAll(Address.class);
+		final List<Address> allAdresses = addressdao.findAll(Address.class, "", "");
 		Assert.assertEquals("There should be two addresses", 2, allAdresses.size());
-		Address address = addressdao.findAll(Address.class).get(1);
+		Address address = addressdao.findAll(Address.class, "", "").get(1);
 		Assert.assertEquals("Adress city should be Hannover", "Hannover", address.getCity());
 		Assert.assertEquals("Adress zip code should be 34567", "34567", address.getZipcode());
 		Assert.assertEquals("Adress street should be Limmer Str. 12", "Limmer Str. 12", address.getStreet());

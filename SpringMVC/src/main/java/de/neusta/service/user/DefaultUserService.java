@@ -5,6 +5,7 @@ import java.util.List;
 import javax.annotation.Resource;
 
 import org.apache.log4j.Logger;
+import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.Address;
@@ -19,10 +20,11 @@ public class DefaultUserService implements UserService {
 
 	@Override
 	public List<User> getUserList() {
-		return userdao.findAll(User.class);
+		return userdao.findAll(User.class, "", "order by name");
 	}
 
 	@Override
+	@Transactional
 	public void deleteUser(Long userId) {
 		User user = userdao.getPerID(userId, User.class);
 		if (user != null) {
@@ -31,6 +33,7 @@ public class DefaultUserService implements UserService {
 	}
 
 	@Override
+	@Transactional
 	public void deleteUser(User user) {
 		if (user != null) {
 			deleteUser(user.getId());
@@ -38,6 +41,7 @@ public class DefaultUserService implements UserService {
 	}
 
 	@Override
+	@Transactional
 	public void saveUser(User user) {
 		if (user != null) {
 			userdao.save(user);
@@ -50,6 +54,7 @@ public class DefaultUserService implements UserService {
 	}
 
 	@Override
+	@Transactional
 	public void addAddress(final User user, final Address address) {
 		userdao.setAddress(user, address);
 	}

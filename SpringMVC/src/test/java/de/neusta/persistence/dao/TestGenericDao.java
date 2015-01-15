@@ -38,7 +38,7 @@ public class TestGenericDao {
 		user2.setName("Gabi");
 		userdao.save(user2);
 		
-		List<User> userlist = userdao.findAll(User.class);
+		List<User> userlist = userdao.findAll(User.class, "", "");
 		Assert.assertEquals(2, userlist.size());
 	}
 

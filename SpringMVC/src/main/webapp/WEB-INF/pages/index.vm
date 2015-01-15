@@ -2,7 +2,8 @@
 <body>
 	<h1>Welcome to mwolff.info</h1>
 	<p>
-	<a href="preuser.do?id=0">Zur Eingabe von User Daten.</a>
+	<a href="preuser.do?id=0">Zur Eingabe von Benutzer Daten.</a><br/>
+	<a href="listuser.do">Liste von allen Benutzern.</a>
 	</p>
 </body>
 </html>

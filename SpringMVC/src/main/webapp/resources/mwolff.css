@@ -1,0 +1,33 @@
+
+
+/* Standard settings */
+body {
+  font-size: 80%;
+  font-family: Verdana,Arial,sans-serif;
+  margin: 10px;
+  padding: 0;
+}
+
+/* setting for headings and paragraphs */
+
+h1 {font-size:140%;}
+h2 {font-size:140%;}
+h3 {
+   margin: 0px; 
+   padding: 2px 0 0 3px; 
+   font-size:100%;
+}
+
+table {
+  border-top-width:2px;
+  border-top-style:solid;
+  border-color:blue;
+  border-bottom-width:2px;
+  border-bottom-style:solid;
+}
+
+TR {
+  border-top-width:1px;
+  border-top-style:solid;
+  border-color:blue;
+}

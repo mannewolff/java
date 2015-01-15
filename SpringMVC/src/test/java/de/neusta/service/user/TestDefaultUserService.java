@@ -1,8 +1,6 @@
 package de.neusta.service.user;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 import java.util.List;
 
@@ -88,21 +86,33 @@ public class TestDefaultUserService {
 		User userChanged = userdao.getPerID(pk, User.class);
 		assertEquals("Changed", userChanged.getName());
 	}
-
+	
 	@Test
-	@Ignore
 	public void testGetUserAdresses() throws Exception {
 
 		User user = new User();
 		user.setName("Meier");
 		user.setPrename("Jan");
-		userdao.save(user);
+		userService.saveUser(user);
 		Address adress = new Address();
 		adress.setCity("Bremen");
 		userdao.setAddress(user, adress);
-		// List<Address> addresses = userService.getUserAddresses();
-		// assertEquals(1, addresses.size());
+		List<Address> addresses = userService.getUserAddresses(user);
+		assertEquals(1, addresses.size());
 
+	}
+	
+	@Test
+	public void testAddAddress() throws Exception {
+		User user = new User();
+		user.setName("Meier");
+		user.setPrename("Jan");
+		userService.saveUser(user);
+		Address adress = new Address();
+		adress.setCity("Bremen");
+		userService.addAddress(user, adress);
+		List<Address> addresses = userService.getUserAddresses(user);
+		assertEquals(1, addresses.size());
 	}
 
 	private Long createUser(String name, String prename) {

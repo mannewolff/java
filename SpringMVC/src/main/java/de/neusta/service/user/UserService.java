@@ -19,5 +19,5 @@ public interface UserService {
 
 	List<Address> getUserAddresses(final User user);
 	
-	void addAdress(Address address);
+	void addAddress(final User user, final Address address);
 }

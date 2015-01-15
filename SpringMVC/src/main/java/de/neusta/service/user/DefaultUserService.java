@@ -46,11 +46,12 @@ public class DefaultUserService implements UserService {
 
 	@Override
 	public List<Address> getUserAddresses(final User user) {
-		return null;
+		return userdao.getAddresses(user);
 	}
 
 	@Override
-	public void addAdress(Address address) {
+	public void addAddress(final User user, final Address address) {
+		userdao.setAddress(user, address);
 	}
 
 	@Override

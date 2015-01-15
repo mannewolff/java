@@ -22,11 +22,14 @@ public class PropertyLoader {
 
 	static Logger log = Logger.getLogger(PropertyLoader.class);;
 
-	public PropertyLoader(final String resource, final Methods method)
-			throws Exception {
+	public PropertyLoader(final String resource, final Methods method) {
 		super();
 		if (method == Methods.CLASSPATH) {
-			loadPerClathpath(resource);
+			try {
+				loadPerClathpath(resource);
+			} catch (Exception e) {
+				// never occurs, damned java interface
+			}
 		}
 	}
 

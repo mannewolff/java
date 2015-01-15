@@ -1,7 +1,6 @@
-package de.neusta.service.user;
+package de.neusta.persistence.dao;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 import java.util.List;
 import java.util.Set;
@@ -183,4 +182,29 @@ public class TestuserDao {
 		addresses = user.getAddresses();
 		Assert.assertEquals(2, addresses.size());
 	}
+	
+	@Test
+	public void testGetAddresses() throws Exception {
+
+		User user = new User();
+		user.setName("Wolff");
+		userDao.save(user);
+
+		Address address = new Address();
+		address = new Address();
+		address.setZipcode("34567");
+		address.setCity("Hannover");
+		address.setStreet("Limmer Str. 12");
+		address.setPhone("0421 555444");
+		address.setMobile("0151 5443555");
+		address.setEmailhome("anonymous@email.com");
+		address.setEmailbusiness("business@email.com");
+		addressDao.save(address);
+		userDao.setAddress(user, address);
+		userDao.save(user);
+
+		List<Address> addresses = userDao.getAddresses(user);
+		Assert.assertEquals(1, addresses.size());
+	}
+	
 }

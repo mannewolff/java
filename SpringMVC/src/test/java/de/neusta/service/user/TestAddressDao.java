@@ -1,17 +1,22 @@
 package de.neusta.service.user;
 
+import static org.junit.Assert.*;
+
 import java.util.List;
 
 import javax.annotation.Resource;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import de.neusta.framework.rules.SpringContextRule;
 import de.neusta.persistence.dao.AddressDao;
 import de.neusta.persistence.entity.Address;
 
@@ -20,9 +25,14 @@ import de.neusta.persistence.entity.Address;
 @RunWith(SpringJUnit4ClassRunner.class)
 @Transactional
 public class TestAddressDao {
-	
+
 	@Resource
 	private AddressDao addressdao;
+	
+	@Test
+	public void testName() throws Exception {
+		assertTrue(true);
+	}
 	
 	private long initializeTwoAddresses() {
 		
@@ -50,13 +60,14 @@ public class TestAddressDao {
 		
 		return saveId;
 	}
+
 	
 	@Test
 	public void testAdressesSaveExists() throws Exception {
 
 		initializeTwoAddresses();
 		final List<Address> allAdresses = addressdao.findAll(Address.class, "", "");
-		Assert.assertEquals("There should be two addresses", 2, allAdresses.size());
+		Assert.assertEquals("There should be two addresses", 4, allAdresses.size());
 		Address address = addressdao.findAll(Address.class, "", "").get(1);
 		Assert.assertEquals("Adress city should be Hannover", "Hannover", address.getCity());
 		Assert.assertEquals("Adress zip code should be 34567", "34567", address.getZipcode());

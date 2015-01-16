@@ -1,12 +1,12 @@
 package de.neusta.persistence.dao;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.util.List;
 
 import javax.annotation.Resource;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -27,9 +27,6 @@ public class TestGenericDao {
 	@Resource
 	UserDao userdao;
 
-	@PersistenceContext
-	protected EntityManager em;
-	
 	@Test
 	@Transactional
 	public void testFindAll() throws Exception {

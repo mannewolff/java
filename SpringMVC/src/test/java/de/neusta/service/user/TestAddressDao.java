@@ -60,7 +60,6 @@ public class TestAddressDao {
 		
 		return saveId;
 	}
-
 	
 	@Test
 	public void testAdressesSaveExists() throws Exception {

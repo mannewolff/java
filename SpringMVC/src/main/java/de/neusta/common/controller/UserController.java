@@ -21,10 +21,10 @@ import de.neusta.persistence.entity.User;
 import de.neusta.service.user.UserService;
 
 @Controller
-public class UserController {
+public class UserController extends AspectController {
 
 	static Logger log = Logger.getLogger(UserController.class);
-	
+
 	@Resource
 	UserService userService;
 
@@ -35,11 +35,11 @@ public class UserController {
 	 * @throws Exception
 	 */
 	@RequestMapping("/preuser")
-	protected ModelAndView prepareUserDataInput(@RequestParam Long id) throws Exception {
+	protected ModelAndView prepareUserDataInput(@RequestParam Long id)
+			throws Exception {
 
 		// logging
-		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /preuser.");
+		beginMethod(log, "prepareUserDataInput @RequestMapping=/preuser.");
 
 		// performing
 		final ModelAndView model = new ModelAndView(USER_INPUT_PAGE);
@@ -58,8 +58,7 @@ public class UserController {
 		model.addObject("User", user);
 
 		// logging
-		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
-		log.debug("Operation took " + actTime.toString() + " milliseconds");
+		endMethod();
 
 		return model;
 	}
@@ -71,38 +70,35 @@ public class UserController {
 			throws Exception {
 
 		// logging
-		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /adduser");
+		beginMethod(log, "addUser @RequestMapping=/adduser.");
 
 		// performing
 		if (user == null) {
 			log.error("User in scope is null.");
-			
 		}
+	
 		if ("".equals(user.getId())) {
-			log.debug("Saving user " + user.getId() + " " + user.getPrename() + " " + user.getName());
-			userService.saveUser(user); 
+			log.debug("Saving user " + user.getId() + " " + user.getPrename()
+					+ " " + user.getName());
+			userService.saveUser(user);
 		} else {
-			log.debug("Merging user " + user.getId() + " " + user.getPrename() + " " + user.getName());
-			userService.mergeUser(user); 
+			log.debug("Merging user " + user.getId() + " " + user.getPrename()
+					+ " " + user.getName());
+			userService.mergeUser(user);
 		}
-			
 
 		// logging
-		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
-		log.debug("Operation took " + actTime.toString() + " milliseconds");
+		endMethod();
 
 		return listUser();
 	}
-	
+
 	@RequestMapping("/listuser")
 	@Transactional
-	protected ModelAndView listUser()
-			throws Exception {
+	protected ModelAndView listUser() throws Exception {
 
 		// logging
-		final long time = System.currentTimeMillis();
-		log.debug("Performing request mapping: /listuser");
+		beginMethod(log, "listUser @RequestMapping=/listuser.");
 
 		// performing
 		final ModelAndView model = new ModelAndView(USER_LIST);
@@ -110,13 +106,10 @@ public class UserController {
 		model.addObject("Userlist", userlist);
 
 		// logging
-		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
-		log.debug("Operation took " + actTime.toString() + " milliseconds");
+		endMethod();
 
-		
 		return model;
-		
+
 	}
-	
 
 }

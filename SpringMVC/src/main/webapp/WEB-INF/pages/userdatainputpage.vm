@@ -35,8 +35,8 @@
     <tr>
       <td align="right">Formular:</td>
       <td>
-        <input type="submit" value=" Absenden ">
-        <input type="reset" value=" Abbrechen">
+        <input type="submit" value=" Speichern ">
+        <input type="reset" value=" Abbrechen ">
       </td>
     </tr>
     </table>

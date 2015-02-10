@@ -29,11 +29,8 @@ public class SpringContextRule implements TestRule {
 				context.getAutowireCapableBeanFactory().autowireBean(
 						SpringContextRule.this.target);
 				context.start();
-				try {
-					base.evaluate();
-				} finally {
-					context.close();
-				}
+				base.evaluate();
+				context.close();
 			}
 		};
 	}

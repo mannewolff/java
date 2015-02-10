@@ -75,9 +75,10 @@ public class UserController extends AspectController {
 		// performing
 		if (user == null) {
 			log.error("User in scope is null.");
+			return null;
 		}
 	
-		if ("".equals(user.getId())) {
+		if ((user.getId() == 0l)) {
 			log.debug("Saving user " + user.getId() + " " + user.getPrename()
 					+ " " + user.getName());
 			userService.saveUser(user);

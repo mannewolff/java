@@ -10,12 +10,23 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Properties;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 public class TestACLTester {
 	
-	private final ACLTester aclTester = new ACLTester();
+	private ACLTester aclTester;
+	
+	@Before
+	public void init() {
+		aclTester = new ACLTester();
+		try {
+			aclTester.initialize();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
 	@Test
 	public void constants() throws Exception {

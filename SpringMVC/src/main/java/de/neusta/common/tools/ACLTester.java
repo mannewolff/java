@@ -8,17 +8,13 @@ public class ACLTester {
 
 	private Properties properties;
 
-	public ACLTester()  {
-		initialize();
+	public ACLTester() {
 	}
 
-	private void initialize()  {
+	public void initialize() throws Exception {
 		PropertyLoader loader = null;
-		try {
-			loader = new PropertyLoader("/acl.properties", Methods.CLASSPATH);
-		} catch (Exception e) {
-			// could never be
-		}
+		loader = new PropertyLoader();
+		loader.initialize("/acl.properties", Methods.CLASSPATH);
 		this.properties = loader.getProperties();
 	}
 

@@ -86,7 +86,7 @@ public class TestGenericDao {
 		this.userdao.save(user1);
 
 		user1.setName("Helmut");
-		userdao.merge(user1);
+		userdao.update(user1);
 		
 	}
 }

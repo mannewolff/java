@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 public class AspectController {
 
 	private long time;
+	private Long actTime;
 	private Logger log;
 
 	public void beginMethod(final Logger log, final String methodName) {
@@ -14,7 +15,7 @@ public class AspectController {
 	}
 
 	public void endMethod() {
-		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
+		actTime = Long.valueOf(System.currentTimeMillis() - time);
 		log.debug("Operation took " + actTime.toString() + " milliseconds");
 	}
 

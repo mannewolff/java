@@ -63,6 +63,12 @@ public class TestDefaultUserService {
 
 	@Test
 	public void testDeleteUser() throws Exception {
+		// No exception should occur
+		User nullUser = null;
+		userService.deleteUser(nullUser);
+		userService.deleteUser(0l);
+		
+		// the real test
 		User user = new User();
 		user.setName("Meier");
 		user.setPrename("Jan");
@@ -78,7 +84,12 @@ public class TestDefaultUserService {
 
 	@Test
 	public void testSaveUser() throws Exception {
-
+		
+		// No exception should occur
+		User nulluser = null;
+		userService.saveUser(nulluser);
+		
+		// the real test
 		Long pk = createUser("Rogge", "Helmut");
 		User user = userdao.getPerID(pk, User.class);
 		user.setName("Changed");
@@ -124,4 +135,19 @@ public class TestDefaultUserService {
 		Long pk = user.getId();
 		return pk;
 	}
+
+	@Test
+	public void testMergeUser() throws Exception {
+		User user = new User();
+		user.setName("a");
+		user.setPrename("b");
+		userService.saveUser(user);
+		Long pk = user.getId();
+		user.setPrename("c");
+		userService.mergeUser(user);
+		User perID = userdao.getPerID(pk, User.class);
+		assertEquals("c", perID.getPrename());;
+	}
+	
+	
 }

@@ -112,5 +112,4 @@ public class UserController extends AspectController {
 		return model;
 
 	}
-
 }

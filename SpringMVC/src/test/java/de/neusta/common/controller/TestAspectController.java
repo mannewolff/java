@@ -22,8 +22,7 @@ public class TestAspectController {
 		Logger log = (Logger) ReflectionTestUtils.getField(aspectController,"log");
 		Assert.assertSame(log, this.log);
 		long time = (long) ReflectionTestUtils.getField(aspectController,"time");
-		// @TODO: Find a good test
-		//Assert.assertTrue(time < 10000);
+		//Assert.assertTrue(time < System.currentTimeMillis());
 	}
 
 	@Test

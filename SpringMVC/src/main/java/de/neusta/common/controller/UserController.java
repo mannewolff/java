@@ -6,8 +6,6 @@ import static de.neusta.common.controller.ControllerConstants.USER_LIST;
 import java.util.List;
 
 import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
@@ -54,7 +52,7 @@ public class UserController extends AspectController {
 			user.setComment("");
 		} else {
 			log.debug("Fetching existing user from database.");
-			user = userService.getUser(id);
+			user = userService.getUserDao().getPerID(id, User.class);
 		}
 		model.addObject("User", user);
 
@@ -81,11 +79,11 @@ public class UserController extends AspectController {
 		if ((user.getId() == null) || (user.getId() == 0l)) {
 			log.debug("Saving user " + user.getId() + " " + user.getPrename()
 					+ " " + user.getName());
-			userService.saveUser(user);
+			userService.getUserDao().save(user);
 		} else {
 			log.debug("Merging user " + user.getId() + " " + user.getPrename()
 					+ " " + user.getName());
-			userService.mergeUser(user);
+			userService.getUserDao().merge(user);
 		}
 
 		// logging
@@ -103,7 +101,7 @@ public class UserController extends AspectController {
 
 		// performing
 		final ModelAndView model = new ModelAndView(USER_LIST);
-		List<User> userlist = userService.getUserList();
+		List<User> userlist = userService.getUserDao().findAll(User.class, "", "order by name");
 		model.addObject("Userlist", userlist);
 
 		// logging

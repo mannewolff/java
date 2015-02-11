@@ -25,6 +25,17 @@ public class User implements DataBaseEntity {
 
 	protected String password;
 	
+	protected String comment;
+	
+	
+	public String getComment() {
+		return comment;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
+	}
+
 	@OneToMany(fetch = FetchType.EAGER)
 	protected Set<Address> addresses = new HashSet<Address>();
 	

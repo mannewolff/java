@@ -30,13 +30,13 @@
     </tr>
     <tr>
       <td align="right" valign="top">Kommentar:</td>
-      <td><textarea name="Text" rows="10" cols="50"></textarea></td>
+      <td><textarea name="comment" rows="10" cols="50" value="$User.getComment()">$User.comment</textarea></td>
     </tr>
     <tr>
       <td align="right">Formular:</td>
       <td>
         <input type="submit" value=" Speichern ">
-        <input type="reset" value=" Abbrechen ">
+        <input type="button" onclick="window.location.replace('listuser.do')" value="Abbrechen" />
       </td>
     </tr>
     </table>

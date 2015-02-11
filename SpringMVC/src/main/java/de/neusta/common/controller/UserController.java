@@ -37,7 +37,7 @@ public class UserController extends AspectController {
 	@RequestMapping("/preuser")
 	protected ModelAndView prepareUserDataInput(@RequestParam Long id)
 			throws Exception {
-
+		
 		// logging
 		beginMethod(log, "prepareUserDataInput @RequestMapping=/preuser.");
 
@@ -51,6 +51,7 @@ public class UserController extends AspectController {
 			user.setPrename("");
 			user.setLogin("");
 			user.setPassword("");
+			user.setComment("");
 		} else {
 			log.debug("Fetching existing user from database.");
 			user = userService.getUser(id);
@@ -71,14 +72,18 @@ public class UserController extends AspectController {
 
 		// logging
 		beginMethod(log, "addUser @RequestMapping=/adduser.");
+		log.debug("User ist " + user);
 
 		// performing
 		if (user == null) {
 			log.error("User in scope is null.");
-			return null;
+			return prepareUserDataInput(0l);
 		}
+
+		log.debug("User comment is " + user.getComment());
+		
 	
-		if ((user.getId() == 0l)) {
+		if ((user.getId() == null) || (user.getId() == 0l)) {
 			log.debug("Saving user " + user.getId() + " " + user.getPrename()
 					+ " " + user.getName());
 			userService.saveUser(user);

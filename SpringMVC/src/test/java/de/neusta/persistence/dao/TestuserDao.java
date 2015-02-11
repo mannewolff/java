@@ -50,6 +50,7 @@ public class TestuserDao {
 		user.setPrename("Manfred");
 		user.setName("Wolff");
 		user.setLogin("mannewolff");
+		user.setComment("Dies ist ein Kommentar");
 		this.userDao.save(user);
 		final long saveId = user.getId();
 
@@ -57,6 +58,7 @@ public class TestuserDao {
 		user.setPrename("Gabi");
 		user.setName("Rosenbaum");
 		user.setLogin("grosserose");
+		user.setComment("Dies ist ein zweiter Kommentar");
 		this.userDao.save(user);
 
 		user = new User();
@@ -78,6 +80,8 @@ public class TestuserDao {
 				user.getPrename());
 		assertEquals("User id should be the saved id", Long.valueOf(saveId),
 				user.getId());
+		assertEquals("User comment should be Dies ist eine Kommentar", "Dies ist ein Kommentar",
+				user.getComment());
 	}
 
 	@Test

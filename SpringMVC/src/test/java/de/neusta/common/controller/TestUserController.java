@@ -85,7 +85,7 @@ public class TestUserController {
 				this.request, this.response);
 		
 		// verifying
-		assertEquals(null, model);
+		assertEquals(USER_INPUT_PAGE, model.getViewName());
 	}
 
 	@Test

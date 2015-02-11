@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<persistence version="1.0" xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd">
+<persistence version="1.0"
+	xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd">
 	<persistence-unit name="SpringMVC">
-				<property name="persistenceUnitManager">
-					<bean
-						class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
-						<property name="defaultDataSource" ref="myDataSource" />
-					</bean>
-				</property>
+		<class>de.neusta.persistence.entity.Address</class>
+		<class>de.neusta.persistence.entity.User</class>
+		<property name="persistenceUnitManager">
+			<bean
+				class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
+				<property name="defaultDataSource" ref="myDataSource" />
+			</bean>
+		</property>
 	</persistence-unit>
 </persistence>

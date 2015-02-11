@@ -2,8 +2,6 @@ package de.neusta.common.tools;
 
 import java.util.Properties;
 
-import de.neusta.common.tools.PropertyLoader.Methods;
-
 public class ACLTester {
 
 	private Properties properties;
@@ -14,7 +12,7 @@ public class ACLTester {
 	public void initialize() throws Exception {
 		PropertyLoader loader = null;
 		loader = new PropertyLoader();
-		loader.initialize("/acl.properties", Methods.CLASSPATH);
+		loader.initialize("/acl.properties");
 		this.properties = loader.getProperties();
 	}
 

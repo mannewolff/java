@@ -14,19 +14,17 @@ import org.apache.log4j.Logger;
  */
 public class PropertyLoader {
 
-	public static enum Methods {
-		CLASSPATH, DEFAULT
-	}
+//	public static enum Methods {
+//		CLASSPATH, DEFAULT
+//	}
 
 	private final Properties properties = new Properties();
 
 	static Logger log = Logger.getLogger(PropertyLoader.class);;
 
-	public void initialize(final String resource, final Methods method)
+	public void initialize(final String resource)
 			throws Exception {
-		if (method == Methods.CLASSPATH) {
 			loadPerClathpath(resource);
-		}
 	}
 
 	public Properties getProperties() {

@@ -1,0 +1,7 @@
+    <div id="sidebar">
+    <!-- <h3>Home</h3> -->
+    <ul class="listsidebar">
+    
+    <li id="current" class=" listsidebaritems"><a href="#">Home</a></li>
+    </ul>
+    </div>

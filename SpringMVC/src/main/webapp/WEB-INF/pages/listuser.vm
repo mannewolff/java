@@ -4,6 +4,12 @@
 </head>
 <body>
 
+	#include("header.vm")
+	
+	#include("sidebar.vm")
+    
+	<div id="content">
+
 	<h1 align="center">Liste der Personen</h1>
 	<table width="80%" align="center" cellpadding="5" cellspacing="0">
 	#set ($counter = 1)
@@ -19,5 +25,11 @@
 	#set ($counter = $counter + 1)	
 	#end	
 	</table>
+    </div>
+
+<!--    
+	#include("footer.vm")
+-->		
+    
 </body>
 </html>

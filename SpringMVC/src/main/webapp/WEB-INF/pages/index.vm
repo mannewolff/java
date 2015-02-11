@@ -1,9 +1,51 @@
 <html>
+
+<head>
+    <link rel="stylesheet" href="resources/mwolff.css" type="text/css">
+</head>
+
 <body>
-	<h1>Welcome to mwolff.info</h1>
-	<p>
-	<a href="preuser.do?id=0">Zur Eingabe von Benutzer Daten.</a><br/>
-	<a href="listuser.do">Liste von allen Benutzern.</a>
-	</p>
+
+	#include("header.vm")
+	
+	#include("sidebar.vm")
+    
+	<div id="content">
+
+		<p>
+		<a href="preuser.do?id=0">Zur Eingabe von Benutzer Daten.</a><br/>
+		<a href="listuser.do">Liste von allen Benutzern.</a>
+		</p>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+
+    </div>
+
+<!--    
+	#include("footer.vm")
+-->		
 </body>
 </html>
+

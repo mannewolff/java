@@ -49,6 +49,9 @@
     </table>
     </div>
     
-	#include("footer.vm")	
+<!--    
+	#include("footer.vm")
+-->		
+
 </body>
 </html>

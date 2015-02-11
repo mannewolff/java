@@ -4,8 +4,67 @@
 body {
   font-size: 80%;
   font-family: Verdana,Arial,sans-serif;
-  margin: 10px;
+  margin: 0 150px 0 150px;
   padding: 0;
+}
+
+/* standard layout settings */
+
+#content {
+   margin-bottom: 10px;
+   margin-left: 140px;
+   padding: 10px;
+   border: 0px solid #000;
+   border-left: 1px solid #000;
+   
+}
+
+#masthead {
+   margin: 0px;
+   padding: 0px;
+   border-bottom: 1px solid #000;
+   height: 130px;
+   /* background-color:#EAECD7; */
+}
+
+#sidebar {
+   clear: left;
+   float: left;
+   width: 120px;
+   padding: 5px 10px 10px 5px;
+   font-size:11px;
+   font-weight:bold;
+}
+
+/* Sidebar */
+.listsidebar {
+   list-style: none;
+   padding: 0;
+   margin: 0;
+}
+
+.listsidebaritems {
+   margin: 0;
+   padding: 2px 0 2px 0;
+   border-left: 1px solid #fff;
+   border-top: 1px solid #fff;
+   border-right: 1px solid #666;
+   border-bottom: 1px solid #aaa;
+}
+
+#footer {
+   clear: both;
+   padding: 10px;
+   border-top: 1px solid #000;
+   font-size:70%;
+}   
+
+#footerleft {
+   float: left;
+}
+
+#footerright {
+   float: right;
 }
 
 /* setting for headings and paragraphs */

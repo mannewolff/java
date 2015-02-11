@@ -5,6 +5,13 @@
 </head>
 
 <body>
+
+	#include("header.vm")
+	
+	#include("sidebar.vm")
+    
+	<div id="content">
+
 	<h1 align="center">Eingabe von Userdaten</h1>
 	<form name="adduser" action="adduser.do" method="post">
 	<table align="center" border="0" cellpadding="5" cellspacing="0" bgcolor="#E0E0E0">
@@ -40,6 +47,8 @@
       </td>
     </tr>
     </table>
-	
+    </div>
+    
+	#include("footer.vm")	
 </body>
 </html>

@@ -37,7 +37,7 @@ public class UserController extends AspectController {
 	@RequestMapping("/preuser")
 	protected ModelAndView prepareUserDataInput(@RequestParam Long id)
 			throws Exception {
-		
+
 		// logging
 		beginMethod(log, "prepareUserDataInput @RequestMapping=/preuser.");
 
@@ -66,9 +66,7 @@ public class UserController extends AspectController {
 
 	@RequestMapping("/adduser")
 	@Transactional
-	protected ModelAndView addUser(@ModelAttribute User user,
-			final HttpServletRequest request, final HttpServletResponse response)
-			throws Exception {
+	protected ModelAndView addUser(@ModelAttribute User user) throws Exception {
 
 		// logging
 		beginMethod(log, "addUser @RequestMapping=/adduser.");
@@ -80,9 +78,6 @@ public class UserController extends AspectController {
 			return prepareUserDataInput(0l);
 		}
 
-		log.debug("User comment is " + user.getComment());
-		
-	
 		if ((user.getId() == null) || (user.getId() == 0l)) {
 			log.debug("Saving user " + user.getId() + " " + user.getPrename()
 					+ " " + user.getName());

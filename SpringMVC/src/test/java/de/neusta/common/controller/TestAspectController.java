@@ -22,7 +22,7 @@ public class TestAspectController {
 		Logger log = (Logger) ReflectionTestUtils.getField(aspectController,"log");
 		Assert.assertSame(log, this.log);
 		long time = (long) ReflectionTestUtils.getField(aspectController,"time");
-		//Assert.assertTrue(time < System.currentTimeMillis());
+		Assert.assertTrue(time < System.currentTimeMillis());
 	}
 
 	@Test
@@ -32,7 +32,7 @@ public class TestAspectController {
 		aspectController.endMethod();
 		long time = (long) ReflectionTestUtils.getField(aspectController,"time");
 		Long actTime = (Long) ReflectionTestUtils.getField(aspectController,"actTime");
-		Assert.assertTrue(time > actTime.longValue());
+		Assert.assertTrue(time <= actTime);
 	}
 	
 	

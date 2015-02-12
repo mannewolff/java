@@ -13,9 +13,10 @@
 	<div id="content">
 
 		<p>
-		Velocity Generator für die Generierung von:
+		<b>Velocity Generator für die Generierung</b>
 		</p>
 		<ul>
+		<li>Controller</li>
 		<li>Entities</li>
 		<li>Entities-Tests</li>
 		</ul>

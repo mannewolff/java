@@ -26,6 +26,14 @@ body {
    /* background-color:#EAECD7; */
 }
 
+#headleft {
+   float: left;
+}
+
+#headright {
+   float: right;
+}
+
 #sidebar {
    clear: left;
    float: left;

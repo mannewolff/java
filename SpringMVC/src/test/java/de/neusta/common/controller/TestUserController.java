@@ -95,7 +95,6 @@ public class TestUserController {
 	// *******************************************************************
 	// URL /adduser
 	// *******************************************************************
-	@Ignore
 	@Test
 	public void testaddUserWithGivenID() throws Exception {
 
@@ -104,6 +103,7 @@ public class TestUserController {
 		Mockito.when(this.user.getPrename()).thenReturn("Manne");
 		Mockito.when(this.user.getId()).thenReturn(1l);
 		Mockito.when(this.userService.getUserDao()).thenReturn(userDao);
+		Mockito.when(this.userService.getUserDao().update(user)).thenReturn(user);
 
 		// execution
 		final ModelAndView model = this.userController.addUser(user);

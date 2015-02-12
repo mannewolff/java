@@ -112,4 +112,20 @@ public class UserController extends AspectController {
 		return model;
 
 	}
+
+	@RequestMapping("/deleteuser")
+	@Transactional
+	protected ModelAndView deleteUser(@RequestParam Long id) throws Exception {
+		
+		// logging
+		beginMethod(log, "listUser @RequestMapping=/listuser.");
+
+		// performing
+
+		// logging
+		endMethod();
+		
+		
+		return listUser();
+	}
 }

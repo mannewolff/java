@@ -109,7 +109,7 @@ public class TestUserController {
 		final ModelAndView model = this.userController.addUser(user);
 
 		// verifying
-		Mockito.verify(this.userDao, Mockito.times(1)).merge(user);
+		Mockito.verify(this.userDao, Mockito.times(1)).update(user);
 		assertEquals(USER_LIST, model.getViewName());
 	}
 

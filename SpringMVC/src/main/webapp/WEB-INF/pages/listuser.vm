@@ -17,6 +17,7 @@
 	
 		<tr #if ($counter %2 == 0) bgcolor="#FFFFFF" #end 
 		    #if ($counter %2 != 0) bgcolor="#E0E0E0" #end>
+			<td width="3%"><a href="deleteuser.do?id=$user.id"><img witdh="20" height="20" alt="delete icon" src="resources/icons/delete.png" border="0"/></a></td>
 			<td width="3%">$user.id</td>
 			<td width="20%"><a href="preuser.do?id=$user.id">$user.name</a></td>
 			<td width="20%">$user.prename</td>

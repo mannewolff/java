@@ -78,12 +78,14 @@ public class UserController extends AspectController {
 
 		if ((user.getId() == null) || (user.getId() == 0l)) {
 			log.debug("Saving user " + user.getId() + " " + user.getPrename()
-					+ " " + user.getName());
+					+ " " + user.getName() + " " + user.getComment() + " " + user.getLogin());
 			userService.getUserDao().save(user);
 		} else {
 			log.debug("Merging user " + user.getId() + " " + user.getPrename()
-					+ " " + user.getName());
-			userService.getUserDao().merge(user);
+					+ " " + user.getName() + " " + user.getComment() + " " + user.getLogin());
+			User mergedUser = userService.getUserDao().update(user);
+			log.debug("Merged user " + mergedUser.getId() + " " + mergedUser.getPrename()
+					+ " " + mergedUser.getName() + " " + mergedUser.getComment() + " " + mergedUser.getLogin());
 		}
 
 		// logging

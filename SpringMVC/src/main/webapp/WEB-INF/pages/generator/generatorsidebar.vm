@@ -3,6 +3,7 @@
     <ul class="listsidebar">
     
     <li id="current" class=" listsidebaritems"><a href="generatorindex.do">Generator</a></li>
+    <li id="current" class=" listsidebaritems"><a href="#">Configuration</a></li>
     </ul>
     
     </div>

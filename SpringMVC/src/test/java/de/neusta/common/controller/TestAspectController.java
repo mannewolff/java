@@ -11,18 +11,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 @RunWith(MockitoJUnitRunner.class)
 public class TestAspectController {
 
-	@Mock
-	Logger log;
-	
+	static Logger log = Logger.getLogger(TestAspectController.class);
 
 	@Test
 	public void testBeginMethod() throws Exception {
+		
+		// preparation
 		AspectController aspectController = new AspectController();
 		aspectController.beginMethod(log, "myMethod");
 		Logger log = (Logger) ReflectionTestUtils.getField(aspectController,"log");
 		Assert.assertSame(log, this.log);
 		long time = (long) ReflectionTestUtils.getField(aspectController,"time");
-		Assert.assertTrue(time < System.currentTimeMillis());
+		Assert.assertTrue(time <= System.currentTimeMillis());
 	}
 
 	@Test

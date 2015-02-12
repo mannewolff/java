@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.apache.log4j.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
@@ -32,6 +33,9 @@ public class TestIndexController {
 
 	@Mock
 	HttpSession session;
+	
+	@Mock
+	Logger log;
 
 	@Test
 	public void testControllerConstants() throws Exception {
@@ -46,7 +50,7 @@ public class TestIndexController {
 
 		// test execution
 		assertNotNull(this.indexController);
-		final ModelAndView model = this.indexController.handleRequestInternal(
+		final ModelAndView model = this.indexController.handleIndex(
 				this.request, this.response);
 		assertEquals(INDEX_PAGE, model.getViewName());
 
@@ -61,7 +65,7 @@ public class TestIndexController {
 
 		// test execution
 		assertNotNull(this.indexController);
-		final ModelAndView model = this.indexController.handleRequestInternal(
+		final ModelAndView model = this.indexController.handleIndex(
 				this.request, this.response);
 
 		assertEquals(INDEX_PAGE, model.getViewName());

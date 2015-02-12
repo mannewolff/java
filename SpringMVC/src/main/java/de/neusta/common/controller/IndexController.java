@@ -9,42 +9,34 @@ import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.mvc.AbstractController;
 
 import de.neusta.common.tools.LoginSessionInformation;
 import de.neusta.common.tools.SessionSupport;
 
 @Controller
-public class IndexController extends AbstractController {
+public class IndexController extends AspectController {
 
 	static Logger log = Logger.getLogger(IndexController.class);
 
-	@Override
 	@RequestMapping("/index")
-	protected ModelAndView handleRequestInternal(
+	protected ModelAndView handleIndex(
 			final HttpServletRequest request, final HttpServletResponse response)
 			throws Exception {
 
 		// logging
-		final long time = System.currentTimeMillis();
-		if (log.isDebugEnabled()) {
-			log.debug("Performing request mapping: /index.do.");
-		}
+		beginMethod(log, "prepareUserDataInput @RequestMapping=/index.");
 
 		validateLogin(request);
 
 		final ModelAndView model = new ModelAndView(INDEX_PAGE);
 
 		// logging
-		final Long actTime = Long.valueOf(System.currentTimeMillis() - time);
-		if (log.isDebugEnabled()) {
-			log.debug("Operation took " + actTime.toString() + " milliseconds");
-		}
+		endMethod();
 
 		return model;
 	}
 
-	public void validateLogin(final HttpServletRequest request) {
+	private void validateLogin(final HttpServletRequest request) {
 
 		final boolean result = SessionSupport.validateSessionOnLogon(request);
 		if (result) {

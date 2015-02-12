@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import de.neusta.persistence.entity.Address;
 import de.neusta.persistence.entity.User;
@@ -22,6 +23,7 @@ public class UserDao extends GenericDao<User> {
 				"from User u where name = '" + name + "'").getSingleResult();
 	}
 
+	@Transactional
 	public void setAddress(User user, Address address) {
 		Set<Address> addresse = user.getAddresses();
 		addresse.add(address);
@@ -37,9 +39,4 @@ public class UserDao extends GenericDao<User> {
 		}
 		return addresslist;
 	}
-
-	public void merge(User user) {
-		em.merge(user);
-	}
-
 }

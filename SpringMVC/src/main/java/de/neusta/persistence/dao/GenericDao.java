@@ -38,7 +38,7 @@ public class GenericDao<T extends DataBaseEntity> {
 	}
 
 	@Transactional
-	public void update (final T dao) {
-		this.em.merge(dao);
+	public <T> T update (final T dao) {
+		return this.em.merge(dao);
 	}
 }

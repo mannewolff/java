@@ -11,7 +11,6 @@ body {
 /* standard layout settings */
 
 #content {
-   margin-bottom: 10px;
    margin-left: 140px;
    padding: 10px;
    border: 0px solid #000;
@@ -23,7 +22,7 @@ body {
    margin: 0px;
    padding: 0px;
    border-bottom: 1px solid #000;
-   height: 130px;
+   height: 50px;
    /* background-color:#EAECD7; */
 }
 

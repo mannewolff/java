@@ -32,7 +32,7 @@ public class TestAspectController {
 		aspectController.endMethod();
 		long time = (long) ReflectionTestUtils.getField(aspectController,"time");
 		Long actTime = (Long) ReflectionTestUtils.getField(aspectController,"actTime");
-		Assert.assertTrue(time > actTime.longValue());
+		Assert.assertTrue(time <= actTime);
 	}
 	
 	

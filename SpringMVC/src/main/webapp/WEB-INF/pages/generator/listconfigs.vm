@@ -1,0 +1,35 @@
+<html>
+<head>
+<link rel="stylesheet" href="resources/mwolff.css" type="text/css">
+</head>
+<body>
+
+	#include("generator/generatorheader.vm")
+	
+	#include("generator/generatorsidebar.vm")
+    
+	<div id="content">
+
+	<h1 align="center">Liste der Konfigurationen / Projekte</h1>
+	<table width="80%" align="center" cellpadding="5" cellspacing="0">
+	#set ($counter = 1)
+	#foreach( $config in $Configlist )
+	
+		<tr #if ($counter %2 == 0) bgcolor="#FFFFFF" #end 
+		    #if ($counter %2 != 0) bgcolor="#E0E0E0" #end>
+			<td width="3%"><a href="deleteconfig.do?id=$config.id"><img witdh="20" height="20" alt="delete icon" src="resources/icons/delete.png" border="0"/></a></td>
+			<td width="3%">$config.id</td>
+			<td width="20%"><a href="preconfig.do?id=$config.id">$config.name</a></td>
+			<td width="57%">&nbsp;</td>
+		</tr>
+	#set ($counter = $counter + 1)	
+	#end	
+	</table>
+    </div>
+
+<!--    
+	#include("footer.vm")
+-->		
+    
+</body>
+</html>

@@ -3,5 +3,7 @@
 	<persistence-unit name="SpringMVC">
 	<class>de.neusta.persistence.entity.Address</class>
 	<class>de.neusta.persistence.entity.User</class>
+	<class>de.neusta.persistence.entity.Config</class>
+	<class>de.neusta.persistence.entity.ConfigItem</class>
 	</persistence-unit>
 </persistence>

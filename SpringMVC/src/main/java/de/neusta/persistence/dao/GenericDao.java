@@ -37,6 +37,7 @@ public class GenericDao<T extends DataBaseEntity> {
 		this.em.persist(dao);
 	}
 
+	@SuppressWarnings("hiding")
 	@Transactional
 	public <T> T update (final T dao) {
 		return this.em.merge(dao);

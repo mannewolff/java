@@ -63,7 +63,6 @@ public class TestuserDao {
 
 		user = new User();
 		user.setId(12l);
-		Long l = user.getId();
 
 		return saveId;
 	}

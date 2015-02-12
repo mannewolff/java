@@ -1,4 +1,4 @@
-package de.neusta.service.user;
+package de.neusta.service;
 
 import org.junit.Assert;
 import org.junit.Rule;
@@ -9,6 +9,7 @@ import org.mockito.Mock;
 
 import de.neusta.framework.rules.MockRule;
 import de.neusta.persistence.dao.UserDao;
+import de.neusta.persistence.entity.User;
 
 public class TestDefaultUserService {
 	
@@ -22,17 +23,20 @@ public class TestDefaultUserService {
 	UserDao userdao;
 
 	@Test
-	public void testGetUserDao() throws Exception {
+	public void testCreateUserObject() throws Exception {
 
 		// preparation
-		
-		// execution
-		UserDao dao = userService.getUserDao();
-		
-		// verification
-		Assert.assertSame(dao, userdao);
-	}
+		userService = new DefaultUserService();
 
+		// execution
+		User user = userService.createuserObject();
+
+		// verification
+		Assert.assertNotNull(user);
+		Assert.assertEquals(null, user.getId());
+		
+	}
+	
 }
 
 

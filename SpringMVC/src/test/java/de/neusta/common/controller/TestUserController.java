@@ -4,13 +4,13 @@ import static de.neusta.common.controller.ControllerConstants.USER_INPUT_PAGE;
 import static de.neusta.common.controller.ControllerConstants.USER_LIST;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 import java.util.List;
 
 import javax.servlet.http.HttpSession;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
@@ -19,9 +19,10 @@ import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.springframework.web.servlet.ModelAndView;
 
+import de.neusta.facades.UserFacade;
 import de.neusta.persistence.dao.UserDao;
 import de.neusta.persistence.entity.User;
-import de.neusta.service.user.UserService;
+import de.neusta.service.UserService;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TestUserController {
@@ -31,6 +32,9 @@ public class TestUserController {
 
 	@Mock
 	UserService userService;
+
+	@Mock
+	UserFacade userFacade;
 
 	@Mock
 	UserDao userDao;
@@ -57,23 +61,35 @@ public class TestUserController {
 	@Test
 	public void testPrepareUserDataInputWithZeroValue() throws Exception {
 
+		// preparation
+		Mockito.when(this.user.getId()).thenReturn(0l);
+		Mockito.when(userFacade.createUser(0l)).thenReturn(user);
+		
+		// execution
 		ModelAndView model = this.userController.prepareUserDataInput(0l);
+		
+		// validation
 		assertEquals(USER_INPUT_PAGE, model.getViewName());
 		User user = (User) model.getModel().get("User");
 		assertNotNull(user);
-		assertEquals("", user.getName());
-		assertEquals("", user.getPrename());
+		assertEquals(Long.valueOf(0), Long.valueOf(user.getId()));
 
 	}
 
 	@Test
 	public void testPrepareUserDataInputWithNullValue() throws Exception {
+		// preparation
+		Mockito.when(this.user.getId()).thenReturn(null);
+		Mockito.when(userFacade.createUser(null)).thenReturn(user);
+
+		// execution
 		ModelAndView model = this.userController.prepareUserDataInput(null);
+		
+		// validation
 		assertEquals(USER_INPUT_PAGE, model.getViewName());
-		user = (User) model.getModel().get("User");
+		User user = (User) model.getModel().get("User");
 		assertNotNull(user);
-		assertEquals("", user.getName());
-		assertEquals("", user.getPrename());
+		assertNull(user.getId());
 	}
 
 	@Test
@@ -82,12 +98,14 @@ public class TestUserController {
 		Mockito.when(this.user.getName()).thenReturn("Wolff");
 		Mockito.when(this.user.getPrename()).thenReturn("Manne");
 		Mockito.when(this.user.getId()).thenReturn(1l);
-		Mockito.when(this.userService.getUserDao()).thenReturn(userDao);
-		Mockito.when(this.userService.getUserDao().getPerID(1l, User.class)).thenReturn(user);
+		Mockito.when(userFacade.createUser(1l)).thenReturn(user);
+		
+		// execution
 		ModelAndView model = this.userController.prepareUserDataInput(1l);
+
+		// validation
 		assertEquals(USER_INPUT_PAGE, model.getViewName());
 		user = (User) model.getModel().get("User");
-		assertNotNull(user);
 		assertEquals("Wolff", user.getName());
 		assertEquals("Manne", user.getPrename());
 	}
@@ -102,14 +120,15 @@ public class TestUserController {
 		Mockito.when(this.user.getName()).thenReturn("Wolff");
 		Mockito.when(this.user.getPrename()).thenReturn("Manne");
 		Mockito.when(this.user.getId()).thenReturn(1l);
-		Mockito.when(this.userService.getUserDao()).thenReturn(userDao);
-		Mockito.when(this.userService.getUserDao().update(user)).thenReturn(user);
+		Mockito.when(userDao.findAll(User.class, "", "order by name")).thenReturn(userList);
+		Mockito.when(userList.size()).thenReturn(20);
+
 
 		// execution
 		final ModelAndView model = this.userController.addUser(user);
 
 		// verifying
-		Mockito.verify(this.userDao, Mockito.times(1)).update(user);
+		Mockito.verify(this.userFacade, Mockito.times(1)).saveOrUpdate(user);
 		assertEquals(USER_LIST, model.getViewName());
 	}
 
@@ -130,13 +149,14 @@ public class TestUserController {
 		Mockito.when(this.user.getName()).thenReturn("Wolff");
 		Mockito.when(this.user.getPrename()).thenReturn("Manne");
 		Mockito.when(this.user.getId()).thenReturn(0l);
-		Mockito.when(this.userService.getUserDao()).thenReturn(userDao);
+		Mockito.when(userDao.findAll(User.class, "", "order by name")).thenReturn(userList);
+		Mockito.when(userList.size()).thenReturn(20);
 
 		// execution
 		final ModelAndView model = this.userController.addUser(user);
 
 		// verifying
-		Mockito.verify(this.userDao, Mockito.times(1)).save(user);
+		Mockito.verify(this.userFacade, Mockito.times(1)).saveOrUpdate(user);
 		assertEquals(USER_LIST, model.getViewName());
 	}
 
@@ -151,8 +171,8 @@ public class TestUserController {
 		user.setName("Wolff");
 		user.setPrename("Manfred");
 		userList.add(user);
-		Mockito.when(this.userService.getUserDao()).thenReturn(userDao);
-		Mockito.when(userDao.findAll(User.class, "", "order by name")).thenReturn(userList);
+		Mockito.when(userFacade.getAllUser()).thenReturn(userList);
+		Mockito.when(userList.size()).thenReturn(20);
 
 		// execution
 		final ModelAndView model = this.userController.listUser();
@@ -162,4 +182,13 @@ public class TestUserController {
 		List<User> myUserList = (List<User>) model.getModel().get("Userlist");
 		assertSame(myUserList, userList);
 	}
+
+	@Test
+	public void testDeleteUser() throws Exception {
+
+		// execution
+		final ModelAndView model = this.userController.deleteUser(1l);
+		
+	}
+
 }

@@ -15,8 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
+import de.neusta.facades.UserFacade;
 import de.neusta.persistence.entity.User;
-import de.neusta.service.user.UserService;
+import de.neusta.service.UserService;
 
 @Controller
 public class UserController extends AspectController {
@@ -25,6 +26,9 @@ public class UserController extends AspectController {
 
 	@Resource
 	UserService userService;
+
+	@Resource
+	UserFacade userFacade;
 
 	/**
 	 * Prepares the data for creating and updating a user.
@@ -41,19 +45,7 @@ public class UserController extends AspectController {
 
 		// performing
 		final ModelAndView model = new ModelAndView(USER_INPUT_PAGE);
-		log.debug("Creating new User.");
-		User user = new User();
-		if ((id == null) || (id == 0)) {
-			log.debug("Nothing else to do.");
-			user.setName("");
-			user.setPrename("");
-			user.setLogin("");
-			user.setPassword("");
-			user.setComment("");
-		} else {
-			log.debug("Fetching existing user from database.");
-			user = userService.getUserDao().getPerID(id, User.class);
-		}
+		User user = userFacade.createUser(id);
 		model.addObject("User", user);
 
 		// logging
@@ -75,18 +67,8 @@ public class UserController extends AspectController {
 			log.error("User in scope is null.");
 			return prepareUserDataInput(0l);
 		}
-
-		if ((user.getId() == null) || (user.getId() == 0l)) {
-			log.debug("Saving user " + user.getId() + " " + user.getPrename()
-					+ " " + user.getName() + " " + user.getComment() + " " + user.getLogin());
-			userService.getUserDao().save(user);
-		} else {
-			log.debug("Merging user " + user.getId() + " " + user.getPrename()
-					+ " " + user.getName() + " " + user.getComment() + " " + user.getLogin());
-			User mergedUser = userService.getUserDao().update(user);
-			log.debug("Merged user " + mergedUser.getId() + " " + mergedUser.getPrename()
-					+ " " + mergedUser.getName() + " " + mergedUser.getComment() + " " + mergedUser.getLogin());
-		}
+		
+		userFacade.saveOrUpdate(user);
 
 		// logging
 		endMethod();
@@ -103,7 +85,7 @@ public class UserController extends AspectController {
 
 		// performing
 		final ModelAndView model = new ModelAndView(USER_LIST);
-		List<User> userlist = userService.getUserDao().findAll(User.class, "", "order by name");
+		List<User> userlist = userFacade.getAllUser();
 		model.addObject("Userlist", userlist);
 
 		// logging
@@ -116,7 +98,7 @@ public class UserController extends AspectController {
 	@RequestMapping("/deleteuser")
 	@Transactional
 	protected ModelAndView deleteUser(@RequestParam Long id) throws Exception {
-		
+
 		// logging
 		beginMethod(log, "listUser @RequestMapping=/deleteuser.");
 
@@ -124,8 +106,7 @@ public class UserController extends AspectController {
 
 		// logging
 		endMethod();
-		
-		
+
 		return listUser();
 	}
 }

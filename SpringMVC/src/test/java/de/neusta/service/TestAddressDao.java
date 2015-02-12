@@ -1,22 +1,19 @@
-package de.neusta.service.user;
+package de.neusta.service;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
 import javax.annotation.Resource;
 
 import org.junit.Assert;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import de.neusta.framework.rules.SpringContextRule;
 import de.neusta.persistence.dao.AddressDao;
 import de.neusta.persistence.entity.Address;
 

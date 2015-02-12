@@ -13,7 +13,10 @@
         http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd"
 	default-autowire="byName">
 	
-	<bean id="userService" class="de.neusta.service.user.DefaultUserService">
+	<bean id="userService" class="de.neusta.service.DefaultUserService">
+	</bean>
+              
+	<bean id="userFacade" class="de.neusta.facades.DefaultUserFacade">
 	</bean>
 
 	<bean id="userDao" class="de.neusta.persistence.dao.UserDao">

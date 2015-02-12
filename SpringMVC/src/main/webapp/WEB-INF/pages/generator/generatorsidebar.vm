@@ -2,7 +2,6 @@
     <!-- <h3>Home</h3> -->
     <ul class="listsidebar">
     
-    <li id="current" class=" listsidebaritems"><a href="index.do">Home</a></li>
     <li id="current" class=" listsidebaritems"><a href="generatorindex.do">Generator</a></li>
     </ul>
     

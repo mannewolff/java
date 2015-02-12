@@ -1,0 +1,54 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="resources/mwolff.css" type="text/css">
+</head>
+
+<body>
+
+	#include("generator/generatorheader.vm")
+	
+	#include("generator/generatorsidebar.vm")
+    
+	<div id="content">
+
+		<p>
+		Velocity Generator für die Generierung von:
+		</p>
+		<ul>
+		<li>Entities</li>
+		<li>Entities-Tests</li>
+		</ul>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+    <br/>
+
+    </div>
+
+<!--    
+	#include("footer.vm")
+-->		
+</body>
+</html>
+

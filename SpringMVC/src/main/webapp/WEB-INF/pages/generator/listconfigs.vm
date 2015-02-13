@@ -12,6 +12,13 @@
 
 	<h1 align="center">Liste der Konfigurationen / Projekte</h1>
 	<table width="80%" align="center" cellpadding="5" cellspacing="0">
+	<tr>
+	   <td colspan="4">
+	      <a href="#">
+	      <img alt="add icon" src="resources/icons/hinzufuegen.png" border="0"/> Configuration hinzufügen
+	      </a>
+	   </td>
+	</tr>
 	#set ($counter = 1)
 	#foreach( $config in $Configlist )
 	

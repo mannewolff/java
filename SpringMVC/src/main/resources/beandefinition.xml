@@ -19,6 +19,9 @@
 	<bean id="userFacade" class="de.neusta.facades.DefaultUserFacade">
 	</bean>
 
+	<bean id="ConfigFacade" class="de.neusta.facades.DefaultConfigFacade">
+	</bean>
+
 	<bean id="userDao" class="de.neusta.persistence.dao.UserDao">
 	</bean>
 

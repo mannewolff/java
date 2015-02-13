@@ -3,7 +3,7 @@
         <H1>Java Generatoren</H1>
     </div>
     <div id="headright">
-        <img witdh="150" height="150" alt="java" src="resources/pictures/java.png" border="0"/> </br>    
-        <img alt="team-neusta" src="resources/pictures/team-neusta.png" border="0"/><img alt="team-neusta" src="resources/pictures/team-neusta-text.png" border="0"/>    
+        <img witdh="120" height="120" alt="java" src="resources/pictures/java.png" border="0"/>
+        <!-- <img alt="team-neusta" src="resources/pictures/team-neusta.png" border="0"/><img alt="team-neusta" src="resources/pictures/team-neusta-text.png" border="0"/>-->    
     </div>
     </div>

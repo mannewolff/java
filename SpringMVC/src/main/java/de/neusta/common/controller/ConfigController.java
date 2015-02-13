@@ -3,6 +3,10 @@ package de.neusta.common.controller;
 import static de.neusta.common.controller.ControllerConstants.CONFIG_INPUT_PAGE;
 import static de.neusta.common.controller.ControllerConstants.CONFIG_LIST;
 
+import java.util.List;
+
+import javax.annotation.Resource;
+
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
+import de.neusta.facades.ConfigFacade;
+import de.neusta.persistence.entity.Config;
 import de.neusta.persistence.entity.User;
 
 @Controller
@@ -18,13 +24,8 @@ public class ConfigController extends AspectController {
 
 	static Logger log = Logger.getLogger(ConfigController.class);
 
-	/*
 	@Resource
-	ConfigService userService;
-
-	@Resource
-	ConfigFacade userFacade;
-	*/
+	ConfigFacade configFacade;
 
 	/**
 	 * Prepares the data for creating and updating a user.
@@ -84,10 +85,9 @@ public class ConfigController extends AspectController {
 		// performing
 		
 		final ModelAndView model = new ModelAndView(CONFIG_LIST);
-		/*
-		List<User> userlist = userFacade.getAllUser();
-		model.addObject("Userlist", userlist);
-		*/
+
+		List<Config> configlist = configFacade.getAllConfig();
+		model.addObject("Configlist", configlist);
 
 		// logging
 		endMethod();

@@ -22,6 +22,9 @@
 	<bean id="userDao" class="de.neusta.persistence.dao.UserDao">
 	</bean>
 
+	<bean id="configDao" class="de.neusta.persistence.dao.ConfigDao">
+	</bean>
+
 	<!-- Login validator -->
 	<bean id="lengthValidator" class="de.neusta.login.validator.LengthValidator">
 		<property name="length" value="14" />

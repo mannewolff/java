@@ -14,6 +14,7 @@ public class RestUserController {
 	@RequestMapping(value="/rest/{uid}")
 	protected String prepareUserDataInput(@PathVariable("uid") final String uid) {
 
+		
 		// performing
 		log.debug("REST --> ");
 		//log.debug("REST --> " + uid);

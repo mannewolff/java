@@ -22,7 +22,7 @@ public class DefaultCommand<T extends Context> implements Command<T> {
      * @see de.mwolff.commons.command.Command#execute(de.mwolff.commons.command.Context)
      */
     @Override
-    public void execute(T context) throws Exception {
+    public void execute(T context) throws CommandException {
         // has to be implemented
     }
 

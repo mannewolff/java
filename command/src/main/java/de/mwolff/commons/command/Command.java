@@ -18,7 +18,7 @@ public interface Command<T extends Context> {
      * 
      * @param context
      */
-    void execute(T context) throws Exception;
+    void execute(T context) throws CommandException;
 
     /**
      * Executes a command as a chain. Best way to execute a command chain is to

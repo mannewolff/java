@@ -10,9 +10,9 @@ package de.mwolff.commons.command;
 public class ExceptionCommand<T extends GenericContext> extends DefaultCommand<T>implements Command<T> {
 
     @Override
-    public void execute(T context) throws Exception {
+    public void execute(T context) throws CommandException {
         context.put("executed", "true");
-        throw new Exception();
+        throw new CommandException();
 
     }
 }

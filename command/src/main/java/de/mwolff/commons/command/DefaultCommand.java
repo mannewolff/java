@@ -11,7 +11,7 @@ import org.apache.log4j.Logger;
 
 /**
  * Default implementation for a command. You may use <code>executeAsChain</code>
- * for all executions of the <code>commmand</code> or
+ * for all executions of the <code>command</code> or
  * <code>commandContainer</code>.
  */
 public class DefaultCommand<T extends Context> implements Command<T> {

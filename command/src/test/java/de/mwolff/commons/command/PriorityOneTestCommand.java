@@ -34,7 +34,13 @@ public class PriorityOneTestCommand<T extends GenericContext> implements Command
     }
 
 	@Override
-	public String executeAsProcess(T context) {
+	public String executeAsProcess(String startCommand, T context) {
+		return null;
+	}
+
+	@Override
+	public String getProcessID() {
+		// TODO Auto-generated method stub
 		return null;
 	}
 

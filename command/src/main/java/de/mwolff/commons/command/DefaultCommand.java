@@ -17,8 +17,26 @@ import org.apache.log4j.Logger;
 public class DefaultCommand<T extends Context> implements Command<T> {
 
     private static final Logger LOG = Logger.getLogger(DefaultCommand.class);
+	protected String processID;
 
+	/** Constructor with process ID */
+	public DefaultCommand(String processID) {
+		this.processID = processID;
+	}
+	
+	/** Default constructor */
+    public DefaultCommand() {
+		super();
+	}
+
+    @Override
     /**
+     * @see de.mwolff.commons.command.Command#getProcessID()
+     */
+    public String getProcessID() {
+    	return this.processID;
+    }
+	/**
      * @see de.mwolff.commons.command.Command#execute(de.mwolff.commons.command.Context)
      */
     @Override
@@ -45,7 +63,9 @@ public class DefaultCommand<T extends Context> implements Command<T> {
      * @see de.mwolff.commons.command.Command#executeAsProcess(de.mwolff.commons.command.Context)
      */
 	@Override
-	public String executeAsProcess(T context) {
-		return null;
+	public String executeAsProcess(String startCommand, T context) {
+        // has to be implemented
+		return "End";
 	}
+
 }

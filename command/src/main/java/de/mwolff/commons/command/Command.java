@@ -36,6 +36,11 @@ public interface Command<T extends Context> {
 	 * 
 	 * @return The next process step to execute.
 	 */
-	String executeAsProcess(T context);
+	String executeAsProcess(String startCommand, T context);
 
+	/**
+	 * Gets the process ID of the command.
+	 * @return The process ID
+	 */
+	String getProcessID();
 }

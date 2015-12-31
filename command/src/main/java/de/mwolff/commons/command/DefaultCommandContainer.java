@@ -78,4 +78,12 @@ public class DefaultCommandContainer<T extends Context> implements CommandContai
         }
         return result;
     }
+
+    /**
+     * @see de.mwolff.commons.command.Command#executeAsProcess(de.mwolff.commons.command.Context)
+     */
+	@Override
+	public String executeAsProcess(T context) {
+		return null;
+	}
 }

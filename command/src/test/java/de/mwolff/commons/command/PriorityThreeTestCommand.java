@@ -28,4 +28,9 @@ public class PriorityThreeTestCommand<T extends GenericContext> implements Comma
         return false;
     }
 
+	@Override
+	public String executeAsProcess(T context) {
+		return null;
+	}
+
 }

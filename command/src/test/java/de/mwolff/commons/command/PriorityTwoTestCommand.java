@@ -33,4 +33,9 @@ public class PriorityTwoTestCommand<T extends GenericContext> implements Command
         return true;
     }
 
+	@Override
+	public String executeAsProcess(T context) {
+		return null;
+	}
+
 }

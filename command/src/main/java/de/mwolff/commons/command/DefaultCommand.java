@@ -40,4 +40,12 @@ public class DefaultCommand<T extends Context> implements Command<T> {
         }
         return result;
     }
+
+    /**
+     * @see de.mwolff.commons.command.Command#executeAsProcess(de.mwolff.commons.command.Context)
+     */
+	@Override
+	public String executeAsProcess(T context) {
+		return null;
+	}
 }

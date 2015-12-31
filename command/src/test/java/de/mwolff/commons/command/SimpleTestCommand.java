@@ -39,4 +39,9 @@ public class SimpleTestCommand<T extends GenericContext> implements Command<T> {
         return true;
     }
 
+	@Override
+	public String executeAsProcess(T context) {
+		return null;
+	}
+
 }

@@ -1,6 +1,7 @@
 package de.neusta.login.validator;
 
 import de.mwolff.commons.command.Command;
+import de.mwolff.commons.command.CommandException;
 import de.mwolff.commons.command.DefaultCommand;
 
 public class LengthValidator<T extends LoginContext> extends DefaultCommand<T>
@@ -9,7 +10,7 @@ public class LengthValidator<T extends LoginContext> extends DefaultCommand<T>
 	private int length;
 
 	@Override
-	public void execute(final T context) throws Exception {
+	public void execute(final T context) throws CommandException {
 
 		final int actLength = context.getOriginalPasswd().length();
 		if (actLength < this.length) {
@@ -17,7 +18,7 @@ public class LengthValidator<T extends LoginContext> extends DefaultCommand<T>
 					"The password has to be as minimum %d characters",
 					this.length);
 			context.setErrorMessage(errorString);
-			throw new Exception(errorString);
+			throw new CommandException(errorString);
 		}
 
 	}

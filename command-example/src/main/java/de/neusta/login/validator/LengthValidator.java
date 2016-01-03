@@ -1,6 +1,7 @@
 package de.neusta.login.validator;
 
 import de.mwolff.commons.command.Command;
+import de.mwolff.commons.command.CommandException;
 import de.mwolff.commons.command.DefaultCommand;
 import de.neusta.freitag.context.LoginContext;
 
@@ -10,13 +11,13 @@ public class LengthValidator<T extends LoginContext> extends DefaultCommand<T> i
 	private int length;
 	
 	@Override
-	public void execute(T context) throws Exception {
+	public void execute(T context) throws CommandException {
 
 		int actLength = context.getOriginalPasswd().length();
 		if (actLength < length) {
 			String errorString = String.format(ERROR_MESSAGE, length);
 			context.setErrorMessage(errorString);
-			throw new Exception(errorString);
+			throw new CommandException(errorString);
 		}
 	}
 	

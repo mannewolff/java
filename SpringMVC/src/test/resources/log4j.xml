@@ -23,7 +23,7 @@
 	</appender>
 
 	<appender name="SW_ROLLING_FILE" class="org.apache.log4j.RollingFileAppender">
-		<param name="File" value="/java-experimetell/spring-mvc.log" />
+		<param name="File" value="spring-mvc.log" />
 		<param name="Append" value="true" />
 		<param name="MaxFileSize" value="500KB" />
 		<param name="MaxBackupIndex" value="5" />

@@ -1,6 +1,7 @@
 package de.neusta.login.validator;
 
 import de.mwolff.commons.command.Command;
+import de.mwolff.commons.command.CommandException;
 import de.mwolff.commons.command.DefaultCommand;
 import de.neusta.freitag.context.LoginContext;
 
@@ -15,7 +16,7 @@ public class CapitalValidator<T extends LoginContext> extends DefaultCommand<T>
 	}
 
 	@Override
-	public void execute(T context) throws Exception {
+	public void execute(T context) throws CommandException {
 		boolean result = false;
 		int upperChar = 0;
 		String passwd = context.getOriginalPasswd();
@@ -33,7 +34,7 @@ public class CapitalValidator<T extends LoginContext> extends DefaultCommand<T>
 			String errorString = String.format(
 					ERROR_MESSAGE, countOfCharacters);
 			context.setErrorMessage(errorString);
-			throw new Exception(errorString);
+			throw new CommandException(errorString);
 
 		}
 	}

@@ -14,33 +14,34 @@ package de.mwolff.commons.command;
  */
 public interface Command<T extends Context> {
 
-	/**
-	 * Executes the command.
-	 * 
-	 * @param context
-	 */
-	void execute(T context) throws CommandException;
+    /**
+     * Executes the command.
+     * 
+     * @param context
+     */
+    void execute(T context) throws CommandException;
 
-	/**
-	 * Executes a command as a chain. Best way to execute a command chain is to
-	 * execute it as a chain because exceptions are automatically handled.
-	 *
-	 * @param context
-	 * @return False if there was an error or true if the task is completed.
-	 */
-	boolean executeAsChain(T context);
+    /**
+     * Executes a command as a chain. Best way to execute a command chain is to
+     * execute it as a chain because exceptions are automatically handled.
+     *
+     * @param context
+     * @return False if there was an error or true if the task is completed.
+     */
+    boolean executeAsChain(T context);
 
-	/**
-	 * Execute a command as a process. The result is the decision which process
-	 * step should be executed next.
-	 * 
-	 * @return The next process step to execute.
-	 */
-	String executeAsProcess(String startCommand, T context);
+    /**
+     * Execute a command as a process. The result is the decision which process
+     * step should be executed next.
+     * 
+     * @return The next process step to execute.
+     */
+    String executeAsProcess(String startCommand, T context);
 
-	/**
-	 * Gets the process ID of the command.
-	 * @return The process ID
-	 */
-	String getProcessID();
+    /**
+     * Gets the process ID of the command.
+     * 
+     * @return The process ID
+     */
+    String getProcessID();
 }

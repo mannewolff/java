@@ -3,8 +3,8 @@ package de.neusta.login.validator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import de.mwolff.commons.command.Context;
 import de.mwolff.commons.command.DefaultContext;
+import de.mwolff.commons.command.iface.Context;
 
 public class LoginContext extends DefaultContext implements Context {
 

@@ -1,10 +1,10 @@
 package de.neusta.login.validator;
 
-import de.mwolff.commons.command.Command;
-import de.mwolff.commons.command.CommandException;
-import de.mwolff.commons.command.DefaultCommand;
+import de.mwolff.commons.command.AbstractDefaultChainCommand;
+import de.mwolff.commons.command.iface.Command;
+import de.mwolff.commons.command.iface.CommandException;
 
-public class LengthValidator<T extends LoginContext> extends DefaultCommand<T>
+public class LengthValidator<T extends LoginContext> extends AbstractDefaultChainCommand<T>
 		implements Command<T> {
 
 	private int length;

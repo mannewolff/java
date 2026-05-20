@@ -1,6 +1,6 @@
 # api
 
-Spring Boot REST-API mit MariaDB. TDD-Scaffold inkl. Unit-, Slice- und Testcontainers-Integrationstests.
+Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Stil eines Dashboards (links Menü, rechts Inhalt). TDD-Scaffold inkl. Unit-, Slice- und Testcontainers-Integrationstests.
 
 ## Stack
 
@@ -8,6 +8,7 @@ Spring Boot REST-API mit MariaDB. TDD-Scaffold inkl. Unit-, Slice- und Testconta
 - MariaDB (via Docker / Testcontainers)
 - Flyway für Schemamigrationen
 - JUnit 5 · Mockito · AssertJ · Testcontainers
+- React 18 · TypeScript · Vite · MUI 6 · React Router 6
 
 ## Projektstruktur
 
@@ -15,7 +16,8 @@ Spring Boot REST-API mit MariaDB. TDD-Scaffold inkl. Unit-, Slice- und Testconta
 src/main/java/org/mwolff/api/      Application + Domain
 src/main/resources/                application.yml, Flyway-Migrationen
 src/test/java/org/mwolff/api/      Tests (*Test = schnell, *IT = Testcontainers)
-Dockerfile, docker-compose.yml     Lokales Deployment (API + MariaDB)
+frontend/                          React-App (Vite + TS + MUI)
+Dockerfile, docker-compose.yml     Lokales Deployment (API + MariaDB + Frontend)
 ```
 
 ## Schnellstart
@@ -92,3 +94,44 @@ Alle DB-Werte sind über Umgebungsvariablen mit Defaults parametrisiert:
 | `SERVER_PORT` | `8080` | `8080` |
 
 Schemamigrationen liegen unter `src/main/resources/db/migration` und werden beim Start von Flyway angewendet (`ddl-auto: validate`).
+
+## Frontend / Dev-Workflow
+
+Drei Startwege je nach Iterationsgeschwindigkeit:
+
+### 1. Dev-Modus (zwei Prozesse, schneller HMR)
+
+```bash
+# Terminal 1 – Backend
+mvn spring-boot:run -P skip-frontend
+
+# Terminal 2 – Frontend mit Hot Reload
+cd frontend
+npm install   # nur beim ersten Mal
+npm run dev
+```
+
+Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter.
+
+### 2. Voller Build (ein jar)
+
+```bash
+mvn package                                       # baut Frontend + Backend
+java -jar target/api-0.0.1-SNAPSHOT.jar
+```
+
+Anschließend liefert Spring unter `http://localhost:8080/` sowohl die React-App als auch die JSON-API aus. Direktaufrufe wie `http://localhost:8080/books` funktionieren dank SPA-Fallback.
+
+Für reine Backend-Iteration (kein npm/Node):
+
+```bash
+mvn -P skip-frontend package
+```
+
+### 3. Docker
+
+```bash
+docker compose up --build
+```
+
+Der Frontend-Build läuft in einem separaten `node:20`-Stage des Dockerfile und wird in den fat-jar gepackt. API + MariaDB werden zusammen gestartet, `http://localhost:8080` liefert alles.

@@ -1,3 +1,6 @@
+# java goes KI
+Dieses Projekt ist vollständig mit KI entwickelt worden. Kein Editor, kein VI, kein nichts, kein gar nichts. Nur ein Prompt und, in diesem Fall, mehrere KI-Modelle. Ziel ist es, eine Toolbox zu bauen, wo ich Dinge, die ich immer und immer wieder brauche, mit abarbeiten kann. Und sind es nur so triviale Dinge wie von einem Icon den Hintergrund transparent zu machen. Dieses Tool ist nicht fürs Deployment gedacht. Es läuft lokal bei mir und hilft mir. Es ist ein Projekt, wo ich zeigen kann, dass auch etwas komplexere Dinge mit KI entwickelt werden können oder eben nicht. 
+
 # api
 
 Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Stil eines Dashboards (links Menü, rechts Inhalt). TDD-Scaffold inkl. Unit-, Slice- und Testcontainers-Integrationstests.

@@ -1,10 +1,18 @@
 # syntax=docker/dockerfile:1.7
+FROM node:20 AS frontend-build
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./
-RUN mvn -B -q dependency:go-offline
+RUN mvn -B -q dependency:go-offline -P skip-frontend
 COPY src ./src
-RUN mvn -B -DskipTests package
+COPY --from=frontend-build /frontend/dist /workspace/src/main/resources/static
+RUN mvn -B -DskipTests -P skip-frontend package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app

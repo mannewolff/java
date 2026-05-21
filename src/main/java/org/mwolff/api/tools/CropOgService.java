@@ -8,25 +8,24 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-public class BackgroundRemovalService {
+public class CropOgService {
 
-    private static final String REMOVE_BG_PATH = "/remove-bg";
+    private static final String CROP_PATH = "/crop";
 
     private final RestClient client;
 
-    public BackgroundRemovalService(RestClient pythonToolsRestClient) {
+    public CropOgService(RestClient pythonToolsRestClient) {
         this.client = pythonToolsRestClient;
     }
 
-    public byte[] removeBackground(MultipartFile file) {
+    public byte[] crop(MultipartFile file, double yOffset, int quality) {
         final MultiValueMap<String, Object> body = PythonToolsMultipart.withFile(file);
+        body.add("y_offset", Double.toString(yOffset));
+        body.add("quality", Integer.toString(quality));
 
         try {
-            // Do NOT pre-set Content-Type — Spring's FormHttpMessageConverter
-            // detects multipart from the MultiValueMap and writes the full
-            // Content-Type header including the generated boundary.
             final byte[] response = client.post()
-                    .uri(REMOVE_BG_PATH)
+                    .uri(CROP_PATH)
                     .body(body)
                     .retrieve()
                     .body(byte[].class);

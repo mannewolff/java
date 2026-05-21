@@ -1,5 +1,7 @@
 package org.mwolff.api.common;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.mwolff.api.book.BookNotFoundException;
 import org.mwolff.api.tools.PythonToolsException;
 import org.springframework.http.HttpStatus;
@@ -32,6 +34,20 @@ public class GlobalExceptionHandler {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors()
                 .forEach(err -> fieldErrors.put(err.getField(), err.getDefaultMessage()));
+        body.put("fieldErrors", fieldErrors);
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex) {
+        Map<String, Object> body = body(HttpStatus.BAD_REQUEST, "Validation failed");
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        for (ConstraintViolation<?> v : ex.getConstraintViolations()) {
+            final String path = v.getPropertyPath().toString();
+            final int dot = path.lastIndexOf('.');
+            final String field = dot >= 0 ? path.substring(dot + 1) : path;
+            fieldErrors.put(field, v.getMessage());
+        }
         body.put("fieldErrors", fieldErrors);
         return ResponseEntity.badRequest().body(body);
     }

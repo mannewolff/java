@@ -15,8 +15,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    ports:
-      - "3306:3306"
+    # Kein Host-Port-Mapping — Spring erreicht mariadb intern unter mariadb:3306.
+    # Falls von ausserhalb zugegriffen werden soll, hier z.B. ein "3307:3306" eintragen.
 
   python-tools:
     build: ./python-tools

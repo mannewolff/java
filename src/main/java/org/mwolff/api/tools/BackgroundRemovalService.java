@@ -9,6 +9,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -39,6 +40,11 @@ public class BackgroundRemovalService {
                 throw new PythonToolsException("python-tools returned empty body");
             }
             return response;
+        } catch (RestClientResponseException ex) {
+            final String upstream = ex.getResponseBodyAsString();
+            final String detail = upstream.isBlank() ? ex.getStatusText() : upstream;
+            throw new PythonToolsException(
+                    "python-tools call failed (" + ex.getStatusCode() + "): " + detail, ex);
         } catch (RestClientException ex) {
             throw new PythonToolsException("python-tools call failed", ex);
         }

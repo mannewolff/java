@@ -13,6 +13,7 @@ import {
   Snackbar,
   Stack,
   TextField,
+  Toolbar,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -378,6 +379,8 @@ export default function OgImagePage() {
         onClose={() => setSettingsOpen(false)}
         PaperProps={{ sx: { width: { xs: '100%', sm: 360 } } }}
       >
+        {/* Spacer in AppBar-Hoehe, sonst klebt der Inhalt unter dem fixed Header. */}
+        <Toolbar />
         <Box sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Zielgröße

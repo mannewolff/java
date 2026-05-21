@@ -155,9 +155,20 @@ Persönliche Toolbox-Funktionen, jeweils unter `/tools/...` im UI und `/api/tool
 | Tool | UI-Route | Backend-Endpoint | Implementierung |
 |---|---|---|---|
 | Hintergrund entfernen | `/tools/remove-background` | `POST /api/tools/remove-background` | Spring proxy → python-tools (rembg / U2Net) |
+| Beitragsbild (1200×630) | `/tools/og-image` | `POST /api/tools/crop-og`, `POST /api/tools/palette` | Spring proxy → python-tools (Pillow + colorthief) |
 
-Smoke-Test gegen das Backend (bei laufendem Docker-Stack):
+Smoke-Tests gegen das Backend (bei laufendem Docker-Stack):
 
 ```bash
-curl -fS -F file=@icon.png http://localhost:8080/api/tools/remove-background -o icon-transparent.png
+# Hintergrund entfernen
+curl -fS -F file=@icon.png \
+     http://localhost:8080/api/tools/remove-background -o icon-transparent.png
+
+# Beitragsbild auf 1200x630 croppen (y_offset 0=oben, 1=unten, default 0.5)
+curl -fS -F file=@photo.jpg -F y_offset=0.3 \
+     http://localhost:8080/api/tools/crop-og -o featured.jpg
+
+# Brandpalette extrahieren (count 2-10, default 6)
+curl -fS -F file=@photo.jpg -F count=6 \
+     http://localhost:8080/api/tools/palette
 ```

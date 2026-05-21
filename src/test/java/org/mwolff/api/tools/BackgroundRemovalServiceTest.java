@@ -59,7 +59,9 @@ class BackgroundRemovalServiceTest {
         assertThat(contentType).startsWith("multipart/form-data");
         String body = request.getBody().readString(StandardCharsets.UTF_8);
         assertThat(body).contains("raw-bytes");
+        assertThat(body).contains("name=\"file\"");
         assertThat(body).contains("filename=\"input.png\"");
+        assertThat(body).contains("Content-Type: image/png");
     }
 
     @Test

@@ -27,12 +27,14 @@ public class BackgroundRemovalService {
 
     public byte[] removeBackground(MultipartFile file) {
         final byte[] payload = readBytes(file);
-        final MultiValueMap<String, HttpEntity<?>> body = buildMultipart(file, payload);
+        final MultiValueMap<String, Object> body = buildMultipart(file, payload);
 
         try {
+            // Do NOT pre-set Content-Type — Spring's FormHttpMessageConverter
+            // detects multipart from the MultiValueMap and writes the full
+            // Content-Type header including the generated boundary.
             final byte[] response = client.post()
                     .uri(REMOVE_BG_PATH)
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(body)
                     .retrieve()
                     .body(byte[].class);
@@ -58,17 +60,21 @@ public class BackgroundRemovalService {
         }
     }
 
-    private static MultiValueMap<String, HttpEntity<?>> buildMultipart(MultipartFile file, byte[] payload) {
+    private static MultiValueMap<String, Object> buildMultipart(MultipartFile file, byte[] payload) {
+        // Per-part Content-Type so python-tools sees image/png (or jpeg/webp) and not
+        // application/octet-stream. Content-Disposition is NOT set here on purpose —
+        // Spring's FormHttpMessageConverter writes it from the map key plus
+        // Resource.getFilename(), and a redundant manual Content-Disposition can
+        // confuse downstream parsers.
         final HttpHeaders partHeaders = new HttpHeaders();
         final String contentType = file.getContentType();
         partHeaders.setContentType(
                 contentType == null ? MediaType.APPLICATION_OCTET_STREAM : MediaType.parseMediaType(contentType));
-        partHeaders.setContentDispositionFormData("file", filenameOrFallback(file));
 
         final ByteArrayResource resource = new NamedByteArrayResource(payload, filenameOrFallback(file));
         final HttpEntity<ByteArrayResource> part = new HttpEntity<>(resource, partHeaders);
 
-        final MultiValueMap<String, HttpEntity<?>> body = new LinkedMultiValueMap<>();
+        final MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", part);
         return body;
     }

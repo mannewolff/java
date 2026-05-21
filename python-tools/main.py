@@ -6,10 +6,14 @@ Aktuell: POST /remove-bg entfernt den Hintergrund eines Bildes mittels rembg
 
 from __future__ import annotations
 
+import logging
+import traceback
 from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import Response
+
+logger = logging.getLogger("python-tools")
 
 ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
     {"image/png", "image/jpeg", "image/jpg", "image/webp"}
@@ -50,8 +54,12 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
     try:
         result = _remove_background(contents)
     except Exception as exc:  # noqa: BLE001 — Wrap any rembg failure
-        raise HTTPException(
-            status_code=500, detail="Background removal failed"
-        ) from exc
+        # Log full traceback so the operator can diagnose via
+        # `docker compose logs python-tools`, and echo class + message in
+        # the HTTP response so the UI alert is actually useful.
+        logger.error("rembg failed", exc_info=True)
+        traceback.print_exc()
+        detail = f"Background removal failed: {type(exc).__name__}: {exc}"
+        raise HTTPException(status_code=500, detail=detail) from exc
 
     return Response(content=result, media_type="image/png")

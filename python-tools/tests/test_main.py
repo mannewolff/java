@@ -139,7 +139,10 @@ def test_remove_bg_returns_500_when_rembg_raises(client: TestClient) -> None:
 
     # Then
     assert response.status_code == 500
-    assert response.json()["detail"] == "Background removal failed"
+    detail = response.json()["detail"]
+    assert detail.startswith("Background removal failed:")
+    assert "RuntimeError" in detail
+    assert "model crashed" in detail
 
 
 def test_remove_bg_requires_file_field(client: TestClient) -> None:

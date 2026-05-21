@@ -45,3 +45,10 @@ target/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Python-tools build artifacts
+python-tools/.venv/
+python-tools/__pycache__/
+python-tools/.pytest_cache/
+python-tools/.coverage
+python-tools/htmlcov/

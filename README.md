@@ -20,7 +20,8 @@ src/main/java/org/mwolff/api/      Application + Domain
 src/main/resources/                application.yml, Flyway-Migrationen
 src/test/java/org/mwolff/api/      Tests (*Test = schnell, *IT = Testcontainers)
 frontend/                          React-App (Vite + TS + MUI)
-Dockerfile, docker-compose.yml     Lokales Deployment (API + MariaDB + Frontend)
+python-tools/                      FastAPI-Microservice (rembg, Pillow)
+Dockerfile, docker-compose.yml     Lokales Deployment (API + MariaDB + python-tools + Frontend)
 ```
 
 ## Schnellstart
@@ -95,6 +96,7 @@ Alle DB-Werte sind über Umgebungsvariablen mit Defaults parametrisiert:
 | `DB_USER` | `api` | `api` |
 | `DB_PASSWORD` | `api` | `api` |
 | `SERVER_PORT` | `8080` | `8080` |
+| `PYTHON_TOOLS_URL` | `http://localhost:8000` | `http://python-tools:8000` |
 
 Schemamigrationen liegen unter `src/main/resources/db/migration` und werden beim Start von Flyway angewendet (`ddl-auto: validate`).
 
@@ -102,7 +104,7 @@ Schemamigrationen liegen unter `src/main/resources/db/migration` und werden beim
 
 Drei Startwege je nach Iterationsgeschwindigkeit:
 
-### 1. Dev-Modus (zwei Prozesse, schneller HMR)
+### 1. Dev-Modus (drei Prozesse, schneller HMR)
 
 ```bash
 # Terminal 1 – Backend
@@ -112,9 +114,16 @@ mvn spring-boot:run -P skip-frontend
 cd frontend
 npm install   # nur beim ersten Mal
 npm run dev
+
+# Terminal 3 – Python-Tools (für Hintergrund-Entfernung)
+cd python-tools
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter.
+Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter. Spring spricht python-tools unter `http://localhost:8000` an (siehe `PYTHON_TOOLS_URL`).
 
 ### 2. Voller Build (ein jar)
 
@@ -137,4 +146,18 @@ mvn -P skip-frontend package
 docker compose up --build
 ```
 
-Der Frontend-Build läuft in einem separaten `node:20`-Stage des Dockerfile und wird in den fat-jar gepackt. API + MariaDB werden zusammen gestartet, `http://localhost:8080` liefert alles.
+`docker compose` startet vier Services: MariaDB, python-tools (FastAPI mit vorgeladenem rembg-Modell), API (Spring Boot mit eingebettetem Frontend) und das Frontend-Build innerhalb des API-Images. `http://localhost:8080` liefert die React-App, JSON-API und Tool-Endpoints.
+
+## Tools
+
+Persönliche Toolbox-Funktionen, jeweils unter `/tools/...` im UI und `/api/tools/...` im Backend erreichbar.
+
+| Tool | UI-Route | Backend-Endpoint | Implementierung |
+|---|---|---|---|
+| Hintergrund entfernen | `/tools/remove-background` | `POST /api/tools/remove-background` | Spring proxy → python-tools (rembg / U2Net) |
+
+Smoke-Test gegen das Backend (bei laufendem Docker-Stack):
+
+```bash
+curl -fS -F file=@icon.png http://localhost:8080/api/tools/remove-background -o icon-transparent.png
+```

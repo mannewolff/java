@@ -28,8 +28,20 @@ export default function AppShell() {
         sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}
       >
         <Toolbar>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt=""
+            sx={{
+              height: 32,
+              mr: 1.5,
+              // Falls die Logo-Datei (noch) nicht im public-Ordner liegt,
+              // wird das Bild als Broken-Image gerendert — aber das stoert nur
+              // optisch; alt="" haelt Screenreader still.
+            }}
+          />
           <Typography variant="h6" noWrap component="div">
-            api.platform
+            mannewolff-tools
           </Typography>
         </Toolbar>
       </AppBar>

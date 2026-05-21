@@ -59,6 +59,10 @@ Vier-Augen-Prinzip mit zwei KI-Modellen. Standard-Setup: Claude implementiert, O
 
 Knappe Anweisung. Erst nach explizitem `push main` (oder gleichwertiger Formulierung) wird gepusht. Push-Ziel klar nennen.
 
+**`origin/main` wird perspektivisch automatisch auf einen Testserver deployed, auf den auch Kunden gucken.** Ein Push ist deshalb KEIN Implementierungs-Detail, sondern ein Release-Schritt. Auch eine vermeintlich „triviale" CSS-Änderung kann auf dem Testserver Schaden anrichten.
+
+**Regel ohne Ausnahme:** Push erfolgt ausschliesslich, wenn der User in der **aktuellen Antwort** `push main` (oder gleichwertig) sagt. Eine frühere Push-Freigabe in derselben Session gilt **nicht** für nachfolgende Commits — jeder Commit-Batch braucht eine eigene Freigabe.
+
 ### 9. Deployment + Pull Request
 
 - Automatischer Deploy auf Test-Server nach `main`-Push.
@@ -82,6 +86,8 @@ Lokale Kontrolle vor jedem Push. Production ausschließlich via Pull Request.
 4. **Hooks** (Pre-Commit/Pre-Push) werden nicht mit `--no-verify` umgangen. Bei Hook-Fehler: Ursache fixen, nicht umgehen.
 5. Wenn der User „push" sagt, ohne Ziel zu nennen: **nachfragen**, ob `main` oder `production` gemeint ist (Default: `main` nur).
 6. Solo-Dev-Modus: Commits gehen direkt auf `main` (keine Feature-Branches, wenn nicht ausdrücklich gewünscht). Worktree-Branches sind eine Ausnahme — beim Abschluss in `main` fast-forwarden.
+7. **Eine Push-Freigabe gilt pro Commit-Batch, nicht pro Session.** Folge-Commits (auch winzige) brauchen eine neue Freigabe.
+8. **Kein `git commit … && git push` in einer Bash-Zeile**, ausser der User hat den Push gerade in dieser Antwort explizit freigegeben. Default ist: commit, dann im Antwort-Text „Push?" anbieten und warten.
 
 ### Warnsignale (nicht ignorieren)
 

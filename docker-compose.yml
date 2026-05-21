@@ -18,11 +18,23 @@ services:
     ports:
       - "3306:3306"
 
+  python-tools:
+    build: ./python-tools
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
   api:
     build: .
     restart: unless-stopped
     depends_on:
       mariadb:
+        condition: service_healthy
+      python-tools:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -31,6 +43,7 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      PYTHON_TOOLS_URL: http://python-tools:8000
     ports:
       - "8080:8080"
 

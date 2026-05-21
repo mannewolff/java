@@ -5,27 +5,55 @@ import {
   Box,
   Button,
   CircularProgress,
+  Divider,
+  Drawer,
+  IconButton,
+  MenuItem,
   Paper,
   Slider,
   Snackbar,
   Stack,
+  TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { ApiError } from '../../api/client';
 import { cropOg, extractPalette } from '../../api/ogImage';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
 const SLIDER_DEBOUNCE_MS = 300;
+const MIN_DIMENSION = 200;
+const MAX_DIMENSION = 4096;
 
-function buildOutputFilename(input: File): string {
+interface Preset {
+  label: string;
+  width: number;
+  height: number;
+}
+
+const PRESETS: Preset[] = [
+  { label: 'OpenGraph (1200×630)', width: 1200, height: 630 },
+  { label: 'Twitter Card (1200×675)', width: 1200, height: 675 },
+  { label: 'LinkedIn (1200×627)', width: 1200, height: 627 },
+  { label: 'Quadrat (1080×1080)', width: 1080, height: 1080 },
+  { label: 'Story (1080×1920)', width: 1080, height: 1920 },
+];
+const CUSTOM_LABEL = 'Benutzerdefiniert';
+
+function presetLabelFor(width: number, height: number): string {
+  return PRESETS.find((p) => p.width === width && p.height === height)?.label ?? CUSTOM_LABEL;
+}
+
+function buildOutputFilename(input: File, width: number, height: number): string {
   const lastDot = input.name.lastIndexOf('.');
   const base = lastDot > 0 ? input.name.slice(0, lastDot) : input.name;
-  return `${base || 'featured'}-1200x630.jpg`;
+  return `${base || 'featured'}-${width}x${height}.jpg`;
 }
 
 function errorMessage(err: unknown): string {
@@ -37,12 +65,18 @@ function errorMessage(err: unknown): string {
 export default function OgImagePage() {
   const [file, setFile] = useState<File | null>(null);
   const [yOffset, setYOffset] = useState(0.5);
+  const [targetWidth, setTargetWidth] = useState(1200);
+  const [targetHeight, setTargetHeight] = useState(630);
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [draftPreset, setDraftPreset] = useState(presetLabelFor(1200, 630));
+  const [draftWidth, setDraftWidth] = useState('1200');
+  const [draftHeight, setDraftHeight] = useState('630');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -51,21 +85,24 @@ export default function OgImagePage() {
     };
   }, [cropUrl]);
 
-  const runCrop = useCallback(async (incoming: File, offset: number) => {
-    setIsProcessing(true);
-    setError(null);
-    try {
-      const blob = await cropOg(incoming, offset);
-      setCropUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
-      });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
+  const runCrop = useCallback(
+    async (incoming: File, offset: number, w: number, h: number) => {
+      setIsProcessing(true);
+      setError(null);
+      try {
+        const blob = await cropOg(incoming, offset, { width: w, height: h });
+        setCropUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [],
+  );
 
   const runPalette = useCallback(async (incoming: File) => {
     try {
@@ -76,14 +113,14 @@ export default function OgImagePage() {
     }
   }, []);
 
-  // Debounced re-crop when slider moves
+  // Debounced re-crop whenever inputs change.
   useEffect(() => {
     if (!file) return;
     const handle = window.setTimeout(() => {
-      void runCrop(file, yOffset);
+      void runCrop(file, yOffset, targetWidth, targetHeight);
     }, SLIDER_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [file, yOffset, runCrop]);
+  }, [file, yOffset, targetWidth, targetHeight, runCrop]);
 
   const reset = () => {
     if (cropUrl) URL.revokeObjectURL(cropUrl);
@@ -109,7 +146,6 @@ export default function OgImagePage() {
     setPalette(null);
     setYOffset(0.5);
     setFile(incoming);
-    // initial crop + palette fire via effect (yOffset effect) + manual palette call
     void runPalette(incoming);
   };
 
@@ -134,14 +170,62 @@ export default function OgImagePage() {
     }
   };
 
+  const openSettings = () => {
+    setDraftPreset(presetLabelFor(targetWidth, targetHeight));
+    setDraftWidth(String(targetWidth));
+    setDraftHeight(String(targetHeight));
+    setSettingsOpen(true);
+  };
+
+  const handlePresetChange = (label: string) => {
+    setDraftPreset(label);
+    const preset = PRESETS.find((p) => p.label === label);
+    if (preset) {
+      setDraftWidth(String(preset.width));
+      setDraftHeight(String(preset.height));
+    }
+  };
+
+  const handleCustomDimensionChange = (which: 'width' | 'height', value: string) => {
+    if (which === 'width') setDraftWidth(value);
+    else setDraftHeight(value);
+    setDraftPreset(CUSTOM_LABEL);
+  };
+
+  const applySettings = () => {
+    const w = Number.parseInt(draftWidth, 10);
+    const h = Number.parseInt(draftHeight, 10);
+    if (!Number.isFinite(w) || !Number.isFinite(h)) return;
+    if (w < MIN_DIMENSION || w > MAX_DIMENSION) return;
+    if (h < MIN_DIMENSION || h > MAX_DIMENSION) return;
+    setTargetWidth(w);
+    setTargetHeight(h);
+    setSettingsOpen(false);
+  };
+
+  const draftWidthNum = Number.parseInt(draftWidth, 10);
+  const draftHeightNum = Number.parseInt(draftHeight, 10);
+  const draftValid =
+    Number.isFinite(draftWidthNum) &&
+    Number.isFinite(draftHeightNum) &&
+    draftWidthNum >= MIN_DIMENSION &&
+    draftWidthNum <= MAX_DIMENSION &&
+    draftHeightNum >= MIN_DIMENSION &&
+    draftHeightNum <= MAX_DIMENSION;
+
   return (
     <>
-      <Typography variant="h4" gutterBottom>
-        Beitragsbild (1200×630)
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+        <Typography variant="h4">Beitragsbild</Typography>
+        <Tooltip title="Zielgröße einstellen">
+          <IconButton onClick={openSettings} aria-label="Einstellungen öffnen">
+            <SettingsIcon />
+          </IconButton>
+        </Tooltip>
+      </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
         Bild hochladen, vertikalen Ausschnitt per Slider wählen, JPEG downloaden.
-        Außerdem: sechs dominante Farben als Brandpalette zum Kopieren.
+        Aktuelle Zielgröße: <strong>{targetWidth}×{targetHeight}</strong>.
       </Typography>
 
       {error && (
@@ -216,7 +300,7 @@ export default function OgImagePage() {
                   startIcon={<DownloadIcon />}
                   component="a"
                   href={cropUrl}
-                  download={buildOutputFilename(file)}
+                  download={buildOutputFilename(file, targetWidth, targetHeight)}
                 >
                   JPEG herunterladen
                 </Button>
@@ -226,7 +310,7 @@ export default function OgImagePage() {
 
           <Paper sx={{ p: 2, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Vorschau (1200×630)
+              Vorschau ({targetWidth}×{targetHeight})
             </Typography>
             {isProcessing && !cropUrl ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -236,7 +320,7 @@ export default function OgImagePage() {
               <Box
                 component="img"
                 src={cropUrl}
-                alt="1200x630 Beitragsbild Vorschau"
+                alt="Beitragsbild Vorschau"
                 sx={{ maxWidth: '100%', display: 'block', mx: 'auto', borderRadius: 1 }}
               />
             ) : null}
@@ -273,6 +357,68 @@ export default function OgImagePage() {
           )}
         </>
       )}
+
+      <Drawer
+        anchor="right"
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 360 } } }}
+      >
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Zielgröße
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Preset wählen oder benutzerdefinierte Maße eintragen.
+          </Typography>
+          <Stack spacing={2}>
+            <TextField
+              select
+              label="Preset"
+              value={draftPreset}
+              onChange={(e) => handlePresetChange(e.target.value)}
+              fullWidth
+            >
+              {PRESETS.map((p) => (
+                <MenuItem key={p.label} value={p.label}>
+                  {p.label}
+                </MenuItem>
+              ))}
+              <MenuItem value={CUSTOM_LABEL}>{CUSTOM_LABEL}</MenuItem>
+            </TextField>
+            <TextField
+              label="Breite (px)"
+              type="number"
+              value={draftWidth}
+              onChange={(e) => handleCustomDimensionChange('width', e.target.value)}
+              inputProps={{ min: MIN_DIMENSION, max: MAX_DIMENSION }}
+              fullWidth
+            />
+            <TextField
+              label="Höhe (px)"
+              type="number"
+              value={draftHeight}
+              onChange={(e) => handleCustomDimensionChange('height', e.target.value)}
+              inputProps={{ min: MIN_DIMENSION, max: MAX_DIMENSION }}
+              fullWidth
+            />
+            <Typography variant="caption" color="text.secondary">
+              Erlaubt: {MIN_DIMENSION}–{MAX_DIMENSION} px je Achse.
+            </Typography>
+            <Divider />
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button onClick={() => setSettingsOpen(false)}>Abbrechen</Button>
+              <Button
+                variant="contained"
+                onClick={applySettings}
+                disabled={!draftValid}
+              >
+                Übernehmen
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </Drawer>
 
       <Snackbar
         open={Boolean(snackbar)}

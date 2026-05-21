@@ -25,8 +25,10 @@ ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
 )
 MAX_BYTES: int = 10 * 1024 * 1024  # 10 MiB
 
-OG_TARGET_WIDTH: int = 1200
-OG_TARGET_HEIGHT: int = 630
+OG_DEFAULT_WIDTH: int = 1200
+OG_DEFAULT_HEIGHT: int = 630
+OG_MIN_DIMENSION: int = 200
+OG_MAX_DIMENSION: int = 4096
 
 app = FastAPI(title="python-tools", version="0.1.0")
 
@@ -53,31 +55,37 @@ def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
     return "#{0:02x}{1:02x}{2:02x}".format(rgb[0], rgb[1], rgb[2])
 
 
-def _crop_to_og(data: bytes, y_offset: float, quality: int) -> bytes:
-    """Cover-fit crop auf 1200x630, vertikal entlang y_offset (0=oben, 1=unten)."""
+def _crop_to_og(
+    data: bytes,
+    y_offset: float,
+    quality: int,
+    width: int,
+    height: int,
+) -> bytes:
+    """Cover-fit crop auf width x height, vertikal entlang y_offset (0=oben, 1=unten)."""
     from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
 
     src = Image.open(io.BytesIO(data))
     src = src.convert("RGB")
     src_w, src_h = src.size
 
-    target_ratio = OG_TARGET_WIDTH / OG_TARGET_HEIGHT
+    target_ratio = width / height
     src_ratio = src_w / src_h
 
     if src_ratio > target_ratio:
         # Quelle ist breiter -> Hoehe fuellen, links/rechts beschneiden (horizontal zentriert).
-        new_h = OG_TARGET_HEIGHT
-        new_w = max(OG_TARGET_WIDTH, round(src_w * (OG_TARGET_HEIGHT / src_h)))
+        new_h = height
+        new_w = max(width, round(src_w * (height / src_h)))
         resized = src.resize((new_w, new_h), Image.LANCZOS)
-        x_off = round((new_w - OG_TARGET_WIDTH) * 0.5)
-        box = (x_off, 0, x_off + OG_TARGET_WIDTH, OG_TARGET_HEIGHT)
+        x_off = round((new_w - width) * 0.5)
+        box = (x_off, 0, x_off + width, height)
     else:
         # Quelle ist hoeher (oder gleichgroß) -> Breite fuellen, oben/unten via y_offset beschneiden.
-        new_w = OG_TARGET_WIDTH
-        new_h = max(OG_TARGET_HEIGHT, round(src_h * (OG_TARGET_WIDTH / src_w)))
+        new_w = width
+        new_h = max(height, round(src_h * (width / src_w)))
         resized = src.resize((new_w, new_h), Image.LANCZOS)
-        y_off = round((new_h - OG_TARGET_HEIGHT) * y_offset)
-        box = (0, y_off, OG_TARGET_WIDTH, y_off + OG_TARGET_HEIGHT)
+        y_off = round((new_h - height) * y_offset)
+        box = (0, y_off, width, y_off + height)
 
     cropped = resized.crop(box)
     buf = io.BytesIO()
@@ -127,12 +135,16 @@ async def crop(
     file: Annotated[UploadFile, File()],
     y_offset: Annotated[float, Form(ge=0.0, le=1.0)] = 0.5,
     quality: Annotated[int, Form(ge=50, le=95)] = 88,
+    width: Annotated[int, Form(ge=OG_MIN_DIMENSION, le=OG_MAX_DIMENSION)] = OG_DEFAULT_WIDTH,
+    height: Annotated[int, Form(ge=OG_MIN_DIMENSION, le=OG_MAX_DIMENSION)] = OG_DEFAULT_HEIGHT,
 ) -> Response:
-    """Cover-fit-Crop auf 1200x630 als JPEG; y_offset waehlt vertikalen Anschnitt."""
+    """Cover-fit-Crop auf width x height als JPEG; y_offset waehlt vertikalen Anschnitt."""
     contents = await _read_and_validate(file)
 
     try:
-        result = _crop_to_og(contents, y_offset=y_offset, quality=quality)
+        result = _crop_to_og(
+            contents, y_offset=y_offset, quality=quality, width=width, height=height
+        )
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)
         traceback.print_exc()

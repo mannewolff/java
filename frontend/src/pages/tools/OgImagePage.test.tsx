@@ -127,6 +127,54 @@ describe('OgImagePage', () => {
     );
   });
 
+  it('opens settings drawer and applies a preset to the next crop request', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      routeFetchByUrl({
+        '/api/tools/crop-og': jpegResponse,
+        '/api/tools/palette': () => paletteResponse(['#000000']),
+      }),
+    );
+    render(<OgImagePage />);
+    const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
+
+    await userEvent.upload(input, makePngFile());
+    await screen.findByRole('img', { name: /Beitragsbild Vorschau/i }, { timeout: 2000 });
+
+    // Open settings + switch to Twitter Card.
+    await userEvent.click(screen.getByRole('button', { name: /Einstellungen öffnen/i }));
+    const presetSelect = await screen.findByRole('combobox', { name: /Preset/i });
+    await userEvent.click(presetSelect);
+    await userEvent.click(screen.getByRole('option', { name: /Twitter Card/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Übernehmen/i }));
+
+    // The latest crop call must carry width=1200 and height=675.
+    await waitFor(() => {
+      const cropCalls = fetchSpy.mock.calls.filter(
+        ([url]) => typeof url === 'string' && url.includes('/api/tools/crop-og'),
+      );
+      expect(cropCalls.length).toBeGreaterThanOrEqual(2);
+      const lastBody = cropCalls[cropCalls.length - 1][1]?.body as FormData;
+      expect(lastBody.get('width')).toBe('1200');
+      expect(lastBody.get('height')).toBe('675');
+    }, { timeout: 2000 });
+
+    // Download filename reflects the new dimensions.
+    const download = screen.getByRole('link', { name: /JPEG herunterladen/i });
+    expect(download).toHaveAttribute('download', 'photo-1200x675.jpg');
+  });
+
+  it('disables apply when custom dimensions are out of range', async () => {
+    render(<OgImagePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Einstellungen öffnen/i }));
+    const widthInput = await screen.findByLabelText(/Breite/);
+    await userEvent.clear(widthInput);
+    await userEvent.type(widthInput, '50');
+
+    const apply = screen.getByRole('button', { name: /Übernehmen/i });
+    expect(apply).toBeDisabled();
+  });
+
   it('resets state when the reset button is clicked', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(
       routeFetchByUrl({

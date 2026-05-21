@@ -35,7 +35,7 @@ class CropOgControllerTest {
     void shouldReturnJpegOnSuccess() throws Exception {
         // Given
         final byte[] processed = "jpeg-bytes".getBytes();
-        given(service.crop(any(), anyDouble(), anyInt())).willReturn(processed);
+        given(service.crop(any(), anyDouble(), anyInt(), anyInt(), anyInt())).willReturn(processed);
         final MockMultipartFile upload = new MockMultipartFile(
                 "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
 
@@ -43,7 +43,7 @@ class CropOgControllerTest {
         mockMvc.perform(multipart("/api/tools/crop-og").file(upload))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_JPEG))
-                .andExpect(header().string("Content-Disposition", "attachment; filename=\"featured.jpg\""))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"featured-1200x630.jpg\""))
                 .andExpect(content().bytes(processed));
     }
 
@@ -86,10 +86,42 @@ class CropOgControllerTest {
     }
 
     @Test
+    void shouldReturn400WhenWidthBelowMin() throws Exception {
+        final MockMultipartFile upload = new MockMultipartFile(
+                "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
+        mockMvc.perform(multipart("/api/tools/crop-og").file(upload).param("width", "100"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturn400WhenHeightAboveMax() throws Exception {
+        final MockMultipartFile upload = new MockMultipartFile(
+                "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
+        mockMvc.perform(multipart("/api/tools/crop-og").file(upload).param("height", "5000"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldUseCustomDimensionsInDownloadFilename() throws Exception {
+        // Given
+        given(service.crop(any(), anyDouble(), anyInt(), anyInt(), anyInt())).willReturn("jpeg".getBytes());
+        final MockMultipartFile upload = new MockMultipartFile(
+                "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
+
+        // When / Then
+        mockMvc.perform(multipart("/api/tools/crop-og")
+                        .file(upload)
+                        .param("width", "1080")
+                        .param("height", "1080"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"featured-1080x1080.jpg\""));
+    }
+
+    @Test
     void shouldReturn502WhenPythonServiceFails() throws Exception {
         // Given
         willThrow(new PythonToolsException("upstream down"))
-                .given(service).crop(any(), anyDouble(), anyInt());
+                .given(service).crop(any(), anyDouble(), anyInt(), anyInt(), anyInt());
         final MockMultipartFile upload = new MockMultipartFile(
                 "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
 

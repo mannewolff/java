@@ -18,10 +18,12 @@ public class CropOgService {
         this.client = pythonToolsRestClient;
     }
 
-    public byte[] crop(MultipartFile file, double yOffset, int quality) {
+    public byte[] crop(MultipartFile file, double yOffset, int quality, int width, int height) {
         final MultiValueMap<String, Object> body = PythonToolsMultipart.withFile(file);
         body.add("y_offset", Double.toString(yOffset));
         body.add("quality", Integer.toString(quality));
+        body.add("width", Integer.toString(width));
+        body.add("height", Integer.toString(height));
 
         try {
             final byte[] response = client.post()

@@ -307,6 +307,66 @@ def test_crop_rejects_y_offset_out_of_range(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_crop_with_custom_dimensions_yields_those_dimensions(client: TestClient) -> None:
+    # Given
+    upload = _solid_image_bytes(2000, 2000, fmt="PNG")
+
+    # When — Twitter Card 1200x675
+    response = client.post(
+        "/crop",
+        data={"width": "1200", "height": "675"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.size == (1200, 675)
+
+
+def test_crop_with_square_dimensions(client: TestClient) -> None:
+    upload = _solid_image_bytes(2000, 2000, fmt="PNG")
+
+    response = client.post(
+        "/crop",
+        data={"width": "1080", "height": "1080"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert _decode(response.content).size == (1080, 1080)
+
+
+def test_crop_rejects_width_below_min(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+    response = client.post(
+        "/crop",
+        data={"width": "100"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_crop_rejects_width_above_max(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+    response = client.post(
+        "/crop",
+        data={"width": "5000"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_crop_rejects_height_out_of_range(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+    response = client.post(
+        "/crop",
+        data={"height": "100"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
 def test_crop_rejects_quality_out_of_range(client: TestClient) -> None:
     upload = _solid_image_bytes(800, 1200)
     response = client.post(
@@ -322,7 +382,9 @@ def test_crop_returns_500_when_pillow_raises(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Given
-    def boom(_data: bytes, *, y_offset: float, quality: int) -> bytes:
+    def boom(
+        _data: bytes, *, y_offset: float, quality: int, width: int, height: int
+    ) -> bytes:
         raise RuntimeError("pillow crashed")
 
     monkeypatch.setattr(main, "_crop_to_og", boom)

@@ -47,7 +47,7 @@ class CropOgServiceTest {
                 "file", "photo.jpg", "image/jpeg", "raw-bytes".getBytes(StandardCharsets.UTF_8));
 
         // When
-        final byte[] result = service.crop(upload, 0.3, 88);
+        final byte[] result = service.crop(upload, 0.3, 88, 1200, 630);
 
         // Then
         assertThat(result).isEqualTo(processed);
@@ -63,6 +63,30 @@ class CropOgServiceTest {
         assertThat(body).contains("0.3");
         assertThat(body).contains("name=\"quality\"");
         assertThat(body).contains("88");
+        assertThat(body).contains("name=\"width\"");
+        assertThat(body).contains("1200");
+        assertThat(body).contains("name=\"height\"");
+        assertThat(body).contains("630");
+    }
+
+    @Test
+    void shouldForwardCustomDimensions() throws Exception {
+        // Given
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "image/jpeg")
+                .setBody(new Buffer().write("jpeg".getBytes(StandardCharsets.UTF_8))));
+        final MockMultipartFile upload = new MockMultipartFile(
+                "file", "photo.jpg", "image/jpeg", "raw".getBytes(StandardCharsets.UTF_8));
+
+        // When
+        service.crop(upload, 0.5, 88, 1080, 1080);
+
+        // Then
+        final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertThat(request).isNotNull();
+        final String body = request.getBody().readString(StandardCharsets.UTF_8);
+        assertThat(body).contains("1080");
     }
 
     @Test
@@ -73,7 +97,7 @@ class CropOgServiceTest {
                 "file", "x.jpg", "image/jpeg", "data".getBytes(StandardCharsets.UTF_8));
 
         // When / Then
-        assertThatThrownBy(() -> service.crop(upload, 0.5, 88))
+        assertThatThrownBy(() -> service.crop(upload, 0.5, 88, 1200, 630))
                 .isInstanceOf(PythonToolsException.class)
                 .hasMessageContaining("python-tools call failed")
                 .hasMessageContaining("crash");
@@ -90,7 +114,7 @@ class CropOgServiceTest {
                 "file", "x.jpg", "image/jpeg", "data".getBytes(StandardCharsets.UTF_8));
 
         // When / Then
-        assertThatThrownBy(() -> service.crop(upload, 0.5, 88))
+        assertThatThrownBy(() -> service.crop(upload, 0.5, 88, 1200, 630))
                 .isInstanceOf(PythonToolsException.class)
                 .hasMessageContaining("empty body");
     }

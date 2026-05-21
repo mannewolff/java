@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 import main
 
@@ -151,6 +152,197 @@ def test_remove_bg_requires_file_field(client: TestClient) -> None:
 
     # Then
     assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# /crop tests
+# ---------------------------------------------------------------------------
+
+
+def _solid_image_bytes(width: int, height: int, fmt: str = "PNG", color=(200, 50, 50)) -> bytes:
+    img = Image.new("RGB", (width, height), color)
+    buf = io.BytesIO()
+    img.save(buf, format=fmt)
+    return buf.getvalue()
+
+
+def _split_image_bytes(width: int, height: int, top_color, bottom_color, fmt: str = "PNG") -> bytes:
+    """Bild mit klar getrennten Farbflaechen oben/unten — fuer y_offset-Tests."""
+    img = Image.new("RGB", (width, height), top_color)
+    bottom = Image.new("RGB", (width, height // 2), bottom_color)
+    img.paste(bottom, (0, height // 2))
+    buf = io.BytesIO()
+    img.save(buf, format=fmt)
+    return buf.getvalue()
+
+
+def _decode(content: bytes) -> Image.Image:
+    return Image.open(io.BytesIO(content))
+
+
+def test_crop_portrait_image_yields_1200x630_jpeg(client: TestClient) -> None:
+    # Given — tall input (100x300)
+    upload = _solid_image_bytes(100, 300, fmt="PNG")
+
+    # When
+    response = client.post(
+        "/crop",
+        files={"file": ("portrait.png", io.BytesIO(upload), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    out = _decode(response.content)
+    assert out.size == (1200, 630)
+    assert out.format == "JPEG"
+
+
+def test_crop_landscape_image_yields_1200x630_jpeg(client: TestClient) -> None:
+    # Given — wider-than-target input
+    upload = _solid_image_bytes(3000, 800, fmt="JPEG")
+
+    # When
+    response = client.post(
+        "/crop",
+        files={"file": ("landscape.jpg", io.BytesIO(upload), "image/jpeg")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.size == (1200, 630)
+
+
+def test_crop_accepts_webp(client: TestClient) -> None:
+    # Given
+    upload = _solid_image_bytes(800, 1200, fmt="WEBP")
+
+    # When
+    response = client.post(
+        "/crop",
+        files={"file": ("photo.webp", io.BytesIO(upload), "image/webp")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.size == (1200, 630)
+
+
+def test_crop_y_offset_zero_selects_top_band(client: TestClient) -> None:
+    # Given — top half red, bottom half blue, taller-than-target ratio
+    upload = _split_image_bytes(1200, 1260, top_color=(255, 0, 0), bottom_color=(0, 0, 255))
+
+    # When
+    response = client.post(
+        "/crop",
+        data={"y_offset": "0.0"},
+        files={"file": ("split.png", io.BytesIO(upload), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    out = _decode(response.content)
+    # Mid-top pixel must be predominantly red.
+    r, g, b = out.getpixel((600, 100))
+    assert r > 180 and g < 80 and b < 80
+
+
+def test_crop_y_offset_one_selects_bottom_band(client: TestClient) -> None:
+    # Given
+    upload = _split_image_bytes(1200, 1260, top_color=(255, 0, 0), bottom_color=(0, 0, 255))
+
+    # When
+    response = client.post(
+        "/crop",
+        data={"y_offset": "1.0"},
+        files={"file": ("split.png", io.BytesIO(upload), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    out = _decode(response.content)
+    r, g, b = out.getpixel((600, 500))
+    assert b > 180 and r < 80 and g < 80
+
+
+def test_crop_rejects_text_content_type(client: TestClient) -> None:
+    response = client.post(
+        "/crop",
+        files={"file": ("notes.txt", io.BytesIO(b"not an image"), "text/plain")},
+    )
+
+    assert response.status_code == 415
+
+
+def test_crop_rejects_empty_file(client: TestClient) -> None:
+    response = client.post(
+        "/crop",
+        files={"file": ("empty.png", io.BytesIO(b""), "image/png")},
+    )
+
+    assert response.status_code == 400
+
+
+def test_crop_rejects_too_large_file(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "MAX_BYTES", 10)
+
+    response = client.post(
+        "/crop",
+        files={"file": ("big.png", io.BytesIO(b"x" * 100), "image/png")},
+    )
+
+    assert response.status_code == 413
+
+
+def test_crop_rejects_y_offset_out_of_range(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+    response = client.post(
+        "/crop",
+        data={"y_offset": "1.5"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 422
+
+
+def test_crop_rejects_quality_out_of_range(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+    response = client.post(
+        "/crop",
+        data={"quality": "10"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 422
+
+
+def test_crop_returns_500_when_pillow_raises(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given
+    def boom(_data: bytes, *, y_offset: float, quality: int) -> bytes:
+        raise RuntimeError("pillow crashed")
+
+    monkeypatch.setattr(main, "_crop_to_og", boom)
+    upload = _solid_image_bytes(800, 1200)
+
+    # When
+    response = client.post(
+        "/crop",
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 500
+    detail = response.json()["detail"]
+    assert detail.startswith("Crop failed:")
+    assert "RuntimeError" in detail
+    assert "pillow crashed" in detail
+
+
+# ---------------------------------------------------------------------------
 
 
 def test_remove_background_invokes_rembg() -> None:

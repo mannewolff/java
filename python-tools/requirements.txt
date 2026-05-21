@@ -3,3 +3,4 @@ uvicorn[standard]==0.32.1
 python-multipart==0.0.17
 rembg==2.0.59
 pillow==11.0.0
+colorthief==0.2.1

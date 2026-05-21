@@ -343,6 +343,133 @@ def test_crop_returns_500_when_pillow_raises(
 
 
 # ---------------------------------------------------------------------------
+# /palette tests
+# ---------------------------------------------------------------------------
+
+
+def test_palette_happy_path_returns_hex_colors(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given — replace colorthief at the wrapper level to keep the test fast.
+    monkeypatch.setattr(
+        main,
+        "_extract_palette",
+        lambda data, count: ["#aabbcc", "#001122", "#abcdef"][:count],
+    )
+
+    # When
+    response = client.post(
+        "/palette",
+        data={"count": "3"},
+        files={"file": ("x.png", io.BytesIO(_solid_image_bytes(100, 100)), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"colors": ["#aabbcc", "#001122", "#abcdef"]}
+
+
+def test_palette_default_count_is_six(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: list[int] = []
+
+    def fake(data: bytes, count: int) -> list[str]:
+        captured.append(count)
+        return ["#000000"] * count
+
+    monkeypatch.setattr(main, "_extract_palette", fake)
+
+    response = client.post(
+        "/palette",
+        files={"file": ("x.png", io.BytesIO(_solid_image_bytes(100, 100)), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert captured == [6]
+    assert len(response.json()["colors"]) == 6
+
+
+def test_palette_count_out_of_range_low(client: TestClient) -> None:
+    response = client.post(
+        "/palette",
+        data={"count": "1"},
+        files={"file": ("x.png", io.BytesIO(_solid_image_bytes(100, 100)), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_palette_count_out_of_range_high(client: TestClient) -> None:
+    response = client.post(
+        "/palette",
+        data={"count": "11"},
+        files={"file": ("x.png", io.BytesIO(_solid_image_bytes(100, 100)), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_palette_rejects_text_content_type(client: TestClient) -> None:
+    response = client.post(
+        "/palette",
+        files={"file": ("notes.txt", io.BytesIO(b"not an image"), "text/plain")},
+    )
+    assert response.status_code == 415
+
+
+def test_palette_returns_500_when_colorthief_raises(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(data: bytes, count: int) -> list[str]:
+        raise RuntimeError("kmeans crashed")
+
+    monkeypatch.setattr(main, "_extract_palette", boom)
+
+    response = client.post(
+        "/palette",
+        files={"file": ("x.png", io.BytesIO(_solid_image_bytes(100, 100)), "image/png")},
+    )
+
+    assert response.status_code == 500
+    detail = response.json()["detail"]
+    assert detail.startswith("Palette extraction failed:")
+    assert "RuntimeError" in detail
+
+
+def test_rgb_to_hex_formats_lowercase_hex() -> None:
+    assert main._rgb_to_hex((255, 0, 0)) == "#ff0000"
+    assert main._rgb_to_hex((0, 255, 0)) == "#00ff00"
+    assert main._rgb_to_hex((0, 0, 255)) == "#0000ff"
+    assert main._rgb_to_hex((171, 205, 239)) == "#abcdef"
+
+
+def test_extract_palette_invokes_colorthief() -> None:
+    # Given — fake colorthief module with the get_palette/get_color API.
+    fake_colorthief = types.ModuleType("colorthief")
+
+    class FakeThief:
+        def __init__(self, _stream) -> None:
+            pass
+
+        def get_palette(self, color_count: int, quality: int) -> list[tuple[int, int, int]]:
+            return [(255, 0, 0), (0, 255, 0), (0, 0, 255)][:color_count]
+
+        def get_color(self, quality: int) -> tuple[int, int, int]:
+            return (10, 20, 30)
+
+    fake_colorthief.ColorThief = FakeThief  # type: ignore[attr-defined]
+
+    # When
+    with patch.dict("sys.modules", {"colorthief": fake_colorthief}):
+        palette_n = main._extract_palette(b"raw", count=2)
+        palette_one = main._extract_palette(b"raw", count=1)
+
+    # Then
+    assert palette_n == ["#ff0000", "#00ff00"]
+    assert palette_one == ["#0a141e"]
+
+
+# ---------------------------------------------------------------------------
 
 
 def test_remove_background_invokes_rembg() -> None:

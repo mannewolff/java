@@ -4,6 +4,7 @@ Endpoints:
 
 - POST /remove-bg -> rembg-basierter Hintergrund-Removal, liefert PNG mit Alpha.
 - POST /crop      -> Pillow-basierter Cover-Crop auf 1200x630 (OpenGraph / WordPress).
+- POST /palette   -> colorthief-basierte Brandpalette, liefert N Hex-Farben.
 - GET  /health    -> Liveness-Check fuer Docker-Healthcheck und Spring.
 """
 
@@ -35,6 +36,21 @@ def _remove_background(data: bytes) -> bytes:
     from rembg import remove  # local import: keeps rembg out of test imports
 
     return remove(data)
+
+
+def _extract_palette(data: bytes, count: int) -> list[str]:
+    """Lazy-import colorthief und liefere `count` dominante Farben als #rrggbb."""
+    from colorthief import ColorThief  # local import: tests koennen ohne colorthief laufen
+
+    thief = ColorThief(io.BytesIO(data))
+    if count == 1:
+        return [_rgb_to_hex(thief.get_color(quality=10))]
+    palette = thief.get_palette(color_count=count, quality=10)
+    return [_rgb_to_hex(rgb) for rgb in palette[:count]]
+
+
+def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return "#{0:02x}{1:02x}{2:02x}".format(rgb[0], rgb[1], rgb[2])
 
 
 def _crop_to_og(data: bytes, y_offset: float, quality: int) -> bytes:
@@ -124,3 +140,22 @@ async def crop(
         raise HTTPException(status_code=500, detail=detail) from exc
 
     return Response(content=result, media_type="image/jpeg")
+
+
+@app.post("/palette")
+async def palette(
+    file: Annotated[UploadFile, File()],
+    count: Annotated[int, Form(ge=2, le=10)] = 6,
+) -> dict[str, list[str]]:
+    """Liefert die `count` dominanten Farben als Hex-Strings (gross-nach-klein)."""
+    contents = await _read_and_validate(file)
+
+    try:
+        colors = _extract_palette(contents, count=count)
+    except Exception as exc:  # noqa: BLE001 — Wrap any colorthief failure
+        logger.error("palette failed", exc_info=True)
+        traceback.print_exc()
+        detail = f"Palette extraction failed: {type(exc).__name__}: {exc}"
+        raise HTTPException(status_code=500, detail=detail) from exc
+
+    return {"colors": colors}

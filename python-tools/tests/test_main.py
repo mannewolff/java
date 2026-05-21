@@ -267,6 +267,59 @@ def test_crop_y_offset_one_selects_bottom_band(client: TestClient) -> None:
     assert b > 180 and r < 80 and g < 80
 
 
+def _side_split_image_bytes(width: int, height: int, left_color, right_color) -> bytes:
+    """Bild mit klar getrennten Farbflaechen links/rechts — fuer x_offset-Tests."""
+    img = Image.new("RGB", (width, height), left_color)
+    right = Image.new("RGB", (width // 2, height), right_color)
+    img.paste(right, (width // 2, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_crop_x_offset_zero_selects_left_band(client: TestClient) -> None:
+    # Given — landscape (wider than 1200x630), left red, right blue
+    upload = _side_split_image_bytes(2400, 630, left_color=(255, 0, 0), right_color=(0, 0, 255))
+
+    # When
+    response = client.post(
+        "/crop",
+        data={"x_offset": "0.0"},
+        files={"file": ("split.png", io.BytesIO(upload), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 200
+    out = _decode(response.content)
+    r, g, b = out.getpixel((100, 300))
+    assert r > 180 and g < 80 and b < 80
+
+
+def test_crop_x_offset_one_selects_right_band(client: TestClient) -> None:
+    upload = _side_split_image_bytes(2400, 630, left_color=(255, 0, 0), right_color=(0, 0, 255))
+
+    response = client.post(
+        "/crop",
+        data={"x_offset": "1.0"},
+        files={"file": ("split.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content)
+    r, g, b = out.getpixel((1100, 300))
+    assert b > 180 and r < 80 and g < 80
+
+
+def test_crop_rejects_x_offset_out_of_range(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+    response = client.post(
+        "/crop",
+        data={"x_offset": "1.5"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
 def test_crop_rejects_text_content_type(client: TestClient) -> None:
     response = client.post(
         "/crop",
@@ -383,7 +436,13 @@ def test_crop_returns_500_when_pillow_raises(
 ) -> None:
     # Given
     def boom(
-        _data: bytes, *, y_offset: float, quality: int, width: int, height: int
+        _data: bytes,
+        *,
+        y_offset: float,
+        x_offset: float,
+        quality: int,
+        width: int,
+        height: int,
     ) -> bytes:
         raise RuntimeError("pillow crashed")
 

@@ -47,7 +47,7 @@ class CropOgServiceTest {
                 "file", "photo.jpg", "image/jpeg", "raw-bytes".getBytes(StandardCharsets.UTF_8));
 
         // When
-        final byte[] result = service.crop(upload, 0.3, 88, 1200, 630);
+        final byte[] result = service.crop(upload, 0.3, 0.5, 88, 1200, 630);
 
         // Then
         assertThat(result).isEqualTo(processed);
@@ -67,6 +67,7 @@ class CropOgServiceTest {
         assertThat(body).contains("1200");
         assertThat(body).contains("name=\"height\"");
         assertThat(body).contains("630");
+        assertThat(body).contains("name=\"x_offset\"");
     }
 
     @Test
@@ -80,7 +81,7 @@ class CropOgServiceTest {
                 "file", "photo.jpg", "image/jpeg", "raw".getBytes(StandardCharsets.UTF_8));
 
         // When
-        service.crop(upload, 0.5, 88, 1080, 1080);
+        service.crop(upload, 0.5, 0.5, 88, 1080, 1080);
 
         // Then
         final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
@@ -97,7 +98,7 @@ class CropOgServiceTest {
                 "file", "x.jpg", "image/jpeg", "data".getBytes(StandardCharsets.UTF_8));
 
         // When / Then
-        assertThatThrownBy(() -> service.crop(upload, 0.5, 88, 1200, 630))
+        assertThatThrownBy(() -> service.crop(upload, 0.5, 0.5, 88, 1200, 630))
                 .isInstanceOf(PythonToolsException.class)
                 .hasMessageContaining("python-tools call failed")
                 .hasMessageContaining("crash");
@@ -114,7 +115,7 @@ class CropOgServiceTest {
                 "file", "x.jpg", "image/jpeg", "data".getBytes(StandardCharsets.UTF_8));
 
         // When / Then
-        assertThatThrownBy(() -> service.crop(upload, 0.5, 88, 1200, 630))
+        assertThatThrownBy(() -> service.crop(upload, 0.5, 0.5, 88, 1200, 630))
                 .isInstanceOf(PythonToolsException.class)
                 .hasMessageContaining("empty body");
     }

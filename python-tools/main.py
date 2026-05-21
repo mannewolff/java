@@ -58,11 +58,12 @@ def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
 def _crop_to_og(
     data: bytes,
     y_offset: float,
+    x_offset: float,
     quality: int,
     width: int,
     height: int,
 ) -> bytes:
-    """Cover-fit crop auf width x height, vertikal entlang y_offset (0=oben, 1=unten)."""
+    """Cover-fit crop auf width x height, Ausschnittposition ueber x_offset / y_offset."""
     from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
 
     src = Image.open(io.BytesIO(data))
@@ -73,11 +74,11 @@ def _crop_to_og(
     src_ratio = src_w / src_h
 
     if src_ratio > target_ratio:
-        # Quelle ist breiter -> Hoehe fuellen, links/rechts beschneiden (horizontal zentriert).
+        # Quelle ist breiter -> Hoehe fuellen, links/rechts via x_offset beschneiden.
         new_h = height
         new_w = max(width, round(src_w * (height / src_h)))
         resized = src.resize((new_w, new_h), Image.LANCZOS)
-        x_off = round((new_w - width) * 0.5)
+        x_off = round((new_w - width) * x_offset)
         box = (x_off, 0, x_off + width, height)
     else:
         # Quelle ist hoeher (oder gleichgroß) -> Breite fuellen, oben/unten via y_offset beschneiden.
@@ -134,16 +135,22 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
 async def crop(
     file: Annotated[UploadFile, File()],
     y_offset: Annotated[float, Form(ge=0.0, le=1.0)] = 0.5,
+    x_offset: Annotated[float, Form(ge=0.0, le=1.0)] = 0.5,
     quality: Annotated[int, Form(ge=50, le=95)] = 88,
     width: Annotated[int, Form(ge=OG_MIN_DIMENSION, le=OG_MAX_DIMENSION)] = OG_DEFAULT_WIDTH,
     height: Annotated[int, Form(ge=OG_MIN_DIMENSION, le=OG_MAX_DIMENSION)] = OG_DEFAULT_HEIGHT,
 ) -> Response:
-    """Cover-fit-Crop auf width x height als JPEG; y_offset waehlt vertikalen Anschnitt."""
+    """Cover-fit-Crop auf width x height als JPEG; x_offset/y_offset waehlen den Anschnitt."""
     contents = await _read_and_validate(file)
 
     try:
         result = _crop_to_og(
-            contents, y_offset=y_offset, quality=quality, width=width, height=height
+            contents,
+            y_offset=y_offset,
+            x_offset=x_offset,
+            quality=quality,
+            width=width,
+            height=height,
         )
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)

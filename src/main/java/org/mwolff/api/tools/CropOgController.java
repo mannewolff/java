@@ -35,13 +35,15 @@ public class CropOgController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "y_offset", defaultValue = "0.5")
             @DecimalMin("0.0") @DecimalMax("1.0") double yOffset,
+            @RequestParam(value = "x_offset", defaultValue = "0.5")
+            @DecimalMin("0.0") @DecimalMax("1.0") double xOffset,
             @RequestParam(value = "quality", defaultValue = "88")
             @Min(50) @Max(95) int quality,
             @RequestParam(value = "width", defaultValue = DEFAULT_WIDTH)
             @Min(MIN_DIMENSION) @Max(MAX_DIMENSION) int width,
             @RequestParam(value = "height", defaultValue = DEFAULT_HEIGHT)
             @Min(MIN_DIMENSION) @Max(MAX_DIMENSION) int height) {
-        final byte[] result = service.crop(file, yOffset, quality, width, height);
+        final byte[] result = service.crop(file, yOffset, xOffset, quality, width, height);
         final String filename = "featured-" + width + "x" + height + ".jpg";
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)

@@ -10,7 +10,6 @@ import {
   IconButton,
   MenuItem,
   Paper,
-  Slider,
   Snackbar,
   Stack,
   TextField,
@@ -24,10 +23,11 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { ApiError } from '../../api/client';
 import { cropOg, extractPalette } from '../../api/ogImage';
+import InteractiveCropFrame, { type CropOffsets } from '../../components/InteractiveCropFrame';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
-const SLIDER_DEBOUNCE_MS = 300;
+const CROP_DEBOUNCE_MS = 250;
 const MIN_DIMENSION = 200;
 const MAX_DIMENSION = 4096;
 
@@ -64,7 +64,8 @@ function errorMessage(err: unknown): string {
 
 export default function OgImagePage() {
   const [file, setFile] = useState<File | null>(null);
-  const [yOffset, setYOffset] = useState(0.5);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [offsets, setOffsets] = useState<CropOffsets>({ xOffset: 0.5, yOffset: 0.5 });
   const [targetWidth, setTargetWidth] = useState(1200);
   const [targetHeight, setTargetHeight] = useState(630);
   const [cropUrl, setCropUrl] = useState<string | null>(null);
@@ -85,12 +86,22 @@ export default function OgImagePage() {
     };
   }, [cropUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    };
+  }, [sourceUrl]);
+
   const runCrop = useCallback(
-    async (incoming: File, offset: number, w: number, h: number) => {
+    async (incoming: File, next: CropOffsets, w: number, h: number) => {
       setIsProcessing(true);
       setError(null);
       try {
-        const blob = await cropOg(incoming, offset, { width: w, height: h });
+        const blob = await cropOg(incoming, next.yOffset, {
+          xOffset: next.xOffset,
+          width: w,
+          height: h,
+        });
         setCropUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return URL.createObjectURL(blob);
@@ -117,15 +128,17 @@ export default function OgImagePage() {
   useEffect(() => {
     if (!file) return;
     const handle = window.setTimeout(() => {
-      void runCrop(file, yOffset, targetWidth, targetHeight);
-    }, SLIDER_DEBOUNCE_MS);
+      void runCrop(file, offsets, targetWidth, targetHeight);
+    }, CROP_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [file, yOffset, targetWidth, targetHeight, runCrop]);
+  }, [file, offsets, targetWidth, targetHeight, runCrop]);
 
   const reset = () => {
     if (cropUrl) URL.revokeObjectURL(cropUrl);
+    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
     setFile(null);
-    setYOffset(0.5);
+    setSourceUrl(null);
+    setOffsets({ xOffset: 0.5, yOffset: 0.5 });
     setCropUrl(null);
     setPalette(null);
     setError(null);
@@ -142,10 +155,12 @@ export default function OgImagePage() {
       return;
     }
     if (cropUrl) URL.revokeObjectURL(cropUrl);
+    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
     setCropUrl(null);
     setPalette(null);
-    setYOffset(0.5);
+    setOffsets({ xOffset: 0.5, yOffset: 0.5 });
     setFile(incoming);
+    setSourceUrl(URL.createObjectURL(incoming));
     void runPalette(incoming);
   };
 
@@ -224,7 +239,7 @@ export default function OgImagePage() {
         </Tooltip>
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Bild hochladen, vertikalen Ausschnitt per Slider wählen, JPEG downloaden.
+        Bild hochladen, Crop-Rahmen mit der Maus verschieben, JPEG downloaden.
         Aktuelle Zielgröße: <strong>{targetWidth}×{targetHeight}</strong>.
       </Typography>
 
@@ -270,22 +285,21 @@ export default function OgImagePage() {
         />
       </Paper>
 
-      {file && (
+      {file && sourceUrl && (
         <>
           <Paper sx={{ p: 2, mb: 3 }}>
-            <Typography gutterBottom>
-              Vertikaler Ausschnitt: <strong>{Math.round(yOffset * 100)} %</strong>{' '}
-              {yOffset === 0 ? '(oben)' : yOffset === 1 ? '(unten)' : '(Mitte)'}
+            <Typography variant="h6" gutterBottom>
+              Ausschnitt ({targetWidth}×{targetHeight})
             </Typography>
-            <Slider
-              value={yOffset}
-              min={0}
-              max={1}
-              step={0.05}
-              onChange={(_, v) => setYOffset(Array.isArray(v) ? v[0] : v)}
-              aria-label="Vertikaler Ausschnitt"
+            <InteractiveCropFrame
+              imageUrl={sourceUrl}
+              targetWidth={targetWidth}
+              targetHeight={targetHeight}
+              xOffset={offsets.xOffset}
+              yOffset={offsets.yOffset}
+              onChange={setOffsets}
             />
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
               <Button
                 variant="outlined"
                 startIcon={<RestartAltIcon />}
@@ -310,7 +324,7 @@ export default function OgImagePage() {
 
           <Paper sx={{ p: 2, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Vorschau ({targetWidth}×{targetHeight})
+              Vorschau (Ergebnis)
             </Typography>
             {isProcessing && !cropUrl ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>

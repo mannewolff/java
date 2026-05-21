@@ -35,7 +35,7 @@ class CropOgControllerTest {
     void shouldReturnJpegOnSuccess() throws Exception {
         // Given
         final byte[] processed = "jpeg-bytes".getBytes();
-        given(service.crop(any(), anyDouble(), anyInt(), anyInt(), anyInt())).willReturn(processed);
+        given(service.crop(any(), anyDouble(), anyDouble(), anyInt(), anyInt(), anyInt())).willReturn(processed);
         final MockMultipartFile upload = new MockMultipartFile(
                 "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
 
@@ -86,6 +86,14 @@ class CropOgControllerTest {
     }
 
     @Test
+    void shouldReturn400WhenXOffsetOutOfRange() throws Exception {
+        final MockMultipartFile upload = new MockMultipartFile(
+                "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
+        mockMvc.perform(multipart("/api/tools/crop-og").file(upload).param("x_offset", "1.5"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void shouldReturn400WhenWidthBelowMin() throws Exception {
         final MockMultipartFile upload = new MockMultipartFile(
                 "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
@@ -104,7 +112,7 @@ class CropOgControllerTest {
     @Test
     void shouldUseCustomDimensionsInDownloadFilename() throws Exception {
         // Given
-        given(service.crop(any(), anyDouble(), anyInt(), anyInt(), anyInt())).willReturn("jpeg".getBytes());
+        given(service.crop(any(), anyDouble(), anyDouble(), anyInt(), anyInt(), anyInt())).willReturn("jpeg".getBytes());
         final MockMultipartFile upload = new MockMultipartFile(
                 "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
 
@@ -121,7 +129,7 @@ class CropOgControllerTest {
     void shouldReturn502WhenPythonServiceFails() throws Exception {
         // Given
         willThrow(new PythonToolsException("upstream down"))
-                .given(service).crop(any(), anyDouble(), anyInt(), anyInt(), anyInt());
+                .given(service).crop(any(), anyDouble(), anyDouble(), anyInt(), anyInt(), anyInt());
         final MockMultipartFile upload = new MockMultipartFile(
                 "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "raw".getBytes());
 

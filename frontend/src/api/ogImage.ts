@@ -23,6 +23,7 @@ export interface PaletteResponse {
 }
 
 export interface CropOptions {
+  xOffset?: number;
   width?: number;
   height?: number;
   quality?: number;
@@ -36,6 +37,7 @@ export async function cropOg(
   const body = new FormData();
   body.append('file', file);
   body.append('y_offset', yOffset.toString());
+  body.append('x_offset', (options.xOffset ?? 0.5).toString());
   body.append('quality', (options.quality ?? 88).toString());
   if (options.width !== undefined) body.append('width', options.width.toString());
   if (options.height !== undefined) body.append('height', options.height.toString());

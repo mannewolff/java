@@ -5,6 +5,7 @@ Endpoints:
 - POST /remove-bg -> rembg-basierter Hintergrund-Removal, liefert PNG mit Alpha.
 - POST /crop      -> Pillow-basierter Cover-Crop auf 1200x630 (OpenGraph / WordPress).
 - POST /palette   -> colorthief-basierte Brandpalette, liefert N Hex-Farben.
+- POST /resize    -> Pillow LANCZOS-Resize auf width x height.
 - GET  /health    -> Liveness-Check fuer Docker-Healthcheck und Spring.
 """
 
@@ -29,6 +30,20 @@ OG_DEFAULT_WIDTH: int = 1200
 OG_DEFAULT_HEIGHT: int = 630
 OG_MIN_DIMENSION: int = 200
 OG_MAX_DIMENSION: int = 4096
+
+RESIZE_MIN_DIMENSION: int = 1
+RESIZE_MAX_DIMENSION: int = 8192
+
+FORMAT_TO_MEDIA: dict[str, str] = {
+    "PNG": "image/png",
+    "JPEG": "image/jpeg",
+    "WEBP": "image/webp",
+}
+MEDIA_TO_PILLOW: dict[str, str] = {
+    "png": "PNG",
+    "jpeg": "JPEG",
+    "webp": "WEBP",
+}
 
 app = FastAPI(title="python-tools", version="0.1.0")
 
@@ -92,6 +107,34 @@ def _crop_to_og(
     buf = io.BytesIO()
     cropped.save(buf, format="JPEG", quality=quality, optimize=True)
     return buf.getvalue()
+
+
+def _resize(
+    data: bytes, width: int, height: int, output_format: str, quality: int
+) -> tuple[bytes, str]:
+    """Skaliert das Bild auf (width, height) per LANCZOS. Returnt (bytes, media_type)."""
+    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+
+    src = Image.open(io.BytesIO(data))
+    source_format = (src.format or "PNG").upper()
+
+    if output_format == "auto":
+        out_format = source_format if source_format in FORMAT_TO_MEDIA else "PNG"
+    else:
+        out_format = MEDIA_TO_PILLOW[output_format]
+
+    # JPEG hat keinen Alpha-Kanal -> RGB konvertieren, sonst wirft save TypeError.
+    if out_format == "JPEG" and src.mode in ("RGBA", "LA", "P"):
+        src = src.convert("RGB")
+
+    resized = src.resize((width, height), Image.LANCZOS)
+    buf = io.BytesIO()
+    save_kwargs: dict[str, int | bool] = {}
+    if out_format in ("JPEG", "WEBP"):
+        save_kwargs["quality"] = quality
+        save_kwargs["optimize"] = True
+    resized.save(buf, format=out_format, **save_kwargs)
+    return buf.getvalue(), FORMAT_TO_MEDIA[out_format]
 
 
 async def _read_and_validate(file: UploadFile) -> bytes:
@@ -159,6 +202,34 @@ async def crop(
         raise HTTPException(status_code=500, detail=detail) from exc
 
     return Response(content=result, media_type="image/jpeg")
+
+
+@app.post("/resize")
+async def resize(
+    file: Annotated[UploadFile, File()],
+    width: Annotated[int, Form(ge=RESIZE_MIN_DIMENSION, le=RESIZE_MAX_DIMENSION)],
+    height: Annotated[int, Form(ge=RESIZE_MIN_DIMENSION, le=RESIZE_MAX_DIMENSION)],
+    output_format: Annotated[str, Form(pattern="^(auto|png|jpeg|webp)$")] = "auto",
+    quality: Annotated[int, Form(ge=50, le=95)] = 90,
+) -> Response:
+    """Skaliert ein Bild auf die gewuenschten Pixelmasse (LANCZOS)."""
+    contents = await _read_and_validate(file)
+
+    try:
+        result, media_type = _resize(
+            contents,
+            width=width,
+            height=height,
+            output_format=output_format,
+            quality=quality,
+        )
+    except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
+        logger.error("resize failed", exc_info=True)
+        traceback.print_exc()
+        detail = f"Resize failed: {type(exc).__name__}: {exc}"
+        raise HTTPException(status_code=500, detail=detail) from exc
+
+    return Response(content=result, media_type=media_type)
 
 
 @app.post("/palette")

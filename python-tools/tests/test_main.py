@@ -464,6 +464,201 @@ def test_crop_returns_500_when_pillow_raises(
 
 
 # ---------------------------------------------------------------------------
+# /resize tests
+# ---------------------------------------------------------------------------
+
+
+def test_resize_happy_path_returns_target_dimensions(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 600, fmt="PNG")
+
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    out = _decode(response.content)
+    assert out.size == (400, 300)
+
+
+def test_resize_auto_format_preserves_jpeg(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 600, fmt="JPEG")
+
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300"},
+        files={"file": ("photo.jpg", io.BytesIO(upload), "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    out = _decode(response.content)
+    assert out.format == "JPEG"
+
+
+def test_resize_explicit_format_overrides_source(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 600, fmt="PNG")
+
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300", "output_format": "jpeg"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    out = _decode(response.content)
+    assert out.format == "JPEG"
+
+
+def test_resize_jpeg_quality_affects_size(client: TestClient) -> None:
+    # Use a varied input so JPEG quality has something to compress.
+    upload = _split_image_bytes(800, 600, top_color=(180, 30, 30), bottom_color=(20, 60, 200))
+
+    def post(quality: int) -> bytes:
+        response = client.post(
+            "/resize",
+            data={
+                "width": "400",
+                "height": "300",
+                "output_format": "jpeg",
+                "quality": str(quality),
+            },
+            files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+        )
+        assert response.status_code == 200
+        return response.content
+
+    low = post(50)
+    high = post(95)
+    assert len(low) < len(high)
+
+
+def test_resize_png_with_alpha_to_jpeg_strips_alpha(client: TestClient) -> None:
+    from PIL import Image
+
+    img = Image.new("RGBA", (400, 300), (255, 0, 0, 128))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+
+    response = client.post(
+        "/resize",
+        data={"width": "200", "height": "150", "output_format": "jpeg"},
+        files={"file": ("photo.png", io.BytesIO(buf.getvalue()), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.mode == "RGB"
+
+
+def test_resize_rejects_width_below_min(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 600)
+    response = client.post(
+        "/resize",
+        data={"width": "0", "height": "300"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_resize_rejects_height_above_max(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 600)
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "9000"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_resize_rejects_unknown_format(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 600)
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300", "output_format": "bmp"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_resize_rejects_text_content_type(client: TestClient) -> None:
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300"},
+        files={"file": ("notes.txt", io.BytesIO(b"hello"), "text/plain")},
+    )
+    assert response.status_code == 415
+
+
+def test_resize_rejects_empty_file(client: TestClient) -> None:
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300"},
+        files={"file": ("empty.png", io.BytesIO(b""), "image/png")},
+    )
+    assert response.status_code == 400
+
+
+def test_resize_rejects_too_large_file(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_BYTES", 10)
+    upload = _solid_image_bytes(800, 600)
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300"},
+        files={"file": ("big.png", io.BytesIO(upload), "image/png")},
+    )
+    assert response.status_code == 413
+
+
+def test_resize_returns_500_when_pillow_raises(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(
+        _data: bytes, *, width: int, height: int, output_format: str, quality: int
+    ) -> tuple[bytes, str]:
+        raise RuntimeError("pillow crashed")
+
+    monkeypatch.setattr(main, "_resize", boom)
+    upload = _solid_image_bytes(800, 600)
+
+    response = client.post(
+        "/resize",
+        data={"width": "400", "height": "300"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 500
+    detail = response.json()["detail"]
+    assert detail.startswith("Resize failed:")
+    assert "RuntimeError" in detail
+
+
+def test_resize_unknown_source_format_defaults_to_png() -> None:
+    """When auto-mode meets an unusual source, fall back to PNG output."""
+    import io as _io
+    from PIL import Image
+
+    # Construct a BMP — Pillow knows it, but it is not in FORMAT_TO_MEDIA.
+    img = Image.new("RGB", (50, 50), (10, 20, 30))
+    buf = _io.BytesIO()
+    img.save(buf, format="BMP")
+
+    out_bytes, media = main._resize(
+        buf.getvalue(), width=10, height=10, output_format="auto", quality=90
+    )
+
+    assert media == "image/png"
+    out = main.Image if False else None  # noqa: F841 — keep type stub silent
+    decoded = _decode(out_bytes)
+    assert decoded.format == "PNG"
+
+
+# ---------------------------------------------------------------------------
 # /palette tests
 # ---------------------------------------------------------------------------
 

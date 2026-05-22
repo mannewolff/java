@@ -638,6 +638,30 @@ def test_resize_returns_500_when_pillow_raises(
     assert "RuntimeError" in detail
 
 
+def test_resize_preserves_whole_image_not_a_crop(client: TestClient) -> None:
+    """A 2000x1000 source with red top half + blue bottom half MUST still show
+    both colors after resizing to 200x100. A crop would lose one of them."""
+    upload = _split_image_bytes(
+        2000, 1000, top_color=(220, 30, 30), bottom_color=(20, 60, 220), fmt="PNG"
+    )
+
+    response = client.post(
+        "/resize",
+        data={"width": "200", "height": "100"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content).convert("RGB")
+    assert out.size == (200, 100)
+    # Top quarter must still be predominantly red.
+    r_top, g_top, b_top = out.getpixel((100, 20))
+    assert r_top > 150 and g_top < 80 and b_top < 80, f"top pixel was {(r_top, g_top, b_top)}"
+    # Bottom quarter must still be predominantly blue.
+    r_bot, g_bot, b_bot = out.getpixel((100, 80))
+    assert b_bot > 150 and r_bot < 80 and g_bot < 80, f"bottom pixel was {(r_bot, g_bot, b_bot)}"
+
+
 def test_resize_unknown_source_format_defaults_to_png() -> None:
     """When auto-mode meets an unusual source, fall back to PNG output."""
     import io as _io

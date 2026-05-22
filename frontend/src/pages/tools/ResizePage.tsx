@@ -354,13 +354,27 @@ export default function ResizePage() {
           {resultUrl && (
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Ergebnis
+                Ergebnis: {targetW}×{targetH} px
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Vorschau ist zur Sichtbarkeit auf die Spaltenbreite hochskaliert.
+                Die heruntergeladene Datei hat die oben genannten Pixelmaße.
               </Typography>
               <Box
                 component="img"
                 src={resultUrl}
                 alt="Verkleinertes Bild"
-                sx={{ maxWidth: '100%', display: 'block', mx: 'auto', borderRadius: 1 }}
+                sx={{
+                  width: '100%',
+                  maxWidth: 800,
+                  display: 'block',
+                  mx: 'auto',
+                  borderRadius: 1,
+                  border: 1,
+                  borderColor: 'divider',
+                  // Photos: glatt hochskalieren. Pixel-Art-Tools koennen das spaeter ueberschreiben.
+                  imageRendering: 'auto',
+                }}
               />
             </Paper>
           )}

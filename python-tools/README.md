@@ -9,6 +9,7 @@ FastAPI-Microservice für Bild-Werkzeuge der persönlichen Toolbox.
 | `POST` | `/remove-bg` | Hintergrund per [rembg](https://github.com/danielgatis/rembg) (U2Net-Modell) entfernen. Returnt PNG mit Alpha. |
 | `POST` | `/crop` | Cover-fit-Crop auf 1200×630 (OpenGraph / WordPress). Returnt JPEG. |
 | `POST` | `/palette` | Dominante Farben per [colorthief](https://github.com/fengsp/color-thief-py). Returnt JSON. |
+| `POST` | `/resize` | Proportionales (oder freies) Skalieren via Pillow LANCZOS. Returnt Bild im gewählten Format. |
 | `GET`  | `/health` | Liveness-Check für Docker- und Spring-Healthchecks. |
 
 ### `POST /remove-bg`
@@ -37,6 +38,18 @@ Response: `image/jpeg`, exakt 1200×630 Pixel.
 | `count` | int | 6 | 2–10 | Anzahl gewünschter Farben |
 
 Response: `application/json`, z. B. `{"colors":["#aabbcc","#001122",...]}` — Reihenfolge nach Dominanz.
+
+### `POST /resize`
+
+| Feld | Typ | Default | Range | Beschreibung |
+|---|---|---|---|---|
+| `file` | multipart-Datei | — | — | PNG / JPEG / WEBP, max 10 MiB |
+| `width` | int | — | 1–8192 | Zielbreite in Pixeln (Pflicht) |
+| `height` | int | — | 1–8192 | Zielhöhe in Pixeln (Pflicht) |
+| `output_format` | string | `auto` | `auto`/`png`/`jpeg`/`webp` | `auto` behält das Quellformat (BMP/u.ä. → PNG) |
+| `quality` | int | 90 | 50–95 | JPEG-/WEBP-Quality, wird bei `png` ignoriert |
+
+Response: `image/*` passend zum gewählten / erkannten Format, exakt `width × height` Pixel.
 
 ## Fehler
 

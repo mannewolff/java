@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import {
   Alert,
   Box,
@@ -99,7 +100,7 @@ export default function PasswordPage() {
   const draftNoClassActive =
     !draftUpper && !draftLower && !draftDigits && draftActiveSpecials.length === 0;
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     setGenerateError(null);
     try {
       const pw = generate({
@@ -109,16 +110,45 @@ export default function PasswordPage() {
         useDigits,
         specials: activeSpecialChars,
       });
+      // setPassword fires the debounced hash effect below.
       setPassword(pw);
-      setIsHashing(true);
-      const h = await hashBcrypt(pw, costFactor);
-      setHash(h);
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-    } finally {
-      setIsHashing(false);
     }
   };
+
+  const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setGenerateError(null);
+    setPassword(event.target.value);
+  };
+
+  // Debounced re-hash on every password change, no matter whether it comes
+  // from clicking Generate or from the user typing into the input.
+  useEffect(() => {
+    if (!password) {
+      setHash('');
+      setIsHashing(false);
+      return;
+    }
+    setIsHashing(true);
+    let cancelled = false;
+    const handle = window.setTimeout(async () => {
+      try {
+        const h = await hashBcrypt(password, costFactor);
+        if (!cancelled) {
+          setHash(h);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsHashing(false);
+        }
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [password, costFactor]);
 
   const copyToClipboard = async (value: string, label: string) => {
     if (!value) return;
@@ -206,9 +236,11 @@ export default function PasswordPage() {
           <TextField
             label="Passwort"
             value={password}
+            onChange={handlePasswordChange}
+            placeholder="Generieren oder eigenes Passwort eintippen"
+            helperText="Tippen aktualisiert den bcrypt-Hash automatisch nach kurzer Pause."
             slotProps={{
               input: {
-                readOnly: true,
                 endAdornment: (
                   <InputAdornment position="end">
                     <Tooltip title="Passwort kopieren">

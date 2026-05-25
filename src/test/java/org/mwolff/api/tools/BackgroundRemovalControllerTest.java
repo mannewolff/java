@@ -26,6 +26,7 @@ class BackgroundRemovalControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private BackgroundRemovalService service;
+  @MockitoBean private UploadValidator uploadValidator;
 
   @Test
   void shouldReturnPngOnSuccess() throws Exception {

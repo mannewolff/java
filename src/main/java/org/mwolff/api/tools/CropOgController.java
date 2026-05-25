@@ -26,9 +26,11 @@ public class CropOgController {
   private static final String DEFAULT_HEIGHT = "630";
 
   private final CropOgService service;
+  private final UploadValidator uploadValidator;
 
-  public CropOgController(CropOgService service) {
+  public CropOgController(CropOgService service, UploadValidator uploadValidator) {
     this.service = service;
+    this.uploadValidator = uploadValidator;
   }
 
   @PostMapping(value = "/crop-og", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -47,6 +49,7 @@ public class CropOgController {
           @Min(MIN_DIMENSION)
           @Max(MAX_DIMENSION)
           int height) {
+    uploadValidator.validateImageUpload(file);
     final byte[] result = service.crop(file, yOffset, xOffset, quality, width, height);
     final String filename = "featured-" + width + "x" + height + ".jpg";
     return ResponseEntity.ok()

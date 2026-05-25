@@ -28,6 +28,7 @@ class CropOgControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private CropOgService service;
+  @MockitoBean private UploadValidator uploadValidator;
 
   @Test
   void shouldReturnJpegOnSuccess() throws Exception {

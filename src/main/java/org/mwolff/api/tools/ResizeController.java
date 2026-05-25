@@ -23,9 +23,11 @@ public class ResizeController {
   private static final int MAX_DIMENSION = 8192;
 
   private final ResizeService service;
+  private final UploadValidator uploadValidator;
 
-  public ResizeController(ResizeService service) {
+  public ResizeController(ResizeService service, UploadValidator uploadValidator) {
     this.service = service;
+    this.uploadValidator = uploadValidator;
   }
 
   @PostMapping(value = "/resize", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -37,6 +39,7 @@ public class ResizeController {
           @Pattern(regexp = "auto|png|jpeg|webp")
           String outputFormat,
       @RequestParam(value = "quality", defaultValue = "90") @Min(50) @Max(95) int quality) {
+    uploadValidator.validateImageUpload(file);
     final ResizeResult result = service.resize(file, width, height, outputFormat, quality);
     final String filename = "resized-" + width + "x" + height + extensionFor(result.contentType());
     return ResponseEntity.ok()

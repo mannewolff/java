@@ -28,6 +28,7 @@ class PaletteControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private PaletteService service;
+  @MockitoBean private UploadValidator uploadValidator;
 
   @Test
   void shouldReturnJsonPalette() throws Exception {

@@ -17,9 +17,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class PaletteController {
 
   private final PaletteService service;
+  private final UploadValidator uploadValidator;
 
-  public PaletteController(PaletteService service) {
+  public PaletteController(PaletteService service, UploadValidator uploadValidator) {
     this.service = service;
+    this.uploadValidator = uploadValidator;
   }
 
   @PostMapping(
@@ -29,6 +31,7 @@ public class PaletteController {
   public PaletteResponse palette(
       @RequestParam("file") MultipartFile file,
       @RequestParam(value = "count", defaultValue = "6") @Min(2) @Max(10) int count) {
+    uploadValidator.validateImageUpload(file);
     return service.extractPalette(file, count);
   }
 }

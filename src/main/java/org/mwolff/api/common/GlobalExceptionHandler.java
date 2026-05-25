@@ -7,6 +7,7 @@ import java.util.Map;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 
+import org.mwolff.api.tools.InvalidUploadException;
 import org.mwolff.api.tools.PythonToolsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,13 @@ public class GlobalExceptionHandler {
     LOG.warn("python-tools upstream failure: {}", ex.getMessage(), ex);
     return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
         .body(body(HttpStatus.BAD_GATEWAY, UPSTREAM_GENERIC_MESSAGE));
+  }
+
+  @ExceptionHandler(InvalidUploadException.class)
+  public ResponseEntity<Map<String, Object>> handleInvalidUpload(InvalidUploadException ex) {
+    final Map<String, Object> body = body(HttpStatus.BAD_REQUEST, ex.getMessage());
+    body.put("code", ex.code());
+    return ResponseEntity.badRequest().body(body);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)

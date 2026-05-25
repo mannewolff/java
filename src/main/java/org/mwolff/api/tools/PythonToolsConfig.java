@@ -19,10 +19,12 @@ public class PythonToolsConfig {
     // upgrade attempt ("Unsupported upgrade request"), which can leave the
     // first POST with a malformed body.
     final HttpClient http1Client =
-        HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
-    return builder
-        .baseUrl(properties.url())
-        .requestFactory(new JdkClientHttpRequestFactory(http1Client))
-        .build();
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(properties.connectTimeout())
+            .build();
+    final JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(http1Client);
+    requestFactory.setReadTimeout(properties.readTimeout());
+    return builder.baseUrl(properties.url()).requestFactory(requestFactory).build();
   }
 }

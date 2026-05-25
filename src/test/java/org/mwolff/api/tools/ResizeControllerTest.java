@@ -28,6 +28,7 @@ class ResizeControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private ResizeService service;
+  @MockitoBean private UploadValidator uploadValidator;
 
   @Test
   void shouldReturnResizedImageWithUpstreamContentType() throws Exception {

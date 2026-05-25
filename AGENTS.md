@@ -6,11 +6,11 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 
 ## 🎯 Schnelleinstieg
 
-- **Neu im Projekt?** Lies diese Datei + [Codex-workflow.md](Codex-workflow.md).
-- **Java/Spring-Backend arbeiten?** → [Codex-java.md](Codex-java.md)
-- **React-Frontend arbeiten?** → [Codex-react.md](Codex-react.md)
-- **Security?** → [Codex-security.md](Codex-security.md)
-- **Plan-Mode / Git / Issue-Workflow?** → [Codex-workflow.md](Codex-workflow.md)
+- **Neu im Projekt?** Lies diese Datei + [CLAUDE-workflow.md](CLAUDE-workflow.md).
+- **Java/Spring-Backend arbeiten?** → [CLAUDE-java.md](CLAUDE-java.md)
+- **React-Frontend arbeiten?** → [CLAUDE-react.md](CLAUDE-react.md)
+- **Security?** → [CLAUDE-security.md](CLAUDE-security.md)
+- **Plan-Mode / Git / Issue-Workflow?** → [CLAUDE-workflow.md](CLAUDE-workflow.md)
 
 ---
 
@@ -19,10 +19,10 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 | Guide | Fokus | Wiederverwendbar |
 |---|---|---|
 | **AGENTS.md** (diese Datei) | Projekt-Übersicht + Pflichtchecks | ❌ Projekt |
-| [Codex-java.md](Codex-java.md) | Java 21, Spring Boot 3, TDD, Coverage, Mutationstests | ✅ Allgemein |
-| [Codex-react.md](Codex-react.md) | React 18, Vite, TypeScript, MUI | ✅ Allgemein |
-| [Codex-security.md](Codex-security.md) | Spring Security, JPA, Frontend-XSS, Secrets | ✅ Allgemein |
-| [Codex-workflow.md](Codex-workflow.md) | 9-Schritte-Workflow, Issues, Git, Pflichtchecks | ✅ Allgemein |
+| [CLAUDE-java.md](CLAUDE-java.md) | Java 21, Spring Boot 3, TDD, Coverage, Mutationstests | ✅ Allgemein |
+| [CLAUDE-react.md](CLAUDE-react.md) | React 18, Vite, TypeScript, MUI | ✅ Allgemein |
+| [CLAUDE-security.md](CLAUDE-security.md) | Spring Security, JPA, Frontend-XSS, Secrets | ✅ Allgemein |
+| [CLAUDE-workflow.md](CLAUDE-workflow.md) | 9-Schritte-Workflow, Issues, Git, Pflichtchecks | ✅ Allgemein |
 
 ---
 
@@ -82,13 +82,13 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 
 ```bash
 # Backend
-mvn verify                              # Tests + Coverage + Mutation (siehe Codex-java.md §5)
+mvn verify                              # Tests + Coverage + Mutation (siehe CLAUDE-java.md §5)
 
 # Frontend
 cd frontend && npm run build            # tsc -b && vite build
 ```
 
-Verfahren, Reporting-Format und detaillierte Schritte → [Codex-workflow.md](Codex-workflow.md).
+Verfahren, Reporting-Format und detaillierte Schritte → [CLAUDE-workflow.md](CLAUDE-workflow.md).
 
 ---
 
@@ -111,15 +111,15 @@ Keine kurzfristige Bequemlichkeit rechtfertigt unsicheren, untypisierten oder sc
 ## 📐 Verhältnis der Guides untereinander
 
 - **AGENTS.md** ist die Übersicht. Konflikte zwischen den Sub-Guides werden hier geklärt.
-- **Codex-java.md** und **Codex-react.md** beschreiben die schichtspezifischen Engineering-Regeln. Bei Widerspruch zur Sicherheit gewinnt [Codex-security.md](Codex-security.md).
-- **Codex-security.md** hat in allen Sicherheitsfragen Vorrang.
-- **Codex-workflow.md** beschreibt das Prozess-Drumherum (Plan-Mode, Issues, Commits, GO-Freigabe, Tests). Wer Code schreibt ohne den Workflow zu befolgen, hat die Aufgabe nicht abgeschlossen.
+- **CLAUDE-java.md** und **CLAUDE-react.md** beschreiben die schichtspezifischen Engineering-Regeln. Bei Widerspruch zur Sicherheit gewinnt [CLAUDE-security.md](CLAUDE-security.md).
+- **CLAUDE-security.md** hat in allen Sicherheitsfragen Vorrang.
+- **CLAUDE-workflow.md** beschreibt das Prozess-Drumherum (Plan-Mode, Issues, Commits, GO-Freigabe, Tests). Wer Code schreibt ohne den Workflow zu befolgen, hat die Aufgabe nicht abgeschlossen.
 
 ---
 
 ## 🗑️ Historische Hinweise
 
-Die früher in diesem Verzeichnis liegende `Codex-content.md` aus dem mwolff.org-Projekt wurde entfernt — das beschriebene Dual-Source-Content-System (JSON-Defaults + DB-Overrides + `EditableText`-Komponente + Inline-Admin-Editor) existiert in diesem Projekt nicht und gehört zu einer fremden Architektur. Falls ein vergleichbares Pattern später benötigt wird, wird ein neuer Guide auf Basis der dann gewählten Java-/React-Implementierung geschrieben.
+Die früher in diesem Verzeichnis liegende `CLAUDE-content.md` aus dem mwolff.org-Projekt wurde entfernt — das beschriebene Dual-Source-Content-System (JSON-Defaults + DB-Overrides + `EditableText`-Komponente + Inline-Admin-Editor) existiert in diesem Projekt nicht und gehört zu einer fremden Architektur. Falls ein vergleichbares Pattern später benötigt wird, wird ein neuer Guide auf Basis der dann gewählten Java-/React-Implementierung geschrieben.
 
 ---
 

@@ -1,6 +1,8 @@
+import { useMemo, useState } from 'react';
 import {
   AppBar,
   Box,
+  Collapse,
   CssBaseline,
   Drawer,
   List,
@@ -11,14 +13,103 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { navItems } from './navItems';
+import type { NavGroup, NavLink, NavNode } from './navItems';
 
 const DRAWER_WIDTH = 240;
+
+function isGroup(node: NavNode): node is NavGroup {
+  return node.kind === 'group';
+}
+
+function groupContainsPath(group: NavGroup, pathname: string): boolean {
+  return group.children.some((child) => pathname.startsWith(child.path));
+}
 
 export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Default-open: jede Gruppe, in der die aktuelle Route liegt.
+  const initiallyOpenGroups = useMemo(() => {
+    const open = new Set<string>();
+    for (const node of navItems) {
+      if (isGroup(node) && groupContainsPath(node, location.pathname)) {
+        open.add(node.label);
+      }
+    }
+    return open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [openGroups, setOpenGroups] = useState<Set<string>>(initiallyOpenGroups);
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  };
+
+  const renderLink = (link: NavLink, indented: boolean) => {
+    const Icon = link.icon;
+    const selected = location.pathname.startsWith(link.path);
+    return (
+      <ListItem key={link.path} disablePadding>
+        <ListItemButton
+          selected={selected}
+          onClick={() => navigate(link.path)}
+          sx={indented ? { pl: 4 } : undefined}
+          aria-selected={selected}
+        >
+          <ListItemIcon>
+            <Icon color={selected ? 'primary' : 'inherit'} />
+          </ListItemIcon>
+          <ListItemText primary={link.label} />
+        </ListItemButton>
+      </ListItem>
+    );
+  };
+
+  const renderGroup = (group: NavGroup) => {
+    const GroupIcon = group.icon;
+    const expanded = openGroups.has(group.label);
+    const hasActiveChild = groupContainsPath(group, location.pathname);
+    return (
+      <Box key={group.label}>
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => toggleGroup(group.label)}
+            aria-expanded={expanded}
+          >
+            <ListItemIcon>
+              <GroupIcon color={hasActiveChild ? 'primary' : 'inherit'} />
+            </ListItemIcon>
+            <ListItemText
+              primary={group.label}
+              primaryTypographyProps={
+                hasActiveChild ? { color: 'primary', fontWeight: 600 } : undefined
+              }
+            />
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </ListItemButton>
+        </ListItem>
+        <Collapse in={expanded} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {group.children.map((child) => renderLink(child, true))}
+          </List>
+        </Collapse>
+      </Box>
+    );
+  };
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -59,23 +150,9 @@ export default function AppShell() {
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
           <List>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const selected = location.pathname.startsWith(item.path);
-              return (
-                <ListItem key={item.path} disablePadding>
-                  <ListItemButton
-                    selected={selected}
-                    onClick={() => navigate(item.path)}
-                  >
-                    <ListItemIcon>
-                      <Icon color={selected ? 'primary' : 'inherit'} />
-                    </ListItemIcon>
-                    <ListItemText primary={item.label} />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
+            {navItems.map((node) =>
+              isGroup(node) ? renderGroup(node) : renderLink(node, false),
+            )}
           </List>
         </Box>
       </Drawer>

@@ -57,7 +57,7 @@ Der Dev-Server (Vite, `:5173`) leitet `/api/*` per Proxy an Spring Boot (`:8080`
 Aktuelle Struktur unter `frontend/src/`:
 
 - `layout/` — App-übergreifende Shell (`AppShell`, `navItems`). AppBar oben, permanenter Drawer links, Main-Bereich mit `<Outlet />`.
-- `pages/` — Routen-Komponenten (`DashboardPage`, `BooksPage`, `SettingsPage`).
+- `pages/` — Routen-Komponenten (`DashboardPage`, `SettingsPage`, tool-spezifische Seiten unter `pages/tools/`).
 - `api/` — Typisierte API-Aufrufe (`client.ts` als fetch-Wrapper, je Domäne eine eigene Datei).
 - `theme.ts` — MUI-Theme zentral.
 - `main.tsx` — React-Root, `BrowserRouter`, `ThemeProvider`, `CssBaseline`.
@@ -102,7 +102,7 @@ Neue wiederverwendbare UI-Bausteine: eigener Ordner unter `frontend/src/componen
 ## 🌐 Datenzugriff & APIs
 
 - Externer Input ist unsicher, bis er validiert und gemappt wurde.
-- API-Aufrufe gehören in `frontend/src/api/` (aktuell `client.ts` + Domänen-Module wie `books.ts`), nicht direkt in Komponenten.
+- API-Aufrufe gehören in `frontend/src/api/` (aktuell `client.ts` + Domänen-Module wie `resize.ts`, `ogImage.ts`), nicht direkt in Komponenten.
 - **Fehlerbehandlung an der Quelle:** Der `client.ts`-Wrapper wirft `ApiError` mit Statuscode + Body (inkl. `fieldErrors` aus dem `GlobalExceptionHandler`). UI mappt das auf nutzerverständliche Fehler.
 - **Keine leeren `catch`-Blöcke.**
 - **Keine technischen Fehlertexte (Stacktraces, Endpoints, Tokens) im UI.**
@@ -145,7 +145,7 @@ Neue wiederverwendbare UI-Bausteine: eigener Ordner unter `frontend/src/componen
 
 ## 🧭 Routing
 
-- Routen sind flach (`/dashboard`, `/books`, `/settings`). Keine verschachtelten Routen ohne Not.
+- Routen sind flach (`/dashboard`, `/settings`, `/tools/...`). Keine verschachtelten Routen ohne Not.
 - Routenkomponenten bleiben schlank — Datenladen und Komposition in Sub-Komponenten oder Hooks.
 - Lade- und Fehlerzustände auf Routenebene behandeln, wenn dort geladen wird.
 - URL-Parameter validieren oder defensiv interpretieren (`Number.parseInt(id, 10)` + Range-Check, nicht naked `+id`).

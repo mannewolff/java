@@ -64,12 +64,12 @@ Verbindliche Sicherheits-Regeln für Spring-Boot-Backend und React-Frontend. Die
 - **JPQL/Native-SQL** ausschließlich mit `@Param`-gebundenen Parametern. **Niemals** Benutzereingaben in Query-Strings konkatenieren.
 - Beispiel zulässig:
   ```java
-  @Query("SELECT b FROM BookEntity b WHERE b.author = :author")
-  List<BookEntity> findByAuthor(@Param("author") String author);
+  @Query("SELECT w FROM WidgetEntity w WHERE w.dashboardId = :dashboardId")
+  List<WidgetEntity> findByDashboardId(@Param("dashboardId") Long dashboardId);
   ```
 - Beispiel verboten:
   ```java
-  entityManager.createQuery("SELECT b FROM BookEntity b WHERE b.author = '" + author + "'");  // ❌
+  entityManager.createQuery("SELECT w FROM WidgetEntity w WHERE w.dashboardId = " + id);  // ❌
   ```
 - DDL-Änderungen ausschließlich über Flyway. `hibernate.ddl-auto=validate` in Produktion — niemals `update` oder `create-drop`.
 

@@ -1,4 +1,4 @@
-# CLAUDE.md — Projekt-Standards
+# AGENTS.md — Projekt-Standards
 
 Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projekt. Sie definiert den Mindeststandard — Abweichungen sind Fehler und müssen vor dem Abschluss einer Aufgabe korrigiert werden.
 
@@ -18,7 +18,7 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 
 | Guide | Fokus | Wiederverwendbar |
 |---|---|---|
-| **CLAUDE.md** (diese Datei) | Projekt-Übersicht + Pflichtchecks | ❌ Projekt |
+| **AGENTS.md** (diese Datei) | Projekt-Übersicht + Pflichtchecks | ❌ Projekt |
 | [CLAUDE-java.md](CLAUDE-java.md) | Java 21, Spring Boot 3, TDD, Coverage, Mutationstests | ✅ Allgemein |
 | [CLAUDE-react.md](CLAUDE-react.md) | React 18, Vite, TypeScript, MUI | ✅ Allgemein |
 | [CLAUDE-security.md](CLAUDE-security.md) | Spring Security, JPA, Frontend-XSS, Secrets | ✅ Allgemein |
@@ -28,7 +28,7 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 
 ## 🌐 Projektkontext
 
-**Ziel:** Web-Anwendung mit Java-Backend und React-Frontend im Stil eines Dashboards (linkes Navigationsmenü, rechter Inhaltsbereich, vergleichbar mit Claude Desktop / Hetida).
+**Ziel:** Web-Anwendung mit Java-Backend und React-Frontend im Stil eines Dashboards (linkes Navigationsmenü, rechter Inhaltsbereich, vergleichbar mit Codex Desktop / Hetida).
 
 **Stack:**
 
@@ -55,25 +55,24 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 
 ```
 /
-├── CLAUDE*.md                          # Diese Guide-Familie
+├── Codex*.md                          # Diese Guide-Familie
 ├── pom.xml                             # Maven-Konfiguration (inkl. frontend-maven-plugin)
 ├── Dockerfile, docker-compose.yml      # Multi-Stage-Image + lokale Composition
 ├── .env.example                        # DB-Credentials-Vorlage
 ├── src/main/java/org/mwolff/api/       # Application + Domain
 │   ├── ApiApplication.java
-│   ├── tools/                          # Tool-Proxy auf python-tools (Resize, Crop, RemBG)
+│   ├── book/                           # Beispiel-Domäne (Books-CRUD)
 │   └── common/                         # GlobalExceptionHandler, SpaForwardingController
 ├── src/main/resources/                 # application.yml + Flyway-Migrationen
 │   └── db/migration/                   # V1__…sql, V2__…sql, … (Flyway-Konvention)
 ├── src/test/java/org/mwolff/api/       # Tests (*Test = Unit/Slice, *IT = Testcontainers-Integration)
-├── python-tools/                       # FastAPI-Microservice (Pillow, rembg, colorthief)
 └── frontend/                           # React-App
     ├── package.json, vite.config.ts, tsconfig*.json
     ├── index.html
     └── src/
         ├── main.tsx, App.tsx, theme.ts
         ├── layout/                     # AppShell, navItems
-        ├── pages/                      # DashboardPage, SettingsPage, tools/*
+        ├── pages/                      # DashboardPage, BooksPage, SettingsPage
         └── api/                        # client.ts (fetch-Wrapper), <domain>.ts
 ```
 
@@ -111,7 +110,7 @@ Keine kurzfristige Bequemlichkeit rechtfertigt unsicheren, untypisierten oder sc
 
 ## 📐 Verhältnis der Guides untereinander
 
-- **CLAUDE.md** ist die Übersicht. Konflikte zwischen den Sub-Guides werden hier geklärt.
+- **AGENTS.md** ist die Übersicht. Konflikte zwischen den Sub-Guides werden hier geklärt.
 - **CLAUDE-java.md** und **CLAUDE-react.md** beschreiben die schichtspezifischen Engineering-Regeln. Bei Widerspruch zur Sicherheit gewinnt [CLAUDE-security.md](CLAUDE-security.md).
 - **CLAUDE-security.md** hat in allen Sicherheitsfragen Vorrang.
 - **CLAUDE-workflow.md** beschreibt das Prozess-Drumherum (Plan-Mode, Issues, Commits, GO-Freigabe, Tests). Wer Code schreibt ohne den Workflow zu befolgen, hat die Aufgabe nicht abgeschlossen.

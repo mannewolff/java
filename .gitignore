@@ -52,3 +52,12 @@ python-tools/__pycache__/
 python-tools/.pytest_cache/
 python-tools/.coverage
 python-tools/htmlcov/
+
+# Claude Code workspace state (worktrees, session memory)
+.claude/
+
+# Generated PDF exports of docs
+docs/*.pdf
+
+# Local Whitepaper backups (older versions)
+docs/Konzeptpapier_*

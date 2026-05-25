@@ -37,6 +37,8 @@ Issue-Format → siehe [unten](#-issue-dokumentation-format).
 
 **Zentraler Kontrollpunkt.** Erst nach explizitem „GO" / „los" / „mach das" beginnt die Implementierung. ExitPlanMode-Approval allein reicht **nicht**.
 
+Wenn das Projekt ein Kanban-Board nutzt, dient die **Ready**-Spalte als generelles GO — Details siehe [Kanban-Board](#-kanban-board-optionale-steuerung).
+
 ### 5. Implementierung gegen das Issue (Claude)
 
 - Das **Issue** ist die Quelle der Wahrheit, nicht der Chat.
@@ -57,7 +59,7 @@ Vier-Augen-Prinzip mit zwei KI-Modellen. Standard-Setup: Claude implementiert, O
 
 ### 8. „Push-Main" (User)
 
-Knappe Anweisung. Erst nach explizitem `push main` (oder gleichwertiger Formulierung) wird gepusht. Push-Ziel klar nennen.
+Knappe Anweisung. Erst nach explizitem `push main` (oder gleichwertiger Formulierung) wird gepusht. Push-Ziel klar nennen. Auch wenn das Kanban-Board einen Done-Status hat: Done-Bewegung ist kein Push-Trigger — siehe [Kanban-Board](#-kanban-board-optionale-steuerung).
 
 **`origin/main` wird perspektivisch automatisch auf einen Testserver deployed, auf den auch Kunden gucken.** Ein Push ist deshalb KEIN Implementierungs-Detail, sondern ein Release-Schritt. Auch eine vermeintlich „triviale" CSS-Änderung kann auf dem Testserver Schaden anrichten.
 
@@ -69,6 +71,66 @@ Knappe Anweisung. Erst nach explizitem `push main` (oder gleichwertiger Formulie
 - User prüft auf Test-Server.
 - PR `main` → `production` wird vom User erstellt und gemerged.
 - Production-Branch hat Branch-Protection — kein Direkt-Push.
+
+---
+
+## 📊 Kanban-Board (optionale Steuerung)
+
+Wenn das Projekt ein GitHub-Project-Board nutzt, werden einzelne GO-Trigger aus den 9 Schritten durch Spaltenbewegungen formalisiert. Das Board **ersetzt** die 9 Schritte nicht — es bündelt sie.
+
+### Standard-Spaltenmodell
+
+`Backlog → Ready → In progress → In review → Done`
+
+| Spalte | Bedeutung | Wer schiebt |
+|---|---|---|
+| **Backlog** | Idee oder Issue mit offenen Designfragen / nicht freigegeben | Beide |
+| **Ready** | Vollständig groomt, gilt als generelles GO (Schritt 4) | **Nur User** |
+| **In progress** | Aktuelle Arbeit | Claude beim Start |
+| **In review** | Lokal fertig, Tests grün, **nicht** gepusht | Claude beim Abschluss |
+| **Done** | User hat geprüft + Push erfolgt | **Nur User** |
+
+### Ready-Kriterien
+
+Ein Issue darf nur dann nach Ready, wenn:
+
+- Alle Designfragen geklärt
+- Akzeptanzkriterien im Issue stehen
+- Scope klein/mittel (1 Feature / 1 Tool, keine Mehrtages-Sache)
+- Keine offene Architektur-Entscheidung
+- Es ohne Rückfrage durchgezogen werden kann
+
+### Pauschal-Trigger
+
+Eine User-Phrase wie „implementiere alles in Ready" ist das **pauschale GO** (Schritt 4) für alle Ready-Issues. Wochentag egal.
+
+Ablauf pro Issue:
+
+1. Issue von Ready → In progress ziehen
+2. Implementieren gem. Schritt 5
+3. Lokaler Commit, **nicht** pushen
+4. Issue von In progress → In review ziehen
+5. Nächstes Ready-Issue, gleicher Ablauf
+
+Wenn Ready leer ist: Meldung an User („alles aus Ready erledigt, N Issues liegen in In review"). **Nicht** eigenmächtig Backlog-Issues nach vorne ziehen.
+
+### Reihenfolge in Ready
+
+Mehrere Issues in Ready → **aufsteigend nach Issue-Nummer** abarbeiten (spiegelt Erstellungsreihenfolge, macht Abhängigkeiten von älteren zu neueren Issues sauber). Wenn ein Issue von einem höher nummerierten abhängt, muss das im Issue **explizit** dokumentiert sein — sonst gilt die Standard-Reihenfolge.
+
+### Done ≠ Push-Trigger
+
+Done-Bewegung im Board ist ein **UI-Signal**, kein Bash-Trigger. Der Push (Schritt 8) bleibt die explizite User-Phrase `push main` — pro Commit-Batch separat. `merge production` bleibt ein **separater** zweiter Trigger.
+
+Der Sicherheits-Default „nichts ohne Trigger-Phrase" gilt unverändert, auch wenn das Board einen Done-Status hat.
+
+### Parallelität
+
+**Ein Issue zur Zeit** in In progress — nicht mehrere parallel. Sonst wird der Review-Schritt unübersichtlich.
+
+### Projekt-spezifische IDs
+
+Project-Nummer, Status-Field-ID und Option-IDs für GraphQL-Mutations sind **projekt-spezifisch** und gehören in die jeweilige projekt-eigene Doku (z.B. `CLAUDE.md` oder lokale Notiz), **nicht** in diese kopierbare Datei. Beim Übertragen in ein neues Projekt nur das Spaltenmodell und die Regeln übernehmen — IDs neu ermitteln via `gh project field-list` und `gh project item-list`.
 
 ---
 

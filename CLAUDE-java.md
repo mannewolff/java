@@ -8,9 +8,9 @@ Ergänzend zu [CLAUDE.md](CLAUDE.md), [CLAUDE-security.md](CLAUDE-security.md) u
 
 ## 1. Projektkontext
 
-- **Sprache:** Java 21 (LTS), keine Preview-Features ohne explizite Freigabe.
+- **Sprache:** Java 21 (LTS), keine Preview-Features ohne explizite Freigabe. Die Version wird durch `maven-enforcer-plugin` erzwungen, der Build bricht auf jeder anderen JDK-Hauptversion ab. Wenn lokal eine andere JDK aktiv ist, entweder `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` setzen oder `maven-toolchains-plugin` über `~/.m2/toolchains.xml` konfigurieren (Beispiel im Repo `infra/toolchains.xml.example`, sobald angelegt).
 - **Framework:** Spring Boot 3.5.
-- **Build:** Maven.
+- **Build:** Maven 3.9+. Compiler läuft mit `-Xlint:all -Werror`; jede Warnung bricht den Build. Enforcer prüft zusätzlich `dependencyConvergence` und `banDuplicatePomDependencyVersions`.
 - **Datenbank:** MariaDB 11 (Testcontainers in Integrationstests).
 - **Schema-Migration:** Flyway (`src/main/resources/db/migration/`, `V<n>__<beschreibung>.sql`).
 - **Paradigma:** Strenges Test-Driven Development (TDD) nach Kent Beck — **Red → Green → Refactor**.

@@ -61,18 +61,19 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 ├── .env.example                        # DB-Credentials-Vorlage
 ├── src/main/java/org/mwolff/api/       # Application + Domain
 │   ├── ApiApplication.java
-│   ├── book/                           # Beispiel-Domäne (Books-CRUD)
+│   ├── tools/                          # Tool-Proxy auf python-tools (Resize, Crop, RemBG)
 │   └── common/                         # GlobalExceptionHandler, SpaForwardingController
 ├── src/main/resources/                 # application.yml + Flyway-Migrationen
 │   └── db/migration/                   # V1__…sql, V2__…sql, … (Flyway-Konvention)
 ├── src/test/java/org/mwolff/api/       # Tests (*Test = Unit/Slice, *IT = Testcontainers-Integration)
+├── python-tools/                       # FastAPI-Microservice (Pillow, rembg, colorthief)
 └── frontend/                           # React-App
     ├── package.json, vite.config.ts, tsconfig*.json
     ├── index.html
     └── src/
         ├── main.tsx, App.tsx, theme.ts
         ├── layout/                     # AppShell, navItems
-        ├── pages/                      # DashboardPage, BooksPage, SettingsPage
+        ├── pages/                      # DashboardPage, SettingsPage, tools/*
         └── api/                        # client.ts (fetch-Wrapper), <domain>.ts
 ```
 

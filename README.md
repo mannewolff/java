@@ -47,11 +47,9 @@ Anschließend ist die API unter `http://localhost:8080` erreichbar:
 
 ```bash
 curl -s http://localhost:8080/actuator/health
-curl -s -X POST http://localhost:8080/api/books \
-     -H 'Content-Type: application/json' \
-     -d '{"title":"Effective Java","author":"Bloch","isbn":"978-0134685991"}'
-curl -s http://localhost:8080/api/books
 ```
+
+Konkrete Tool-Endpunkte und Beispielaufrufe finden sich im Abschnitt [Tools](#tools).
 
 Stack stoppen:
 
@@ -62,27 +60,21 @@ docker compose down -v     # auch DB-Volume löschen
 
 ## REST-API
 
-| Methode | Pfad              | Beschreibung           |
-|---------|-------------------|------------------------|
-| GET     | `/api/books`      | Liste aller Bücher     |
-| GET     | `/api/books/{id}` | Einzelnes Buch (404 bei Unbekannt) |
-| POST    | `/api/books`      | Neues Buch (201 + Location) |
-| PUT     | `/api/books/{id}` | Buch aktualisieren     |
-| DELETE  | `/api/books/{id}` | Buch löschen (204)     |
+Die fachlichen Endpunkte liegen unter `/api/tools/...` und werden im Abschnitt [Tools](#tools) beschrieben.
 
-Validation per `@Valid` → Fehler werden vom `GlobalExceptionHandler` als strukturiertes JSON mit `fieldErrors` zurückgegeben.
+Validation per `@Valid` an Controller-DTOs, Fehler werden vom `GlobalExceptionHandler` als strukturiertes JSON mit `fieldErrors` zurückgegeben.
 
 ## TDD-Pyramide
 
-| Datei | Typ | Ausführung |
+| Typ | Beispiel | Ausführung |
 |---|---|---|
-| `BookServiceTest` | Unit (Mockito) | `mvn test` |
-| `BookControllerTest` | `@WebMvcTest` Slice | `mvn test` |
-| `BookRepositoryIT` | `@DataJpaTest` + Testcontainers | `mvn verify` |
-| `BookApiIT` | `@SpringBootTest` end-to-end | `mvn verify` |
-| `ApiApplicationIT` | Context-Loads-Smoketest | `mvn verify` |
+| Unit (Mockito) | `*ServiceTest` | `mvn test` |
+| Slice (`@WebMvcTest`) | `*ControllerTest` | `mvn test` |
+| Repository (`@DataJpaTest` + Testcontainers) | `*RepositoryIT` | `mvn verify` |
+| End-to-end (`@SpringBootTest`) | `*ApiIT` | `mvn verify` |
+| Smoketest | `ApiApplicationIT` | `mvn verify` |
 
-Neue ITs erben von `AbstractIntegrationTest` — dort hängt eine wiederverwendete `MariaDBContainer` mit `@ServiceConnection`.
+Neue ITs erben von `AbstractIntegrationTest`, dort hängt eine wiederverwendete `MariaDBContainer` mit `@ServiceConnection`.
 
 ## Konfiguration
 
@@ -132,7 +124,7 @@ mvn package                                       # baut Frontend + Backend
 java -jar target/api-0.0.1-SNAPSHOT.jar
 ```
 
-Anschließend liefert Spring unter `http://localhost:8080/` sowohl die React-App als auch die JSON-API aus. Direktaufrufe wie `http://localhost:8080/books` funktionieren dank SPA-Fallback.
+Anschließend liefert Spring unter `http://localhost:8080/` sowohl die React-App als auch die JSON-API aus. Direktaufrufe wie `http://localhost:8080/tools/resize` funktionieren dank SPA-Fallback.
 
 Für reine Backend-Iteration (kein npm/Node):
 

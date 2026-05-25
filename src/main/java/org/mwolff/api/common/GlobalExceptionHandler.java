@@ -2,7 +2,6 @@ package org.mwolff.api.common;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import org.mwolff.api.book.BookNotFoundException;
 import org.mwolff.api.tools.PythonToolsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,11 +15,6 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    @ExceptionHandler(BookNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleNotFound(BookNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(HttpStatus.NOT_FOUND, ex.getMessage()));
-    }
 
     @ExceptionHandler(PythonToolsException.class)
     public ResponseEntity<Map<String, Object>> handlePythonTools(PythonToolsException ex) {

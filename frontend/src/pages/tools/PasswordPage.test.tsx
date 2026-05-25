@@ -105,6 +105,44 @@ describe('PasswordPage', () => {
     });
   });
 
+  it('lets the user type their own password and updates the hash automatically', async () => {
+    render(<PasswordPage />);
+    const user = userEvent.setup();
+
+    const passwordField = screen.getByLabelText('Passwort') as HTMLInputElement;
+    expect(passwordField.readOnly).toBe(false);
+
+    await user.type(passwordField, 'hunter2');
+    expect(passwordField.value).toBe('hunter2');
+
+    await waitFor(
+      () => {
+        const hashField = screen.getByLabelText('bcrypt-Hash') as HTMLInputElement;
+        expect(hashField.value).toBe('$2a$10$mocked-hash-for-hunter2');
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it('clears the hash when the password field is emptied', async () => {
+    render(<PasswordPage />);
+    const user = userEvent.setup();
+
+    // First produce a password+hash
+    await user.click(screen.getByRole('button', { name: /Passwort generieren/i }));
+    await waitFor(() =>
+      expect((screen.getByLabelText('bcrypt-Hash') as HTMLInputElement).value).not.toBe(''),
+    );
+
+    // Then clear the password field
+    const passwordField = screen.getByLabelText('Passwort') as HTMLInputElement;
+    await user.clear(passwordField);
+
+    await waitFor(() =>
+      expect((screen.getByLabelText('bcrypt-Hash') as HTMLInputElement).value).toBe(''),
+    );
+  });
+
   it('Abbrechen discards draft changes', async () => {
     render(<PasswordPage />);
     const user = userEvent.setup();

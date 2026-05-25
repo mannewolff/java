@@ -175,6 +175,6 @@ class ResizeControllerTest {
                 .param("width", "400")
                 .param("height", "300"))
         .andExpect(status().isBadGateway())
-        .andExpect(jsonPath("$.message").value("upstream down"));
+        .andExpect(jsonPath("$.message").value("Tool-Service derzeit nicht erreichbar."));
   }
 }

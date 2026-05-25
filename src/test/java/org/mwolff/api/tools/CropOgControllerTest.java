@@ -152,6 +152,6 @@ class CropOgControllerTest {
         .perform(multipart("/api/tools/crop-og").file(upload))
         .andExpect(status().isBadGateway())
         .andExpect(jsonPath("$.status").value(502))
-        .andExpect(jsonPath("$.message").value("upstream down"));
+        .andExpect(jsonPath("$.message").value("Tool-Service derzeit nicht erreichbar."));
   }
 }

@@ -93,7 +93,8 @@ class ResizeServiceTest {
     assertThatThrownBy(() -> service.resize(upload, 100, 100, "auto", 90))
         .isInstanceOf(PythonToolsException.class)
         .hasMessageContaining("python-tools call failed")
-        .hasMessageContaining("crash");
+        // Upstream-body must not appear in the exception message; it is logged internally only.
+        .hasMessageNotContaining("crash");
   }
 
   @Test

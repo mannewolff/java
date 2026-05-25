@@ -82,6 +82,6 @@ class PaletteControllerTest {
     mockMvc
         .perform(multipart("/api/tools/palette").file(upload))
         .andExpect(status().isBadGateway())
-        .andExpect(jsonPath("$.message").value("upstream down"));
+        .andExpect(jsonPath("$.message").value("Tool-Service derzeit nicht erreichbar."));
   }
 }

@@ -8,6 +8,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 
 import org.mwolff.api.tools.PythonToolsException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,10 +19,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  private static final Logger LOG = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+  private static final String UPSTREAM_GENERIC_MESSAGE = "Tool-Service derzeit nicht erreichbar.";
+
   @ExceptionHandler(PythonToolsException.class)
   public ResponseEntity<Map<String, Object>> handlePythonTools(PythonToolsException ex) {
+    // Internal log carries the full diagnostic; external response stays generic so we do not
+    // leak upstream details (CLAUDE-security.md, see also code review P2-7).
+    LOG.warn("python-tools upstream failure: {}", ex.getMessage(), ex);
     return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-        .body(body(HttpStatus.BAD_GATEWAY, ex.getMessage()));
+        .body(body(HttpStatus.BAD_GATEWAY, UPSTREAM_GENERIC_MESSAGE));
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)

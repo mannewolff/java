@@ -107,7 +107,8 @@ class CropOgServiceTest {
     assertThatThrownBy(() -> service.crop(upload, 0.5, 0.5, 88, 1200, 630))
         .isInstanceOf(PythonToolsException.class)
         .hasMessageContaining("python-tools call failed")
-        .hasMessageContaining("crash");
+        // Upstream-body must not appear in the exception message; it is logged internally only.
+        .hasMessageNotContaining("crash");
   }
 
   @Test

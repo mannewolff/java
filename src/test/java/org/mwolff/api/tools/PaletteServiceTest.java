@@ -71,7 +71,8 @@ class PaletteServiceTest {
     assertThatThrownBy(() -> service.extractPalette(upload, 6))
         .isInstanceOf(PythonToolsException.class)
         .hasMessageContaining("python-tools call failed")
-        .hasMessageContaining("kmeans crashed");
+        // Upstream-body must not appear in the exception message; it is logged internally only.
+        .hasMessageNotContaining("kmeans crashed");
   }
 
   @Test

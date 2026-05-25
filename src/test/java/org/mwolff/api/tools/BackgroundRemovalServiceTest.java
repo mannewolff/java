@@ -99,7 +99,9 @@ class BackgroundRemovalServiceTest {
     // When / Then
     assertThatThrownBy(() -> service.removeBackground(upload))
         .isInstanceOf(PythonToolsException.class)
-        .hasMessageContaining("python-tools call failed");
+        .hasMessageContaining("python-tools call failed")
+        // Upstream-body must not appear in the exception message; it is logged internally only.
+        .hasMessageNotContaining("oops");
   }
 
   @Test
@@ -112,7 +114,9 @@ class BackgroundRemovalServiceTest {
 
     // When / Then
     assertThatThrownBy(() -> service.removeBackground(upload))
-        .isInstanceOf(PythonToolsException.class);
+        .isInstanceOf(PythonToolsException.class)
+        // Upstream-body must not appear in the exception message; it is logged internally only.
+        .hasMessageNotContaining("nope");
   }
 
   @Test

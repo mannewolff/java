@@ -62,6 +62,6 @@ class BackgroundRemovalControllerTest {
         .perform(multipart("/api/tools/remove-background").file(upload))
         .andExpect(status().isBadGateway())
         .andExpect(jsonPath("$.status").value(502))
-        .andExpect(jsonPath("$.message").value("upstream down"));
+        .andExpect(jsonPath("$.message").value("Tool-Service derzeit nicht erreichbar."));
   }
 }

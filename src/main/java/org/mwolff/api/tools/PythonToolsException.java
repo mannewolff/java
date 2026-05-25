@@ -7,6 +7,8 @@ package org.mwolff.api.tools;
  */
 public class PythonToolsException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     public PythonToolsException(String message) {
         super(message);
     }

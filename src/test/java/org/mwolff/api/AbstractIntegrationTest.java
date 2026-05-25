@@ -8,7 +8,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
-    @ServiceConnection
-    protected static final MariaDBContainer<?> MARIADB = new MariaDBContainer<>("mariadb:11");
+  @Container @ServiceConnection
+  protected static final MariaDBContainer<?> MARIADB = new MariaDBContainer<>("mariadb:11");
 }

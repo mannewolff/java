@@ -65,14 +65,14 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "https://toolbox.manfredwolff.org/*"
+        "https://toolbox.mwolff.org/*"
       ],
       "webOrigins": [
-        "https://toolbox.manfredwolff.org"
+        "https://toolbox.mwolff.org"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "https://toolbox.manfredwolff.org/*"
+        "post.logout.redirect.uris": "https://toolbox.mwolff.org/*"
       },
       "protocolMappers": [
         {

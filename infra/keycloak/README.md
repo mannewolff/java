@@ -9,7 +9,7 @@ durch das `--import-realm`-Flag automatisch importiert.
 | Datei | Realm | Zweck | Redirect-URIs |
 |---|---|---|---|
 | `realm-toolbox-dev.json` | `toolbox-dev` | Lokale Entwicklung | `http://localhost:5173/*`, `http://localhost:8080/*` |
-| `realm-toolbox.json` | `toolbox` | Vorlage für Produktion | `https://toolbox.manfredwolff.org/*` |
+| `realm-toolbox.json` | `toolbox` | Vorlage für Produktion | `https://toolbox.mwolff.org/*` |
 
 Beide Realms sind strukturell identisch. Sie definieren:
 
@@ -104,6 +104,6 @@ ist, dafür ein eigenes Issue anlegen.
   Es darf nicht in das Repo, sondern nur in die lokale `.env`.
 - Der `toolbox`-Realm (Prod) hat `KC_HOSTNAME_STRICT` in der Compose-Datei auf
   `false`, weil lokal kein Reverse-Proxy davor läuft. **In Prod muss
-  `KC_HOSTNAME=auth.toolbox.manfredwolff.org` gesetzt und `KC_HOSTNAME_STRICT`
+  `KC_HOSTNAME=auth.toolbox.mwolff.org` gesetzt und `KC_HOSTNAME_STRICT`
   entfernt werden, sowie HTTPS via Proxy davor.** Das wird in einem separaten
   Deployment-Issue konfiguriert, nicht hier.

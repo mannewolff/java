@@ -1,4 +1,4 @@
-import { ApiError, type ApiErrorBody } from './client';
+import { ApiError, authedFetch, type ApiErrorBody } from './client';
 
 const RESIZE_PATH = '/api/tools/resize';
 
@@ -35,7 +35,7 @@ export async function resizeImage(
   body.append('output_format', options.outputFormat ?? 'auto');
   body.append('quality', (options.quality ?? 90).toString());
 
-  const response = await fetch(RESIZE_PATH, { method: 'POST', body });
+  const response = await authedFetch(RESIZE_PATH, { method: 'POST', body });
 
   if (!response.ok) {
     const errorBody = await safeJson(response);

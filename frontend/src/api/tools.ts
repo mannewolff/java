@@ -1,4 +1,4 @@
-import { ApiError, type ApiErrorBody } from './client';
+import { ApiError, authedFetch, type ApiErrorBody } from './client';
 
 const REMOVE_BG_PATH = '/api/tools/remove-background';
 
@@ -18,7 +18,7 @@ export async function removeBackground(file: File): Promise<Blob> {
   const body = new FormData();
   body.append('file', file);
 
-  const response = await fetch(REMOVE_BG_PATH, {
+  const response = await authedFetch(REMOVE_BG_PATH, {
     method: 'POST',
     body,
   });

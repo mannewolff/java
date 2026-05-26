@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { api, ApiError } from './client';
+import { api, ApiError, authedFetch } from './client';
 import {
   __resetAuthBridge,
   setOnAuthExpired,
@@ -105,5 +105,74 @@ describe('api client — auth integration', () => {
 
     // then
     expect(result).toBeUndefined();
+  });
+});
+
+describe('authedFetch', () => {
+  beforeEach(() => {
+    __resetAuthBridge();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    __resetAuthBridge();
+  });
+
+  it('attaches Bearer token to multipart uploads', async () => {
+    // given
+    setTokenGetter(() => 'tok-xyz');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(new Blob([new Uint8Array([1, 2])])));
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array([7])]));
+
+    // when
+    await authedFetch('/api/tools/resize', { method: 'POST', body });
+
+    // then
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = init?.headers as Headers;
+    expect(headers.get('Authorization')).toBe('Bearer tok-xyz');
+  });
+
+  it('omits Authorization when no token available', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('ok'));
+
+    await authedFetch('/api/public', { method: 'GET' });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = init?.headers as Headers;
+    expect(headers.get('Authorization')).toBeNull();
+  });
+
+  it('triggers notifyAuthExpired on 401', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('', { status: 401 }),
+    );
+
+    await authedFetch('/api/tools/whatever', { method: 'POST' });
+
+    expect(expiredCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not override caller-provided Authorization header', async () => {
+    setTokenGetter(() => 'tok-xyz');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('ok'));
+
+    await authedFetch('/api/special', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer custom' },
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = init?.headers as Headers;
+    expect(headers.get('Authorization')).toBe('Bearer custom');
   });
 });

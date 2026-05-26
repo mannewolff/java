@@ -65,6 +65,28 @@ async function safeJson<T>(response: Response): Promise<T | null> {
   }
 }
 
+/**
+ * Wrapper um `fetch`, der den aktuellen Bearer-Token an den Authorization-Header haengt und
+ * auf 401 mit einem Re-Login-Trigger reagiert. Anders als `api.*` parst dieser Helper die
+ * Response **nicht** — Aufrufer arbeiten mit dem Response-Objekt direkt (z. B. fuer Multipart-
+ * Uploads, die binaere Antworten als Blob brauchen).
+ */
+export async function authedFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const token = getAccessToken();
+  const headers = new Headers(init.headers);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(input, { ...init, headers });
+  if (response.status === 401) {
+    notifyAuthExpired();
+  }
+  return response;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>

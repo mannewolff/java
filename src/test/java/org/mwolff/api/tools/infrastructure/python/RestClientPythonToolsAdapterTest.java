@@ -96,12 +96,24 @@ class RestClientPythonToolsAdapterTest {
 
   @Test
   void resizeShouldThrowOnEmptyUpstreamBody() {
+    // RestClient + JDK HttpClient interpretiert empty bodies bei 200 als null —
+    // deckt den payload == null Branch in postForImage.
     server.enqueue(
         new MockResponse().setResponseCode(200).setHeader("Content-Type", "image/png").setBody(""));
 
     assertThatThrownBy(() -> adapter.resize(image, new ResizeParams(100, 100, "auto", 90)))
         .isInstanceOf(PythonToolsException.class)
         .hasMessageContaining("empty body");
+  }
+
+  @Test
+  void resizeShouldThrowOnTransportException() throws IOException {
+    // Trifft den anderen catch-Block in postForImage (RestClientException statt
+    // RestClientResponseException) — Server ist down, also keine HTTP-Antwort.
+    server.shutdown();
+
+    assertThatThrownBy(() -> adapter.resize(image, new ResizeParams(100, 100, "auto", 90)))
+        .isInstanceOf(PythonToolsException.class);
   }
 
   // ----- cropOg ------------------------------------------------------------
@@ -210,6 +222,32 @@ class RestClientPythonToolsAdapterTest {
   }
 
   @Test
+  void extractPaletteShouldThrowWhenColorsFieldIsNull() {
+    // PalettePayload mit colors=null — deckt den mittleren Zweig der OR-Pruefung.
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "application/json")
+            .setBody("{}"));
+
+    assertThatThrownBy(() -> adapter.extractPalette(image, new PaletteParams(6)))
+        .isInstanceOf(PythonToolsException.class)
+        .hasMessageContaining("empty palette");
+  }
+
+  @Test
+  void resizeShouldThrowWhenUpstreamSends204NoContent() {
+    // Status 204 -> RestClient liefert null als Body. Deckt den null-Zweig der OR-Pruefung
+    // in postForImage (payload == null), während die length-Variante bereits via empty-body
+    // Test gedeckt ist.
+    server.enqueue(new MockResponse().setResponseCode(204));
+
+    assertThatThrownBy(() -> adapter.resize(image, new ResizeParams(100, 100, "auto", 90)))
+        .isInstanceOf(PythonToolsException.class)
+        .hasMessageContaining("empty body");
+  }
+
+  @Test
   void extractPaletteShouldThrowOnUpstreamFailure() {
     server.enqueue(new MockResponse().setResponseCode(500));
 
@@ -223,5 +261,77 @@ class RestClientPythonToolsAdapterTest {
 
     assertThatThrownBy(() -> adapter.extractPalette(image, new PaletteParams(6)))
         .isInstanceOf(PythonToolsException.class);
+  }
+
+  // ----- Multipart edge cases (covers PythonToolsMultipart branches) -------
+
+  @Test
+  void shouldStillUploadWhenImageContentTypeIsNull() throws Exception {
+    final UploadedImage noContentType =
+        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), null, "photo.png");
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {7})));
+
+    adapter.resize(noContentType, new ResizeParams(10, 10, "auto", 90));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("name=\"file\"");
+  }
+
+  @Test
+  void shouldStillUploadWhenImageContentTypeIsBlank() throws Exception {
+    final UploadedImage blankContentType =
+        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "   ", "photo.png");
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {7})));
+
+    adapter.resize(blankContentType, new ResizeParams(10, 10, "auto", 90));
+
+    assertThat(server.takeRequest(2, TimeUnit.SECONDS)).isNotNull();
+  }
+
+  @Test
+  void shouldFallBackToUploadFilenameWhenOriginalFilenameIsNull() throws Exception {
+    final UploadedImage noFilename =
+        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", null);
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {7})));
+
+    adapter.resize(noFilename, new ResizeParams(10, 10, "auto", 90));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    // Default-Fallback ist "upload" — siehe PythonToolsMultipart.filenameOrFallback
+    assertThat(body).contains("filename=\"upload\"");
+  }
+
+  @Test
+  void shouldFallBackToUploadFilenameWhenOriginalFilenameIsBlank() throws Exception {
+    final UploadedImage blankFilename =
+        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", "   ");
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {7})));
+
+    adapter.resize(blankFilename, new ResizeParams(10, 10, "auto", 90));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("filename=\"upload\"");
   }
 }

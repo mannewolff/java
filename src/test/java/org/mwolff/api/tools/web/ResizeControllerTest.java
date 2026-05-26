@@ -110,6 +110,26 @@ class ResizeControllerTest {
   }
 
   @Test
+  void shouldUseBinExtensionForImageSubtypeOtherThanWebp() throws Exception {
+    // type.getType()=="image" (true) && subtype!="webp" (false) — deckt den zweiten
+    // Zweig der UND-Bedingung in extensionFor und damit den letzten branch.
+    given(useCase.execute(any(), any()))
+        .willReturn(new ToolImageResult(new byte[] {1}, "image/gif"));
+    final MockMultipartFile file =
+        new MockMultipartFile("file", "x.png", "image/png", new byte[] {7});
+
+    mockMvc
+        .perform(
+            multipart("/api/tools/resize")
+                .file(file)
+                .param("width", "100")
+                .param("height", "100")
+                .param("quality", "80"))
+        .andExpect(
+            header().string("Content-Disposition", "attachment; filename=\"resized-100x100.bin\""));
+  }
+
+  @Test
   void shouldReturn400WhenFileMissing() throws Exception {
     mockMvc
         .perform(multipart("/api/tools/resize").param("width", "100").param("height", "100"))

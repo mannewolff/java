@@ -56,9 +56,29 @@ class ParamsTest {
     assertThatThrownBy(() -> new CropOgParams(-0.1, 0.5, 80, 1200, 630))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("yOffset");
+    assertThatThrownBy(() -> new CropOgParams(1.5, 0.5, 80, 1200, 630))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("yOffset");
+    assertThatThrownBy(() -> new CropOgParams(0.5, -0.1, 80, 1200, 630))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("xOffset");
     assertThatThrownBy(() -> new CropOgParams(0.5, 1.5, 80, 1200, 630))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("xOffset");
+  }
+
+  @Test
+  void cropOgParamsShouldRejectQualityAboveMaximum() {
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 101, 1200, 630))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("quality");
+  }
+
+  @Test
+  void resizeParamsShouldRejectWidthBeyondMaximum() {
+    // ResizeParams hat aktuell nur min-bound — keine obere Schranke. Wenn das mal kommt:
+    // hier den Test ergänzen. Aktuell ist 100_000 ein gültiger Wert.
+    new ResizeParams(100_000, 100_000, "jpeg", 80);
   }
 
   @Test

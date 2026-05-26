@@ -97,7 +97,11 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
       final ResponseEntity<byte[]> response =
           client.post().uri(path).body(body).retrieve().toEntity(byte[].class);
       final byte[] payload = response.getBody();
-      if (payload == null || payload.length == 0) {
+      // RestClient + JDK HttpClient liefert bei leeren Bodies oder Status 204
+      // konsistent null (nicht byte[0]) — nur null-Check noetig. Ein theoretisches
+      // byte[0] wird vom ToolImageResult-Konstruktor mit IllegalArgumentException
+      // abgefangen.
+      if (payload == null) {
         throw new PythonToolsException("python-tools returned empty body");
       }
       final MediaType contentType = response.getHeaders().getContentType();

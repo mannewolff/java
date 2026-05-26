@@ -8,7 +8,7 @@
 # Die kopierte Datei steht in .gitignore und wird nie committed.
 #
 # Vor dem ersten 'docker compose up' muessen drei Voraussetzungen stehen:
-#   1. DNS-Eintrag fuer auth.toolbox.mwolff.org zeigt auf den Server
+#   1. DNS-Eintrag fuer toolboxauth.mwolff.org zeigt auf den Server
 #   2. Reverse-Proxy leitet :443 (TLS) → 127.0.0.1:8081 weiter und setzt
 #      X-Forwarded-Proto / -Host / -For
 #   3. Keycloak-Schema in der bestehenden MariaDB manuell anlegen
@@ -24,7 +24,7 @@ services:
     environment:
       # Public URL der Keycloak-Instanz — Keycloak nutzt diesen Wert fuer alle
       # in OIDC-Discovery / Token-Issuer / Redirects ausgehenden URLs.
-      KC_HOSTNAME: https://auth.toolbox.mwolff.org
+      KC_HOSTNAME: https://toolboxauth.mwolff.org
       # Reverse-Proxy steht davor; X-Forwarded-* respektieren.
       KC_PROXY_HEADERS: xforwarded
       # Hostname-Strict an: schuetzt vor Host-Header-Spoofing.
@@ -34,5 +34,5 @@ services:
 
   api:
     environment:
-      # Aktiviert application-prod.yml: issuer-uri zeigt auf auth.toolbox.mwolff.org.
+      # Aktiviert application-prod.yml: issuer-uri zeigt auf toolboxauth.mwolff.org.
       SPRING_PROFILES_ACTIVE: prod

@@ -94,6 +94,68 @@ Wir bilden den Workflow über die Default-Rolle `PENDING` ab:
 Wenn später ein automatisierter Approval-Flow (z. B. via E-Mail an Admin) gewünscht
 ist, dafür ein eigenes Issue anlegen.
 
+## Prod-Setup (Hostinger / eigener Server)
+
+### Voraussetzungen (extern)
+
+1. DNS A/AAAA-Record `auth.toolbox.mwolff.org` zeigt auf den Server.
+2. Reverse-Proxy (Caddy / Nginx / Traefik / Hostinger-Built-in) leitet
+   `https://auth.toolbox.mwolff.org:443` auf `127.0.0.1:8081` weiter und setzt
+   `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-For`.
+3. TLS-Zertifikat für die Subdomain ist aktiv.
+
+### Schritte auf dem Server
+
+```bash
+# 1. Override-File aus der versionierten Vorlage erzeugen
+cp docker-compose.prod.yml.example docker-compose.override.yml
+
+# 2. .env ergaenzen (drei neue Variablen)
+cat <<'ENV' >> .env
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=<langer-Wert>
+KEYCLOAK_DB_PASSWORD=<eigener-Wert>
+ENV
+
+# 3. Keycloak-Schema in der bestehenden MariaDB anlegen.
+#    Auf Prod ist das mariadb-data-Volume NICHT leer (echte App-Daten),
+#    daher laeuft das Init-Script aus infra/mariadb/init/ NICHT —
+#    Schema einmalig manuell anlegen. mariadb-Container muss laufen.
+docker compose up -d mariadb
+docker compose exec mariadb mariadb -u root -p"$(grep '^DB_ROOT_PASSWORD=' .env | cut -d= -f2-)" <<SQL
+CREATE DATABASE IF NOT EXISTS keycloak
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'keycloak'@'%' IDENTIFIED BY '$(grep '^KEYCLOAK_DB_PASSWORD=' .env | cut -d= -f2-)';
+GRANT ALL PRIVILEGES ON keycloak.* TO 'keycloak'@'%';
+FLUSH PRIVILEGES;
+SQL
+
+# 4. Stack komplett hochfahren (lokale Builds, remote Pulls)
+docker compose pull
+docker compose up -d --build
+
+# 5. Realm-Import + Boot abwarten
+docker compose logs -f keycloak | grep -iE "imported|started in"
+```
+
+Anschließend in der Keycloak-UI sofort das Admin-Passwort rotieren und
+`KEYCLOAK_ADMIN_PASSWORD` aus `.env` entfernen (Bootstrap-Variablen werden
+nach dem ersten Start ignoriert).
+
+### Stolperfallen
+
+- **Niemals `--optimized` in der Override-Datei.** Das offizielle Image ist
+  DB-neutral; mit `--optimized` weigert sich Keycloak zu starten, weil der
+  Augmentation-Build für `KC_DB=mariadb` noch nicht passiert ist.
+- **Doppelte Port-Mappings.** Compose merged Port-Listen statt sie zu
+  ersetzen. Die Vorlage überschreibt deshalb keine Ports — das Default-Mapping
+  `127.0.0.1:8081:8080` aus `docker-compose.yml` bleibt aktiv.
+  Wenn du den Port doch komplett ersetzen willst (z.B. anderen Host-Port),
+  brauchst du `ports: !override [...]` und Compose ≥ v2.24.
+- **DB-Verbindung schlägt fehl.** Wenn Keycloak `Unable to connect to
+  database` loggt, ist meist das `keycloak`-Schema noch nicht angelegt
+  oder das Passwort in `.env` weicht von dem im SQL ab.
+
 ## Sicherheit
 
 - Die Bootstrap-Credentials (`KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`) sind
@@ -102,8 +164,6 @@ ist, dafür ein eigenes Issue anlegen.
   und idealerweise mit TOTP versehen werden.
 - `KEYCLOAK_DB_PASSWORD` ist ein separates Passwort vom Datenbank-API-User.
   Es darf nicht in das Repo, sondern nur in die lokale `.env`.
-- Der `toolbox`-Realm (Prod) hat `KC_HOSTNAME_STRICT` in der Compose-Datei auf
-  `false`, weil lokal kein Reverse-Proxy davor läuft. **In Prod muss
-  `KC_HOSTNAME=auth.toolbox.mwolff.org` gesetzt und `KC_HOSTNAME_STRICT`
-  entfernt werden, sowie HTTPS via Proxy davor.** Das wird in einem separaten
-  Deployment-Issue konfiguriert, nicht hier.
+- `docker-compose.yml` exponiert Keycloak nur auf `127.0.0.1:8081`. Der
+  Reverse-Proxy ist der einzige öffentliche Pfad zu Keycloak. Aufmachen
+  (z.B. `0.0.0.0:8081`) nur, wenn das Setup das wirklich braucht.

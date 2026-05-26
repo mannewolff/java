@@ -1,0 +1,38 @@
+# Prod-Override fuer den Stack — als Vorlage versioniert.
+#
+# Auf dem Prod-Server kopieren als 'docker-compose.override.yml':
+#
+#   cp docker-compose.prod.yml.example docker-compose.override.yml
+#
+# Compose merged automatisch docker-compose.yml + docker-compose.override.yml.
+# Die kopierte Datei steht in .gitignore und wird nie committed.
+#
+# Vor dem ersten 'docker compose up' muessen drei Voraussetzungen stehen:
+#   1. DNS-Eintrag fuer auth.toolbox.mwolff.org zeigt auf den Server
+#   2. Reverse-Proxy leitet :443 (TLS) → 127.0.0.1:8081 weiter und setzt
+#      X-Forwarded-Proto / -Host / -For
+#   3. Keycloak-Schema in der bestehenden MariaDB manuell anlegen
+#      (Init-Script laeuft nur bei leerem Volume — auf Prod ist es nicht leer).
+#      Anleitung: infra/keycloak/README.md
+services:
+  keycloak:
+    # Kein --optimized! Das offizielle quay.io/keycloak/keycloak:26.0 ist DB-neutral
+    # und muss beim ersten Start einen Runtime-Augmentation-Build machen.
+    command:
+      - start
+      - --import-realm
+    environment:
+      # Public URL der Keycloak-Instanz — Keycloak nutzt diesen Wert fuer alle
+      # in OIDC-Discovery / Token-Issuer / Redirects ausgehenden URLs.
+      KC_HOSTNAME: https://auth.toolbox.mwolff.org
+      # Reverse-Proxy steht davor; X-Forwarded-* respektieren.
+      KC_PROXY_HEADERS: xforwarded
+      # Hostname-Strict an: schuetzt vor Host-Header-Spoofing.
+      KC_HOSTNAME_STRICT: "true"
+      # HTTP intern erlauben, weil TLS am Reverse-Proxy endet.
+      KC_HTTP_ENABLED: "true"
+
+  api:
+    environment:
+      # Aktiviert application-prod.yml: issuer-uri zeigt auf auth.toolbox.mwolff.org.
+      SPRING_PROFILES_ACTIVE: prod

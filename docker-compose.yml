@@ -49,8 +49,11 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
     ports:
-      # Lokal: Login-Endpoint und Admin-Konsole unter http://localhost:8081/
-      - "8081:8080"
+      # Default-secure: nur Loopback. Browser auf demselben Host (Dev) erreichen
+      # Keycloak unter http://localhost:8081/, auf Prod liefert der Reverse-Proxy
+      # 443 → 127.0.0.1:8081. Wer extern an Keycloak vorbei am Proxy will, muss
+      # das im docker-compose.override.yml explizit aufmachen.
+      - "127.0.0.1:8081:8080"
     volumes:
       # Realm-JSONs werden beim ersten Start importiert. User-Daten / Secrets sind hier
       # bewusst nicht enthalten — die Files sind Code, nicht Backup.

@@ -2,7 +2,7 @@ package org.mwolff.api.tools;
 
 /**
  * Wird geworfen, wenn der python-tools-Service nicht erreichbar ist oder eine unerwartete Antwort
- * liefert. Wird vom GlobalExceptionHandler auf HTTP 502 gemappt.
+ * liefert. Wird vom {@link ToolExceptionHandler} auf HTTP 502 gemappt.
  */
 public class PythonToolsException extends RuntimeException {
 

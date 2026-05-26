@@ -6,11 +6,18 @@ import RemoveBackgroundPage from './pages/tools/RemoveBackgroundPage';
 import OgImagePage from './pages/tools/OgImagePage';
 import ResizePage from './pages/tools/ResizePage';
 import PasswordPage from './pages/tools/PasswordPage';
+import { ProtectedRoute } from './auth/ProtectedRoute';
 
 export default function App() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/tools/remove-background" element={<RemoveBackgroundPage />} />

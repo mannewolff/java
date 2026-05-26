@@ -7,16 +7,62 @@ services:
       MARIADB_USER: ${DB_USER}
       MARIADB_PASSWORD: ${DB_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      # Wird vom Init-Script in infra/mariadb/init gelesen, um den Keycloak-DB-User anzulegen.
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
     volumes:
       - mariadb-data:/var/lib/mysql
+      # Init-Scripts laufen NUR beim ersten Start (leeres Datenverzeichnis). Bei bestehendem
+      # mariadb-data-Volume muss das Keycloak-Schema manuell angelegt werden — siehe
+      # infra/keycloak/README.md.
+      - ./infra/mariadb/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
-    # Kein Host-Port-Mapping — Spring erreicht mariadb intern unter mariadb:3306.
+    # Kein Host-Port-Mapping — Spring und Keycloak erreichen mariadb intern unter mariadb:3306.
     # Falls von ausserhalb zugegriffen werden soll, hier z.B. ein "3307:3306" eintragen.
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      # Bootstrap-Admin (Keycloak 26+ Variante). Nur fuer den ersten Start — danach via
+      # Keycloak-UI rotieren.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # Datenbank: gemeinsame MariaDB, eigenes Schema "keycloak", eigener DB-User.
+      KC_DB: mariadb
+      KC_DB_URL: jdbc:mariadb://mariadb:3306/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # Health-Endpoints (Port 9000) fuer Docker-Healthcheck.
+      KC_HEALTH_ENABLED: "true"
+      # Wir laufen lokal hinter keinem Reverse-Proxy — http im Admin-Konsolen-Modus erlauben.
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      # Lokal: Login-Endpoint und Admin-Konsole unter http://localhost:8081/
+      - "8081:8080"
+    volumes:
+      # Realm-JSONs werden beim ersten Start importiert. User-Daten / Secrets sind hier
+      # bewusst nicht enthalten — die Files sind Code, nicht Backup.
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      # /dev/tcp ist ein Bash-Builtin und im Keycloak-Image (UBI + Bash) verfuegbar. Wir
+      # pingen den Keycloak-Management-Port 9000 (Health-Endpoint) per simpler TCP-Probe.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && echo OK || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   python-tools:
     build: ./python-tools

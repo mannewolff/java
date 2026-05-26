@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
   AppBar,
+  Avatar,
   Box,
+  Button,
   Collapse,
   CssBaseline,
   Drawer,
@@ -15,9 +17,11 @@ import {
 } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { navItems } from './navItems';
 import type { NavGroup, NavLink, NavNode } from './navItems';
+import { useAuth } from '../auth/useAuth';
 
 const DRAWER_WIDTH = 240;
 
@@ -32,6 +36,7 @@ function groupContainsPath(group: NavGroup, pathname: string): boolean {
 export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { username, initial, signOut } = useAuth();
 
   // Default-open: jede Gruppe, in der die aktuelle Route liegt.
   const initiallyOpenGroups = useMemo(() => {
@@ -131,9 +136,35 @@ export default function AppShell() {
               // optisch; alt="" haelt Screenreader still.
             }}
           />
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             mannewolff-tools
           </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar
+              sx={{
+                bgcolor: 'primary.dark',
+                width: 32,
+                height: 32,
+                fontSize: '0.875rem',
+              }}
+              aria-label={username ? `Eingeloggt als ${username}` : 'Eingeloggt'}
+            >
+              {initial}
+            </Avatar>
+            {username && (
+              <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {username}
+              </Typography>
+            )}
+            <Button
+              color="inherit"
+              startIcon={<LogoutIcon />}
+              onClick={signOut}
+              aria-label="Abmelden"
+            >
+              Logout
+            </Button>
+          </Box>
         </Toolbar>
       </AppBar>
       <Drawer

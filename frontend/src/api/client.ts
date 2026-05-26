@@ -1,3 +1,5 @@
+import { getAccessToken, notifyAuthExpired } from '../auth/tokenBridge';
+
 const BASE_URL = '/api';
 
 export interface ApiErrorBody {
@@ -20,14 +22,28 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getAccessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: {
       Accept: 'application/json',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
     ...init,
   });
+
+  if (response.status === 401) {
+    // Token abgelaufen oder ungueltig — Re-Login ausloesen und Fehler weiterreichen,
+    // damit die aufrufende Komponente ihren Loading-State sauber zurueckdrehen kann.
+    notifyAuthExpired();
+    const body = await safeJson<ApiErrorBody>(response);
+    throw new ApiError(
+      response.status,
+      body?.message ?? 'Unauthorized',
+      body,
+    );
+  }
 
   if (!response.ok) {
     const body = await safeJson<ApiErrorBody>(response);

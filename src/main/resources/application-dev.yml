@@ -1,0 +1,9 @@
+# Lokale Entwicklung: Spring laeuft auf dem Host (z.B. mvn spring-boot:run), Keycloak
+# im Docker-Compose-Stack und ist ueber localhost:8081 erreichbar. Der Issuer-Claim im
+# Token muss exakt mit issuer-uri uebereinstimmen, deshalb gleicher Wert wie im Default.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/toolbox-dev

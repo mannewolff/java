@@ -7,37 +7,20 @@ import java.util.Map;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 
-import org.mwolff.api.tools.InvalidUploadException;
-import org.mwolff.api.tools.PythonToolsException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * Allgemeiner Validations-Exception-Handler. Behandelt nur generische, fachfrei-anwendbare Faelle
+ * (Bean Validation, Constraint Violations). Feature-spezifische Handler — z.B.
+ * Tool-Verarbeitungsfehler — leben im jeweiligen Feature-Package (vgl. Review #58 P2.2, {@link
+ * org.mwolff.api.tools.ToolExceptionHandler}).
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-  private static final Logger LOG = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-  private static final String UPSTREAM_GENERIC_MESSAGE = "Tool-Service derzeit nicht erreichbar.";
-
-  @ExceptionHandler(PythonToolsException.class)
-  public ResponseEntity<Map<String, Object>> handlePythonTools(PythonToolsException ex) {
-    // Internal log carries the full diagnostic; external response stays generic so we do not
-    // leak upstream details (CLAUDE-security.md, see also code review P2-7).
-    LOG.warn("python-tools upstream failure: {}", ex.getMessage(), ex);
-    return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-        .body(body(HttpStatus.BAD_GATEWAY, UPSTREAM_GENERIC_MESSAGE));
-  }
-
-  @ExceptionHandler(InvalidUploadException.class)
-  public ResponseEntity<Map<String, Object>> handleInvalidUpload(InvalidUploadException ex) {
-    final Map<String, Object> body = body(HttpStatus.BAD_REQUEST, ex.getMessage());
-    body.put("code", ex.code());
-    return ResponseEntity.badRequest().body(body);
-  }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {

@@ -230,11 +230,8 @@
                         </goals>
                         <configuration>
                             <!--
-                              Schwellen sind aktuell pragmatisch auf den Stand der vorhandenen
-                              Tests gesetzt, weil Failsafe-IT-Tests ohne Docker-Daemon nicht laufen
-                              und daher PythonToolsConfig/PythonToolsProperties hier nicht abgedeckt
-                              werden. Ziel laut CLAUDE-java.md bleibt 1.00 fuer Line und Branch.
-                              Hochzuziehen via Folge-Issue (Coverage+Mutation auf 100%).
+                              CLAUDE-java.md §5.1 verlangt 100% Line + Branch Coverage. Schwellen
+                              auf 1.0/1.0, mit explizit dokumentierten Ausnahmen.
                             -->
                             <rules>
                                 <rule>
@@ -243,19 +240,26 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.85</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.75</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
                             </rules>
-                            <!-- Spring-Boot-Main-Klasse und sonstige Bootstrap-Klassen sind technisch nicht sinnvoll getestet. -->
                             <excludes>
+                                <!-- Spring-Boot-Main-Klasse: nur ein main()-Aufruf zu SpringApplication.run. -->
                                 <exclude>org/mwolff/api/ApiApplication.class</exclude>
+                                <!--
+                                  PythonToolsConfig: erstellt einen RestClient-Bean mit JDK
+                                  HttpClient, ist reine Bean-Wiring-Konfiguration ohne fachliche
+                                  Branches. Sinnvoll nur via @SpringBootTest + Docker-IT testbar
+                                  (siehe ApiApplicationIT) — bewusst ausgeschlossen.
+                                -->
+                                <exclude>org/mwolff/api/tools/infrastructure/python/PythonToolsConfig.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -312,8 +316,15 @@
                 <artifactId>spotbugs-maven-plugin</artifactId>
                 <configuration>
                     <effort>Max</effort>
-                    <threshold>Low</threshold>
-                    <failOnError>false</failOnError>
+                    <!--
+                      Threshold Medium: Low-Findings sind in unserem Stack ueberwiegend
+                      strukturelle False-Positives (SPRING_ENDPOINT fuer Controller,
+                      CRLF_INJECTION_LOGS fuer interne Log-Aufrufe). Wenn die mal scharf
+                      gepflegt werden sollen: eigenes Issue.
+                    -->
+                    <threshold>Medium</threshold>
+                    <failOnError>true</failOnError>
+                    <excludeFilterFile>infra/spotbugs-excludes.xml</excludeFilterFile>
                     <plugins>
                         <plugin>
                             <groupId>com.h3xstream.findsecbugs</groupId>
@@ -336,7 +347,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
                 <configuration>
-                    <failOnViolation>false</failOnViolation>
+                    <!--
+                      Aktuelles PMD-Setup hat 0 Findings auf der Codebase — fail-fast
+                      eingeschaltet, damit kuenftiger Drift sofort sichtbar wird.
+                    -->
+                    <failOnViolation>true</failOnViolation>
                     <printFailingErrors>true</printFailingErrors>
                 </configuration>
                 <executions>

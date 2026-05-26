@@ -57,9 +57,28 @@ class SecurityConfigTest {
   }
 
   @Test
-  void shouldAllowAnonymousAccessToTools() throws Exception {
-    // permitAll — DispatcherServlet liefert 404, weil kein Mapping fuer /api/tools/foo geladen ist.
-    mockMvc.perform(get("/api/tools/foo")).andExpect(status().isNotFound());
+  void shouldDenyAnonymousAccessToTools() throws Exception {
+    // Seit #65 ist /api/tools/** auf hasRole(USER) — anonym -> 401.
+    mockMvc.perform(get("/api/tools/foo")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void shouldRejectToolsAccessForUserWithoutUserRole() throws Exception {
+    // PENDING-User (registriert, aber noch nicht promotet) hat keine USER-Rolle -> 403.
+    mockMvc
+        .perform(
+            get("/api/tools/foo")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_PENDING"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void shouldAllowToolsAccessForUserWithUserRole() throws Exception {
+    // Mit USER-Rolle: Auth geht durch, MockMvc liefert 404 (kein Mapping in diesem Slice-Test).
+    mockMvc
+        .perform(
+            get("/api/tools/foo").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+        .andExpect(status().isNotFound());
   }
 
   @Test

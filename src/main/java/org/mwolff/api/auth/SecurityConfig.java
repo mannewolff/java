@@ -30,11 +30,10 @@ class SecurityConfig {
                     .authenticated()
                     .requestMatchers("/api/dashboards/**")
                     .hasRole("USER")
-                    // TODO(#37-followup): /api/tools/** soll spaeter authentifiziert werden,
-                    // sobald die Tool-Endpoints einen User-Kontext brauchen. Aktuell oeffentlich,
-                    // damit die bestehenden Tool-Flows nicht brechen.
+                    // Tool-Endpoints: gleicher Auth-Gate wie Dashboards. Aktiviert in #65 nach
+                    // Phase 0 (#36-#38) und dem hexagonalen Refactor (#68).
                     .requestMatchers("/api/tools/**")
-                    .permitAll()
+                    .hasRole("USER")
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
                     .permitAll()

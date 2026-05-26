@@ -1,4 +1,4 @@
-import { ApiError, type ApiErrorBody } from './client';
+import { ApiError, authedFetch, type ApiErrorBody } from './client';
 
 const CROP_PATH = '/api/tools/crop-og';
 const PALETTE_PATH = '/api/tools/palette';
@@ -42,7 +42,7 @@ export async function cropOg(
   if (options.width !== undefined) body.append('width', options.width.toString());
   if (options.height !== undefined) body.append('height', options.height.toString());
 
-  const response = await fetch(CROP_PATH, { method: 'POST', body });
+  const response = await authedFetch(CROP_PATH, { method: 'POST', body });
   await checkOk(response);
   return await response.blob();
 }
@@ -55,7 +55,7 @@ export async function extractPalette(
   body.append('file', file);
   body.append('count', count.toString());
 
-  const response = await fetch(PALETTE_PATH, { method: 'POST', body });
+  const response = await authedFetch(PALETTE_PATH, { method: 'POST', body });
   await checkOk(response);
   const json = (await response.json()) as PaletteResponse;
   return json.colors;

@@ -28,7 +28,7 @@ export interface NavGroup {
 export type NavNode = NavLink | NavGroup;
 
 export const navItems: NavNode[] = [
-  { kind: 'link', label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
+  { kind: 'link', label: 'Dashboard', path: '/dashboards/default', icon: DashboardIcon },
   {
     kind: 'group',
     label: 'Bildverarbeitung',

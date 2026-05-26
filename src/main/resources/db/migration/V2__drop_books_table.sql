@@ -1,5 +1,5 @@
--- Historischer Stand. Wollte die books-Tabelle entfernen, traf aber den falschen
--- Namen (V1 erstellte 'book' (Singular), hier wird 'books' (Plural) gedroppt).
--- Die echte Bereinigung passiert in V3__cleanup_book_remnants.sql idempotent.
--- Datei bleibt im Repo, weil sie in flyway_schema_history der laufenden DB steht.
+-- Removes the books demo table.
+-- The Book CRUD module was part of the initial Spring Boot scaffold and has been
+-- removed from the codebase (see issue #54). Production deployments do not hold
+-- any real data in this table, so the drop is unconditional.
 DROP TABLE IF EXISTS books;

@@ -1,4 +1,6 @@
-# Produktions-Profil. Aktiv via SPRING_PROFILES_ACTIVE=prod (siehe Deployment-Doku).
+# Produktions-Profil. Aktiv via SPRING_PROFILES_ACTIVE=prod.
+# In docker-compose.prod.yml.example wird das ENV beim api-Service gesetzt;
+# beim Kopieren als docker-compose.override.yml ist es automatisch aktiv.
 # Keycloak liegt unter eigener Subdomain mit TLS — issuer-uri ist Production-Realm.
 spring:
   security:

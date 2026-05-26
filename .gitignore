@@ -41,6 +41,11 @@ target/
 .env
 .env.local
 
+# Server-spezifische Compose-Overrides (siehe docker-compose.prod.yml.example).
+# Werden auf dem Zielserver erzeugt und enthalten u.U. host-spezifische Werte.
+docker-compose.override.yml
+docker-compose.override.yaml
+
 # Frontend build artifacts
 frontend/node_modules/
 frontend/dist/

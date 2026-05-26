@@ -46,8 +46,18 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 | UI-Library | Material UI 6 (MUI) + Emotion |
 | Test (Frontend) | Vitest + React Testing Library |
 | Containerisierung | Docker (Multi-Stage: Node + Maven + JRE) |
+| Identity / Auth | Keycloak 26 (eigener Container, Schema `keycloak` in gemeinsamer MariaDB, Port `8081` lokal) |
 
 **Verbindung Frontend↔Backend:** Im Dev leitet der Vite-Dev-Server `/api/*` an Spring Boot auf `:8080` weiter. In Produktion serviert Spring Boot den React-Build aus `classpath:/static/`; eine Domain, kein CORS.
+
+**Identity / Auth:** Keycloak läuft als separater Container und verwaltet zwei Realms:
+`toolbox-dev` (lokal) und `toolbox` (Vorlage für Produktion). Realm-Konfiguration als
+Code in [infra/keycloak/](infra/keycloak/) — beide Realms werden beim ersten Start
+automatisch importiert. Das Frontend ist als public client (`toolbox-web`, PKCE)
+konfiguriert, das Spring-Backend ist bearer-only Resource Server (`toolbox-api`).
+Self-Registration ist aktiv; neue User landen in Rolle `PENDING` und werden vom
+Admin manuell auf `USER` promotet. Details und Admin-Workflow:
+[infra/keycloak/README.md](infra/keycloak/README.md).
 
 ---
 
@@ -58,7 +68,10 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 ├── CLAUDE*.md                          # Diese Guide-Familie
 ├── pom.xml                             # Maven-Konfiguration (inkl. frontend-maven-plugin)
 ├── Dockerfile, docker-compose.yml      # Multi-Stage-Image + lokale Composition
-├── .env.example                        # DB-Credentials-Vorlage
+├── .env.example                        # DB- und Keycloak-Credentials-Vorlage
+├── infra/                              # Infrastruktur als Code (nicht-Spring)
+│   ├── keycloak/                       # Realm-Exports (toolbox, toolbox-dev) + README
+│   └── mariadb/init/                   # Init-Scripts (Keycloak-Schema + DB-User)
 ├── src/main/java/org/mwolff/api/       # Application + Domain
 │   ├── ApiApplication.java
 │   ├── tools/                          # Tool-Proxy auf python-tools (Resize, Crop, RemBG)

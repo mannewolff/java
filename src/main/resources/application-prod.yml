@@ -1,0 +1,8 @@
+# Produktions-Profil. Aktiv via SPRING_PROFILES_ACTIVE=prod (siehe Deployment-Doku).
+# Keycloak liegt unter eigener Subdomain mit TLS — issuer-uri ist Production-Realm.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://auth.toolbox.manfredwolff.org/realms/toolbox}

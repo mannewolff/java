@@ -1,8 +1,23 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './AppShell';
+
+// AppShell ruft useAuth() fuer User-Info im Header auf. Im Slice-Test gibt es
+// keinen AuthProvider, also wird der Hook gemockt.
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({
+    isLoading: false,
+    isAuthenticated: true,
+    username: 'alice',
+    email: 'alice@example.com',
+    initial: 'A',
+    error: undefined,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 
 function renderShell(initialEntry = '/dashboard') {
   return render(

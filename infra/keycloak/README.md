@@ -98,9 +98,9 @@ ist, dafür ein eigenes Issue anlegen.
 
 ### Voraussetzungen (extern)
 
-1. DNS A/AAAA-Record `auth.toolbox.mwolff.org` zeigt auf den Server.
+1. DNS A/AAAA-Record `toolboxauth.mwolff.org` zeigt auf den Server.
 2. Reverse-Proxy (Caddy / Nginx / Traefik / Hostinger-Built-in) leitet
-   `https://auth.toolbox.mwolff.org:443` auf `127.0.0.1:8081` weiter und setzt
+   `https://toolboxauth.mwolff.org:443` auf `127.0.0.1:8081` weiter und setzt
    `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-For`.
 3. TLS-Zertifikat für die Subdomain ist aktiv.
 

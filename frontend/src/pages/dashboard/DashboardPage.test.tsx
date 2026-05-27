@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import DashboardPage from './DashboardPage';
 import { EditModeProvider } from './EditModeContext';
+import { NotifyProvider } from '../../notify/NotifyProvider';
 import { DESKTOP_MIN_WIDTH, WIDGET_DEFAULTS } from './widgetDefaults';
 
 vi.mock('../../api/dashboard', () => ({
@@ -32,10 +33,12 @@ function render_(id = '1') {
   return render(
     <MemoryRouter initialEntries={[`/dashboards/${id}`]}>
       <EditModeProvider>
-        <Routes>
-          <Route path="/dashboards/:id" element={<DashboardPage />} />
-          <Route path="/dashboards" element={<div>Liste</div>} />
-        </Routes>
+        <NotifyProvider>
+          <Routes>
+            <Route path="/dashboards/:id" element={<DashboardPage />} />
+            <Route path="/dashboards" element={<div>Liste</div>} />
+          </Routes>
+        </NotifyProvider>
       </EditModeProvider>
     </MemoryRouter>,
   );

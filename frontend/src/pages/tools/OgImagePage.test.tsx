@@ -2,6 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OgImagePage from './OgImagePage';
+import { NotifyProvider } from '../../notify/NotifyProvider';
+
+function renderOg(): ReturnType<typeof render> {
+  return render(
+    <NotifyProvider>
+      <OgImagePage />
+    </NotifyProvider>,
+  );
+}
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -42,20 +51,20 @@ describe('OgImagePage', () => {
   });
 
   it('renders the empty drop zone initially', () => {
-    render(<OgImagePage />);
+    renderOg();
     expect(screen.getByText(/Beitragsbild/i)).toBeInTheDocument();
     expect(screen.getByText(/Bild hier ablegen/i)).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /Vorschau/i })).not.toBeInTheDocument();
   });
 
   it('rejects unsupported content types', async () => {
-    render(<OgImagePage />);
+    renderOg();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     const txt = new File(['hello'], 'notes.txt', { type: 'text/plain' });
 
     await userEvent.upload(input, txt, { applyAccept: false });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Format nicht unterstützt/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Format nicht unterstützt/i);
   });
 
   it('crops, palettes, and shows download link after upload', async () => {
@@ -66,7 +75,7 @@ describe('OgImagePage', () => {
           paletteResponse(['#aabbcc', '#001122', '#abcdef', '#112233', '#445566', '#778899']),
       }),
     );
-    render(<OgImagePage />);
+    renderOg();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
 
     await userEvent.upload(input, makePngFile());
@@ -95,7 +104,7 @@ describe('OgImagePage', () => {
         '/api/tools/palette': () => paletteResponse(['#aabbcc']),
       }),
     );
-    render(<OgImagePage />);
+    renderOg();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
 
     await userEvent.upload(input, makePngFile());
@@ -116,7 +125,7 @@ describe('OgImagePage', () => {
         '/api/tools/palette': () => paletteResponse(['#000000']),
       }),
     );
-    render(<OgImagePage />);
+    renderOg();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
 
     await userEvent.upload(input, makePngFile());
@@ -134,7 +143,7 @@ describe('OgImagePage', () => {
         '/api/tools/palette': () => paletteResponse(['#000000']),
       }),
     );
-    render(<OgImagePage />);
+    renderOg();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
 
     await userEvent.upload(input, makePngFile());
@@ -164,7 +173,7 @@ describe('OgImagePage', () => {
   });
 
   it('disables apply when custom dimensions are out of range', async () => {
-    render(<OgImagePage />);
+    renderOg();
 
     await userEvent.click(screen.getByRole('button', { name: /Einstellungen öffnen/i }));
     const widthInput = await screen.findByLabelText(/Breite/);
@@ -182,7 +191,7 @@ describe('OgImagePage', () => {
         '/api/tools/palette': () => paletteResponse(['#000000']),
       }),
     );
-    render(<OgImagePage />);
+    renderOg();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
 
     await userEvent.upload(input, makePngFile());

@@ -4,6 +4,7 @@ import DashboardListPage from './pages/dashboard/DashboardListPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import DashboardDefaultRedirect from './pages/dashboard/DashboardDefaultRedirect';
 import { EditModeProvider } from './pages/dashboard/EditModeContext';
+import { NotifyProvider } from './notify/NotifyProvider';
 import SettingsPage from './pages/SettingsPage';
 import RemoveBackgroundPage from './pages/tools/RemoveBackgroundPage';
 import OgImagePage from './pages/tools/OgImagePage';
@@ -21,7 +22,9 @@ export default function App() {
             {/* EditModeProvider wrappt AppShell, damit Sidebar und DashboardPage
                 denselben State sehen (Sidebar wechselt auf Widget-Palette im Edit-Modus). */}
             <EditModeProvider>
-              <AppShell />
+              <NotifyProvider>
+                <AppShell />
+              </NotifyProvider>
             </EditModeProvider>
           </ProtectedRoute>
         }

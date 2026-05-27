@@ -2,6 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResizePage from './ResizePage';
+import { NotifyProvider } from '../../notify/NotifyProvider';
+
+function renderResize(): ReturnType<typeof render> {
+  return render(
+    <NotifyProvider>
+      <ResizePage />
+    </NotifyProvider>,
+  );
+}
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -40,14 +49,14 @@ describe('ResizePage', () => {
   });
 
   it('renders the empty drop zone initially', () => {
-    render(<ResizePage />);
+    renderResize();
     expect(screen.getByText(/Bild verkleinern/i)).toBeInTheDocument();
     expect(screen.getByText(/Bild hier ablegen/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Neue Breite/)).not.toBeInTheDocument();
   });
 
   it('shows original dimensions and pre-fills target after upload', async () => {
-    render(<ResizePage />);
+    renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
     expect(screen.getByText(/1600/)).toBeInTheDocument();
@@ -57,7 +66,7 @@ describe('ResizePage', () => {
   });
 
   it('keeps aspect ratio when width is edited while lock is on', async () => {
-    render(<ResizePage />);
+    renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
     const widthInput = screen.getByLabelText('Neue Breite');
@@ -68,7 +77,7 @@ describe('ResizePage', () => {
   });
 
   it('keeps height free when aspect lock is disabled', async () => {
-    render(<ResizePage />);
+    renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
     await userEvent.click(screen.getByLabelText(/Aspect Ratio entkoppeln/i));
@@ -81,7 +90,7 @@ describe('ResizePage', () => {
 
   it('clamps target to original dimensions when downsize-only is on', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
-    render(<ResizePage />);
+    renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
     // Unlock so width does not change height — easier to assert clamp on width.
@@ -97,7 +106,7 @@ describe('ResizePage', () => {
 
   it('submits width and height to the backend and shows result + download', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
-    render(<ResizePage />);
+    renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
     const widthInput = screen.getByLabelText('Neue Breite');
@@ -125,7 +134,7 @@ describe('ResizePage', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     );
-    render(<ResizePage />);
+    renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
     await userEvent.click(screen.getByRole('button', { name: /^Verkleinern$/i }));
@@ -136,10 +145,10 @@ describe('ResizePage', () => {
   });
 
   it('rejects unsupported content types', async () => {
-    render(<ResizePage />);
+    renderResize();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     const txt = new File(['hello'], 'notes.txt', { type: 'text/plain' });
     await userEvent.upload(input, txt, { applyAccept: false });
-    expect(screen.getByRole('alert')).toHaveTextContent(/Format nicht unterstützt/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Format nicht unterstützt/i);
   });
 });

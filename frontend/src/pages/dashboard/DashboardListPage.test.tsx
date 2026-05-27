@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 import DashboardListPage from './DashboardListPage';
+import { NotifyProvider } from '../../notify/NotifyProvider';
 
 vi.mock('../../api/dashboard', () => ({
   listDashboards: vi.fn(),
@@ -43,7 +44,9 @@ describe('DashboardListPage', () => {
   function render_() {
     return render(
       <MemoryRouter>
-        <DashboardListPage />
+        <NotifyProvider>
+          <DashboardListPage />
+        </NotifyProvider>
       </MemoryRouter>,
     );
   }

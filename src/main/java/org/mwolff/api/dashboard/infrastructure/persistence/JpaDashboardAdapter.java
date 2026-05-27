@@ -62,6 +62,7 @@ class JpaDashboardAdapter implements DashboardPort, WidgetPort {
                   () ->
                       new IllegalStateException(
                           "Dashboard " + dashboard.id() + " disappeared during save"));
+      entity.setName(dashboard.name());
       entity.setDefault(dashboard.isDefault());
     }
     return toDomain(dashboardRepo.save(entity));

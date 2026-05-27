@@ -79,15 +79,11 @@ describe('DashboardListPage', () => {
     expect(screen.getByText('Default')).toBeInTheDocument();
   });
 
-  it('creates a new dashboard via the input + button and reloads', async () => {
-    list
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { id: 1, name: 'Neu', isDefault: true, createdAt: ts(), updatedAt: ts() },
-      ]);
+  it('legt direkt ein Dashboard "Neues Dashboard" an beim Klick auf Neu', async () => {
+    list.mockResolvedValueOnce([]);
     create.mockResolvedValueOnce({
       id: 1,
-      name: 'Neu',
+      name: 'Neues Dashboard',
       isDefault: true,
       createdAt: ts(),
       updatedAt: ts(),
@@ -99,24 +95,11 @@ describe('DashboardListPage', () => {
     );
 
     const user = userEvent.setup();
-    const input = screen.getByLabelText('Neues Dashboard');
-    await user.type(input, 'Neu');
-    await user.click(screen.getByRole('button', { name: /Anlegen/ }));
+    await user.click(screen.getByRole('button', { name: 'Neues Dashboard anlegen' }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith('Neu'));
-    await waitFor(() => expect(screen.getByText('Neu')).toBeInTheDocument());
-  });
-
-  it('disables Anlegen-Button when name is blank', async () => {
-    list.mockResolvedValueOnce([]);
-
-    render_();
-    await waitFor(() =>
-      expect(screen.getByText(/Noch keine Dashboards/)).toBeInTheDocument(),
-    );
-
-    const button = screen.getByRole('button', { name: /Anlegen/ });
-    expect(button).toBeDisabled();
+    await waitFor(() => expect(create).toHaveBeenCalledWith('Neues Dashboard'));
+    // Navigate-Aufruf landet nicht im MemoryRouter-DOM hier, aber der API-Call belegt
+    // den Pfad eindeutig.
   });
 
   it('promotes a non-default dashboard to Default', async () => {

@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 
 import {
@@ -10,19 +13,18 @@ import {
   updateDashboard,
   type DashboardDetail,
   type WidgetDto,
-  type WidgetType,
 } from '../../api/dashboard';
 import { ApiError } from '../../api/client';
-import {
-  AUTO_SAVE_DEBOUNCE_MS,
-  DESKTOP_MIN_WIDTH,
-  GRID_COLS,
-  GRID_ROW_HEIGHT,
-  newWidget,
-} from './widgetDefaults';
+import { DESKTOP_MIN_WIDTH, GRID_COLS, GRID_ROW_HEIGHT, newWidget } from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
+import { useEditMode } from './EditModeContext';
 import WidgetKpi from './widgets/WidgetKpi';
 import WidgetTextbox from './widgets/WidgetTextbox';
+
+// `Responsive` allein kennt die Container-Breite nicht und berechnet Spalten aus einem Default —
+// Folge: horizontales Resize/Drag wird unzuverlässig. `WidthProvider` injiziert die Breite via
+// ResizeObserver und reagiert auch live auf Browser-Window-Resize.
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type SaveState = 'idle' | 'pending' | 'saved' | { kind: 'error'; message: string };
 
@@ -41,18 +43,41 @@ function toLayouts(widgets: WidgetDto[]): Layout[] {
   }));
 }
 
+/** Vergleicht zwei Widget-Arrays inhaltlich — Position, Größe, Config, Typ. */
+function widgetsEqual(a: WidgetDto[], b: WidgetDto[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.id !== y.id ||
+      x.type !== y.type ||
+      x.posX !== y.posX ||
+      x.posY !== y.posY ||
+      x.width !== y.width ||
+      x.height !== y.height ||
+      x.config !== y.config
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export default function DashboardPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const dashboardId = Number(id);
   const navigate = useNavigate();
   const viewportWidth = useViewportWidth();
   const isDesktop = viewportWidth >= DESKTOP_MIN_WIDTH;
+  const { editMode, setEditMode, draggingType, setDraggingType } = useEditMode();
 
   const [detail, setDetail] = useState<DashboardDetail | null>(null);
+  const [draft, setDraft] = useState<DashboardDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Initial-Load.
   useEffect(() => {
     if (!Number.isFinite(dashboardId)) {
       setError('Ungültige Dashboard-ID');
@@ -62,7 +87,10 @@ export default function DashboardPage(): JSX.Element {
     (async () => {
       try {
         const data = await getDashboard(dashboardId);
-        if (!cancelled) setDetail(data);
+        if (!cancelled) {
+          setDetail(data);
+          setDraft(data);
+        }
       } catch (e) {
         if (!cancelled) {
           setError(
@@ -80,65 +108,99 @@ export default function DashboardPage(): JSX.Element {
     };
   }, [dashboardId]);
 
-  const scheduleSave = useCallback(
-    (widgets: WidgetDto[]) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      setSaveState('pending');
-      saveTimer.current = setTimeout(() => {
-        (async () => {
-          try {
-            const updated = await updateDashboard(dashboardId, widgets);
-            setDetail(updated);
-            setSaveState('saved');
-          } catch (e) {
-            setSaveState({
-              kind: 'error',
-              message: e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen',
-            });
-          }
-        })();
-      }, AUTO_SAVE_DEBOUNCE_MS);
-    },
-    [dashboardId],
-  );
-
-  // Cleanup beim Unmount, damit ein offener Save-Timer nicht nach dem Wechseln feuert.
+  // Auto-Edit-Modus bei leerem Dashboard: erspart den ersten Klick auf "Bearbeiten".
   useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (detail && detail.widgets.length === 0 && !editMode) {
+      setEditMode(true);
+    }
+    // setEditMode bewusst nicht in deps — sonst Endlos-Trigger über Provider-Re-Renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail]);
+
+  // Beim Wechsel der Dashboard-ID den Edit-Modus zurücksetzen.
+  useEffect(() => {
+    setEditMode(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardId]);
+
+  // useBeforeUnload-Light: Tab schließen / Browser-Reload mit ungespeicherten Änderungen.
+  useEffect(() => {
+    const dirty = detail != null && draft != null && !widgetsEqual(detail.widgets, draft.widgets);
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent): void => {
+      e.preventDefault();
+      // Moderne Browser ignorieren returnValue, zeigen aber dennoch den Dialog.
+      e.returnValue = '';
     };
-  }, []);
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [detail, draft]);
 
   function handleLayoutChange(newLayout: Layout[]): void {
-    if (!detail) return;
-    const updated: WidgetDto[] = detail.widgets.map((w, i) => {
+    if (!draft || !editMode) return;
+    const updated: WidgetDto[] = draft.widgets.map((w, i) => {
       const item = newLayout.find((l) => l.i === widgetKey(w, i));
       if (!item) return w;
       return { ...w, posX: item.x, posY: item.y, width: item.w, height: item.h };
     });
-    setDetail({ ...detail, widgets: updated });
-    scheduleSave(updated);
+    setDraft({ ...draft, widgets: updated });
   }
 
   function handleWidgetChange(index: number, next: WidgetDto): void {
-    if (!detail) return;
-    const updated = detail.widgets.map((w, i) => (i === index ? next : w));
-    setDetail({ ...detail, widgets: updated });
-    scheduleSave(updated);
+    if (!draft) return;
+    const updated = draft.widgets.map((w, i) => (i === index ? next : w));
+    setDraft({ ...draft, widgets: updated });
   }
 
   function handleWidgetDelete(index: number): void {
-    if (!detail) return;
-    const updated = detail.widgets.filter((_, i) => i !== index);
-    setDetail({ ...detail, widgets: updated });
-    scheduleSave(updated);
+    if (!draft) return;
+    const updated = draft.widgets.filter((_, i) => i !== index);
+    setDraft({ ...draft, widgets: updated });
   }
 
-  function handleAddWidget(type: WidgetType): void {
-    if (!detail) return;
-    const updated = [...detail.widgets, newWidget(type)];
-    setDetail({ ...detail, widgets: updated });
-    scheduleSave(updated);
+  /**
+   * Drop aus der Widget-Palette aufs Canvas. react-grid-layout liefert das `item` mit
+   * berechneten Grid-Koordinaten (x/y) basierend auf der Maus-Position. Der Widget-Typ
+   * kommt aus dem Context (von der Palette beim onDragStart gesetzt).
+   */
+  function handleDrop(_layout: Layout[], item: Layout): void {
+    if (!draft || !draggingType) return;
+    const fresh = newWidget(draggingType);
+    fresh.posX = item.x;
+    fresh.posY = item.y;
+    setDraft({ ...draft, widgets: [...draft.widgets, fresh] });
+    setDraggingType(null);
+  }
+
+  async function handleSave(): Promise<void> {
+    if (!draft) return;
+    setSaveState('pending');
+    try {
+      const updated = await updateDashboard(dashboardId, draft.widgets);
+      setDetail(updated);
+      setDraft(updated);
+      setSaveState('saved');
+      setEditMode(false);
+      // Status nach kurzer Zeit zurück auf idle.
+      setTimeout(() => setSaveState('idle'), 1500);
+    } catch (e) {
+      setSaveState({
+        kind: 'error',
+        message: e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen',
+      });
+    }
+  }
+
+  function handleCancel(): void {
+    const dirty =
+      detail != null && draft != null && !widgetsEqual(detail.widgets, draft.widgets);
+    if (dirty) {
+      // eslint-disable-next-line no-alert
+      const ok = window.confirm('Ungespeicherte Änderungen verwerfen?');
+      if (!ok) return;
+    }
+    if (detail) setDraft(detail);
+    setEditMode(false);
   }
 
   function renderWidgetBody(widget: WidgetDto, index: number): JSX.Element {
@@ -149,6 +211,7 @@ export default function DashboardPage(): JSX.Element {
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDelete(index)}
+            readOnly={!editMode}
           />
         );
       case 'KPI':
@@ -157,10 +220,9 @@ export default function DashboardPage(): JSX.Element {
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDelete(index)}
+            readOnly={!editMode}
           />
         );
-      // Unbekannter Typ — minimaler Fallback ohne Crash. Backend-Enum und Frontend-Switch
-      // sind theoretisch immer in Sync, das Default-Branch ist defensiv für Schema-Drift.
       default:
         return (
           <Paper variant="outlined" sx={{ p: 2, height: '100%', overflow: 'hidden' }}>
@@ -196,7 +258,7 @@ export default function DashboardPage(): JSX.Element {
     );
   }
 
-  if (!detail) {
+  if (!detail || !draft) {
     return (
       <Box
         sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}
@@ -206,6 +268,20 @@ export default function DashboardPage(): JSX.Element {
       </Box>
     );
   }
+
+  // Im Edit-Modus arbeiten wir auf `draft`, im Read-Modus auf dem persistierten `detail`.
+  const visibleWidgets = editMode ? draft.widgets : detail.widgets;
+
+  // Punkte-Raster nur im Edit-Modus sichtbar.
+  const canvasBackground = editMode
+    ? {
+        backgroundImage:
+          'radial-gradient(circle, rgba(0, 0, 0, 0.18) 1px, transparent 1.5px)',
+        backgroundSize: `calc(100% / ${GRID_COLS}) ${GRID_ROW_HEIGHT}px`,
+        backgroundPosition: '0 0',
+        minHeight: 240,
+      }
+    : {};
 
   return (
     <Box>
@@ -222,51 +298,85 @@ export default function DashboardPage(): JSX.Element {
           <Typography variant="h4">{detail.name}</Typography>
         </Stack>
         <Stack direction="row" alignItems="center" spacing={2}>
-          <Stack direction="row" spacing={1}>
+          {!editMode && (
             <Button
               size="small"
               variant="outlined"
-              onClick={() => handleAddWidget('TEXTBOX')}
+              startIcon={<EditIcon />}
+              onClick={() => setEditMode(true)}
             >
-              Textbox hinzufügen
+              Bearbeiten
             </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => handleAddWidget('KPI')}
-            >
-              KPI hinzufügen
-            </Button>
-          </Stack>
+          )}
+          {editMode && (
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<CloseIcon />}
+                onClick={handleCancel}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                disabled={saveState === 'pending'}
+              >
+                Speichern
+              </Button>
+            </Stack>
+          )}
           <SaveStatus state={saveState} />
         </Stack>
       </Stack>
 
-      {detail.widgets.length === 0 && (
+      {visibleWidgets.length === 0 && (
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
           <Typography>Dieses Dashboard ist noch leer.</Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            Klicke oben rechts auf „Textbox hinzufügen" oder „KPI hinzufügen", um zu starten.
+            {editMode
+              ? 'Ziehe ein Widget aus der linken Palette auf das Dashboard.'
+              : 'Klicke oben rechts auf „Bearbeiten", um Widgets hinzuzufügen.'}
           </Typography>
         </Paper>
       )}
 
-      {detail.widgets.length > 0 && (
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={{ lg: toLayouts(detail.widgets) }}
-          breakpoints={{ lg: DESKTOP_MIN_WIDTH }}
-          cols={{ lg: GRID_COLS }}
-          rowHeight={GRID_ROW_HEIGHT}
-          compactType="vertical"
-          preventCollision={false}
-          onLayoutChange={handleLayoutChange}
-          draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
-        >
-          {detail.widgets.map((w, i) => (
-            <Box key={widgetKey(w, i)}>{renderWidgetBody(w, i)}</Box>
-          ))}
-        </ResponsiveGridLayout>
+      {/* Grid ist immer eingehängt im Edit-Modus, auch wenn keine Widgets da sind —
+          sonst kann react-grid-layout das Drop-Target nicht aufspannen. */}
+      {(visibleWidgets.length > 0 || editMode) && (
+        <Box sx={canvasBackground}>
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={{ lg: toLayouts(visibleWidgets) }}
+            breakpoints={{ lg: DESKTOP_MIN_WIDTH }}
+            cols={{ lg: GRID_COLS }}
+            rowHeight={GRID_ROW_HEIGHT}
+            compactType="vertical"
+            preventCollision={false}
+            onLayoutChange={handleLayoutChange}
+            isDraggable={editMode}
+            isResizable={editMode}
+            isDroppable={editMode}
+            droppingItem={
+              draggingType
+                ? {
+                    i: '__dropping__',
+                    w: newWidget(draggingType).width,
+                    h: newWidget(draggingType).height,
+                  }
+                : undefined
+            }
+            onDrop={handleDrop}
+            draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
+          >
+            {visibleWidgets.map((w, i) => (
+              <Box key={widgetKey(w, i)}>{renderWidgetBody(w, i)}</Box>
+            ))}
+          </ResponsiveGridLayout>
+        </Box>
       )}
     </Box>
   );

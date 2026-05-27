@@ -18,10 +18,13 @@ import {
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { navItems } from './navItems';
 import type { NavGroup, NavLink, NavNode } from './navItems';
 import { useAuth } from '../auth/useAuth';
+import { useEditMode } from '../pages/dashboard/EditModeContext';
+import WidgetPalette from '../pages/dashboard/WidgetPalette';
+import type { WidgetType } from '../api/dashboard';
 
 const DRAWER_WIDTH = 240;
 
@@ -37,6 +40,27 @@ export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { username, initial, signOut } = useAuth();
+  const { editMode, setEditMode, setDraggingType } = useEditMode();
+
+  // Auf einer Dashboard-Detail-Route? `useMatch` matched genau `/dashboards/:id`
+  // (nicht `/dashboards` selbst, nicht `/dashboards/default`).
+  const dashboardDetailMatch = useMatch('/dashboards/:id');
+  const isOnDashboardDetail = Boolean(dashboardDetailMatch && dashboardDetailMatch.params.id !== 'default');
+  const sidebarShowsPalette = isOnDashboardDetail && editMode;
+
+  // Beim Verlassen der Dashboard-Detail-Route automatisch in den Read-Modus zurück.
+  // Verhindert dass der Edit-Modus "klebt", wenn der User zu einer anderen Seite
+  // navigiert und später ein anderes Dashboard öffnet.
+  useMemo(() => {
+    if (!isOnDashboardDetail && editMode) {
+      setEditMode(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnDashboardDetail]);
+
+  const handlePaletteDragStart = (type: WidgetType): void => {
+    setDraggingType(type);
+  };
 
   // Default-open: jede Gruppe, in der die aktuelle Route liegt.
   const initiallyOpenGroups = useMemo(() => {
@@ -180,11 +204,15 @@ export default function AppShell() {
       >
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
-          <List>
-            {navItems.map((node) =>
-              isGroup(node) ? renderGroup(node) : renderLink(node, false),
-            )}
-          </List>
+          {sidebarShowsPalette ? (
+            <WidgetPalette onDragStartWidget={handlePaletteDragStart} />
+          ) : (
+            <List>
+              {navItems.map((node) =>
+                isGroup(node) ? renderGroup(node) : renderLink(node, false),
+              )}
+            </List>
+          )}
         </Box>
       </Drawer>
       <Box

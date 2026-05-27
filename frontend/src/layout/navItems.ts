@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { SvgIconProps } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
@@ -28,6 +29,9 @@ export interface NavGroup {
 export type NavNode = NavLink | NavGroup;
 
 export const navItems: NavNode[] = [
+  // "Dashboard" (Singular) öffnet das Default-Dashboard direkt — der typische Einstieg
+  // nach dem Login. "Dashboards" (Plural) liegt am Ende, oberhalb der Einstellungen,
+  // und zeigt die Liste zum Verwalten/Anlegen/Löschen.
   { kind: 'link', label: 'Dashboard', path: '/dashboards/default', icon: DashboardIcon },
   {
     kind: 'group',
@@ -50,5 +54,6 @@ export const navItems: NavNode[] = [
       { kind: 'link', label: 'Passwortgenerator', path: '/tools/password', icon: VpnKeyIcon },
     ],
   },
+  { kind: 'link', label: 'Dashboards', path: '/dashboards', icon: DashboardCustomizeIcon },
   { kind: 'link', label: 'Einstellungen', path: '/settings', icon: SettingsIcon },
 ];

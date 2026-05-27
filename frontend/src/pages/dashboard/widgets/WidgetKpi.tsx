@@ -68,9 +68,16 @@ interface Props {
   widget: WidgetDto;
   onChange: (next: WidgetDto) => void;
   onDelete: () => void;
+  /** Read-Modus: keine Aktions-Icons, kein Drawer-Trigger. */
+  readOnly?: boolean;
 }
 
-export default function WidgetKpi({ widget, onChange, onDelete }: Props): JSX.Element {
+export default function WidgetKpi({
+  widget,
+  onChange,
+  onDelete,
+  readOnly = false,
+}: Props): JSX.Element {
   const config = parseConfig(widget.config);
   const [open, setOpen] = useState(false);
 
@@ -127,28 +134,30 @@ export default function WidgetKpi({ widget, onChange, onDelete }: Props): JSX.El
         p: 1,
       }}
     >
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={{ position: 'absolute', top: 4, right: 4 }}
-      >
-        <IconButton
-          size="small"
-          aria-label="KPI bearbeiten"
-          onClick={() => setOpen(true)}
-          onMouseDown={(e) => e.stopPropagation()}
+      {!readOnly && (
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ position: 'absolute', top: 4, right: 4 }}
         >
-          <EditIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          aria-label="KPI löschen"
-          onClick={onDelete}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
-      </Stack>
+          <IconButton
+            size="small"
+            aria-label="KPI bearbeiten"
+            onClick={() => setOpen(true)}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label="KPI löschen"
+            onClick={onDelete}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      )}
 
       <Typography
         variant="h3"

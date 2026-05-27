@@ -3,6 +3,7 @@ import AppShell from './layout/AppShell';
 import DashboardListPage from './pages/dashboard/DashboardListPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import DashboardDefaultRedirect from './pages/dashboard/DashboardDefaultRedirect';
+import { EditModeProvider } from './pages/dashboard/EditModeContext';
 import SettingsPage from './pages/SettingsPage';
 import RemoveBackgroundPage from './pages/tools/RemoveBackgroundPage';
 import OgImagePage from './pages/tools/OgImagePage';
@@ -16,7 +17,11 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <AppShell />
+            {/* EditModeProvider wrappt AppShell, damit Sidebar und DashboardPage
+                denselben State sehen (Sidebar wechselt auf Widget-Palette im Edit-Modus). */}
+            <EditModeProvider>
+              <AppShell />
+            </EditModeProvider>
           </ProtectedRoute>
         }
       >

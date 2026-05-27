@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './AppShell';
+import { EditModeProvider } from '../pages/dashboard/EditModeContext';
 
 // AppShell ruft useAuth() fuer User-Info im Header auf. Im Slice-Test gibt es
 // keinen AuthProvider, also wird der Hook gemockt.
@@ -22,16 +23,18 @@ vi.mock('../auth/useAuth', () => ({
 function renderShell(initialEntry = '/dashboards/default') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/dashboards/default" element={<div>Dashboard-Inhalt</div>} />
-          <Route path="/settings" element={<div>Settings-Inhalt</div>} />
-          <Route path="/tools/remove-background" element={<div>Remove BG</div>} />
-          <Route path="/tools/og-image" element={<div>OG Image</div>} />
-          <Route path="/tools/resize" element={<div>Resize</div>} />
-          <Route path="/tools/password" element={<div>Password</div>} />
-        </Route>
-      </Routes>
+      <EditModeProvider>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/dashboards/default" element={<div>Dashboard-Inhalt</div>} />
+            <Route path="/settings" element={<div>Settings-Inhalt</div>} />
+            <Route path="/tools/remove-background" element={<div>Remove BG</div>} />
+            <Route path="/tools/og-image" element={<div>OG Image</div>} />
+            <Route path="/tools/resize" element={<div>Resize</div>} />
+            <Route path="/tools/password" element={<div>Password</div>} />
+          </Route>
+        </Routes>
+      </EditModeProvider>
     </MemoryRouter>,
   );
 }

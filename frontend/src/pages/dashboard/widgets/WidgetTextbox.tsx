@@ -37,6 +37,11 @@ interface Props {
   widget: WidgetDto;
   onChange: (next: WidgetDto) => void;
   onDelete: () => void;
+  /**
+   * Read-Modus: keine Aktions-Icons, kein Drawer-Trigger. Default `false` für
+   * Rückwärtskompatibilität mit den existierenden Tests (die immer im Edit-Modus rendern).
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -45,7 +50,12 @@ interface Props {
  * Die Stop-Propagation auf `onMouseDown` der Aktions-Buttons ist wichtig, damit
  * react-grid-layout den Klick nicht als Drag-Start interpretiert.
  */
-export default function WidgetTextbox({ widget, onChange, onDelete }: Props): JSX.Element {
+export default function WidgetTextbox({
+  widget,
+  onChange,
+  onDelete,
+  readOnly = false,
+}: Props): JSX.Element {
   const config = parseConfig(widget.config);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(config.markdown);
@@ -71,30 +81,32 @@ export default function WidgetTextbox({ widget, onChange, onDelete }: Props): JS
       variant="outlined"
       sx={{ p: 2, height: '100%', position: 'relative', overflow: 'auto' }}
     >
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={{ position: 'absolute', top: 4, right: 4 }}
-      >
-        <IconButton
-          size="small"
-          aria-label="Textbox bearbeiten"
-          onClick={() => setOpen(true)}
-          onMouseDown={(e) => e.stopPropagation()}
+      {!readOnly && (
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ position: 'absolute', top: 4, right: 4 }}
         >
-          <EditIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          aria-label="Textbox löschen"
-          onClick={onDelete}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
-      </Stack>
+          <IconButton
+            size="small"
+            aria-label="Textbox bearbeiten"
+            onClick={() => setOpen(true)}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label="Textbox löschen"
+            onClick={onDelete}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      )}
 
-      <Box sx={{ mt: 0.5, pr: 6 }}>
+      <Box sx={{ mt: 0.5, pr: readOnly ? 0 : 6 }}>
         <ReactMarkdown>{config.markdown}</ReactMarkdown>
       </Box>
 

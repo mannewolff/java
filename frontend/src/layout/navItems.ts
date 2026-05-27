@@ -10,6 +10,7 @@ import TransformIcon from '@mui/icons-material/Transform';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ImageIcon from '@mui/icons-material/Image';
 import BuildIcon from '@mui/icons-material/Build';
+import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 
 type NavIcon = ComponentType<SvgIconProps>;
 
@@ -34,6 +35,7 @@ export const navItems: NavNode[] = [
   // nach dem Login. "Dashboards" (Plural) liegt am Ende, oberhalb der Einstellungen,
   // und zeigt die Liste zum Verwalten/Anlegen/Löschen.
   { kind: 'link', label: 'Dashboard', path: '/dashboards/default', icon: DashboardIcon },
+  { kind: 'link', label: 'Kanban', path: '/kanban', icon: ViewKanbanIcon },
   {
     kind: 'group',
     label: 'Bildverarbeitung',

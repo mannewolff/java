@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -42,6 +42,12 @@ interface Props {
    * Rückwärtskompatibilität mit den existierenden Tests (die immer im Edit-Modus rendern).
    */
   readOnly?: boolean;
+  /**
+   * Read-Modus: meldet die natürliche Pixel-Höhe des Markdown-Containers (inkl. Padding),
+   * sobald der Inhalt re-flows. Die DashboardPage rechnet daraus Grid-Rows und expanded
+   * das Widget bei Bedarf — nicht persistiert, gilt nur visuell im Read-Modus.
+   */
+  onContentHeight?: (pxHeight: number) => void;
 }
 
 /**
@@ -55,16 +61,33 @@ export default function WidgetTextbox({
   onChange,
   onDelete,
   readOnly = false,
+  onContentHeight,
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(config.markdown);
+  const paperRef = useRef<HTMLDivElement | null>(null);
 
   // Beim Öffnen den Draft auf den aktuellen Stand setzen — auch wenn der
   // Drawer schon einmal mit Abbrechen verworfen wurde.
   useEffect(() => {
     if (open) setDraft(config.markdown);
   }, [open, config.markdown]);
+
+  // Read-Modus: ResizeObserver am Paper meldet `scrollHeight` an die DashboardPage.
+  // Greift, wenn der Browser horizontal schrumpft und der Markdown-Wrap mehr Zeilen
+  // erzeugt als das Grid-Slot hoch ist — Eltern expandiert dann das Widget.
+  // ResizeObserver feuert auch beim ersten observe, daher kein zusätzlicher initial-Trigger nötig.
+  useEffect(() => {
+    if (!readOnly || !onContentHeight) return;
+    const node = paperRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      onContentHeight(node.scrollHeight);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [readOnly, onContentHeight, config.markdown]);
 
   function handleApply(): void {
     onChange({ ...widget, config: JSON.stringify({ markdown: draft }) });
@@ -78,6 +101,7 @@ export default function WidgetTextbox({
 
   return (
     <Paper
+      ref={paperRef}
       variant="outlined"
       sx={{ p: 2, height: '100%', position: 'relative', overflow: 'auto' }}
     >

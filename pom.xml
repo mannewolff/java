@@ -269,6 +269,13 @@
                                   MariaDB verifiziert.
                                 -->
                                 <exclude>org/mwolff/api/dashboard/infrastructure/persistence/**</exclude>
+                                <!--
+                                  Kanban-Persistence-Layer: gleicher Grund wie Dashboard. Adapter
+                                  + Entities sind nur via Testcontainers-MariaDB sinnvoll testbar
+                                  (JpaKanbanAdapterIT). Fachlogik liegt in den Use-Cases und ist
+                                  dort zu 100% gedeckt.
+                                -->
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>

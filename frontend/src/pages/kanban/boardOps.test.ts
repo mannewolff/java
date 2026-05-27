@@ -1,0 +1,106 @@
+import { describe, expect, it } from 'vitest';
+import { emptyBoard, moveItem } from './boardOps';
+import type { KanbanBoard, KanbanColumn, KanbanItem } from '../../api/kanban';
+
+function item(id: number, column: KanbanColumn, position: number): KanbanItem {
+  return {
+    id,
+    title: `T-${id}`,
+    body: '',
+    column,
+    position,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    movedToDoneAt: column === 'DONE' ? '2026-01-01T00:00:00Z' : undefined,
+  };
+}
+
+function boardOf(input: Partial<Record<KanbanColumn, KanbanItem[]>>): KanbanBoard {
+  return { ...emptyBoard(), ...input };
+}
+
+describe('emptyBoard', () => {
+  it('liefert leere Spalten für alle vier Slots', () => {
+    const b = emptyBoard();
+    expect(b.BACKLOG).toEqual([]);
+    expect(b.IN_PROGRESS).toEqual([]);
+    expect(b.IN_REVIEW).toEqual([]);
+    expect(b.DONE).toEqual([]);
+  });
+});
+
+describe('moveItem — same column', () => {
+  it('verschiebt nach unten und re-indiziert', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0), item(2, 'BACKLOG', 1), item(3, 'BACKLOG', 2)],
+    });
+    const next = moveItem(b, 1, 'BACKLOG', 2);
+    expect(next.BACKLOG.map((i) => i.id)).toEqual([2, 3, 1]);
+    expect(next.BACKLOG.map((i) => i.position)).toEqual([0, 1, 2]);
+  });
+
+  it('verschiebt nach oben und re-indiziert', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0), item(2, 'BACKLOG', 1), item(3, 'BACKLOG', 2)],
+    });
+    const next = moveItem(b, 3, 'BACKLOG', 0);
+    expect(next.BACKLOG.map((i) => i.id)).toEqual([3, 1, 2]);
+  });
+
+  it('gibt das Eingangs-Board zurück, wenn dieselbe Position', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0), item(2, 'BACKLOG', 1)],
+    });
+    const next = moveItem(b, 1, 'BACKLOG', 0);
+    expect(next).toBe(b);
+  });
+
+  it('clampt zu hohe Zielposition auf den letzten Slot', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0), item(2, 'BACKLOG', 1), item(3, 'BACKLOG', 2)],
+    });
+    const next = moveItem(b, 1, 'BACKLOG', 99);
+    expect(next.BACKLOG.map((i) => i.id)).toEqual([2, 3, 1]);
+  });
+});
+
+describe('moveItem — cross column', () => {
+  it('schliesst Quell-Spalten-Lücke und öffnet Ziel-Spalten-Lücke', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0), item(2, 'BACKLOG', 1)],
+      IN_PROGRESS: [item(10, 'IN_PROGRESS', 0)],
+    });
+    const next = moveItem(b, 1, 'IN_PROGRESS', 0);
+    expect(next.BACKLOG.map((i) => i.id)).toEqual([2]);
+    expect(next.BACKLOG[0].position).toBe(0);
+    expect(next.IN_PROGRESS.map((i) => i.id)).toEqual([1, 10]);
+    expect(next.IN_PROGRESS.map((i) => i.position)).toEqual([0, 1]);
+  });
+
+  it('setzt movedToDoneAt beim Eintritt in DONE (Frontend-Best-Effort)', () => {
+    const b = boardOf({ BACKLOG: [item(1, 'BACKLOG', 0)] });
+    const next = moveItem(b, 1, 'DONE', 0);
+    expect(next.DONE[0].movedToDoneAt).toBeDefined();
+  });
+
+  it('löscht movedToDoneAt beim Verlassen von DONE', () => {
+    const b = boardOf({ DONE: [item(1, 'DONE', 0)] });
+    const next = moveItem(b, 1, 'BACKLOG', 0);
+    expect(next.BACKLOG[0].movedToDoneAt).toBeUndefined();
+  });
+
+  it('gibt das Eingangs-Board zurück, wenn das Item nicht existiert', () => {
+    const b = boardOf({ BACKLOG: [item(1, 'BACKLOG', 0)] });
+    const next = moveItem(b, 999, 'IN_PROGRESS', 0);
+    expect(next).toBe(b);
+  });
+
+  it('clampt Zielposition jenseits der Länge ans Ende', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0)],
+      IN_PROGRESS: [item(10, 'IN_PROGRESS', 0)],
+    });
+    const next = moveItem(b, 1, 'IN_PROGRESS', 99);
+    expect(next.IN_PROGRESS.map((i) => i.id)).toEqual([10, 1]);
+  });
+});

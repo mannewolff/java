@@ -34,6 +34,9 @@ public class SecurityConfig {
                     // Phase 0 (#36-#38) und dem hexagonalen Refactor (#68).
                     .requestMatchers("/api/tools/**")
                     .hasRole("USER")
+                    // Kanban-Endpoints — gleicher Auth-Gate wie Dashboards (#99).
+                    .requestMatchers("/api/kanban/**")
+                    .hasRole("USER")
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
                     .permitAll()

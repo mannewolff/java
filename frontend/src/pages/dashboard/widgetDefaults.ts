@@ -3,8 +3,18 @@ import type { WidgetDto, WidgetType } from '../../api/dashboard';
 /** Grid-Konstanten — bewusst exportiert, damit Tests und künftige Widget-Typen sie teilen. */
 export const GRID_COLS = 12;
 export const GRID_ROW_HEIGHT = 40;
+/** react-grid-layout-Default-Margin zwischen Items, hier nicht überschrieben. */
+export const GRID_MARGIN = 10;
 export const DESKTOP_MIN_WIDTH = 1024;
 export const AUTO_SAVE_DEBOUNCE_MS = 500;
+
+/** Wieviele Grid-Rows muss ein Widget hoch sein, um `pxHeight` Pixel aufzunehmen. */
+export function pxToRows(pxHeight: number): number {
+  // Höhe eines N-Row-Items = N * GRID_ROW_HEIGHT + (N - 1) * GRID_MARGIN.
+  // Gesucht das kleinste N mit N * row + (N - 1) * margin >= px:
+  //   N >= (px + margin) / (row + margin)
+  return Math.max(1, Math.ceil((pxHeight + GRID_MARGIN) / (GRID_ROW_HEIGHT + GRID_MARGIN)));
+}
 
 /**
  * Default-Größen pro Widget-Typ. Die Werte sind Grid-Einheiten — 12 Spalten total, also

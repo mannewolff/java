@@ -34,7 +34,13 @@ import {
 } from '../../api/dashboard';
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
-import { DESKTOP_MIN_WIDTH, GRID_COLS, GRID_ROW_HEIGHT, newWidget } from './widgetDefaults';
+import {
+  DESKTOP_MIN_WIDTH,
+  GRID_COLS,
+  GRID_ROW_HEIGHT,
+  newWidget,
+  pxToRows,
+} from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
 import WidgetKpi from './widgets/WidgetKpi';
@@ -52,14 +58,22 @@ function widgetKey(widget: WidgetDto, fallbackIndex: number): string {
   return widget.id != null ? `w-${widget.id}` : `new-${fallbackIndex}`;
 }
 
-function toLayouts(widgets: WidgetDto[]): Layout[] {
-  return widgets.map((w, i) => ({
-    i: widgetKey(w, i),
-    x: w.posX,
-    y: w.posY,
-    w: w.width,
-    h: w.height,
-  }));
+function toLayouts(
+  widgets: WidgetDto[],
+  overrides: ReadonlyMap<string, number> = new Map(),
+): Layout[] {
+  return widgets.map((w, i) => {
+    const key = widgetKey(w, i);
+    const overrideH = overrides.get(key);
+    return {
+      i: key,
+      x: w.posX,
+      y: w.posY,
+      w: w.width,
+      // Override expandiert das Widget visuell, nie kleiner als der persistierte Wert.
+      h: overrideH != null && overrideH > w.height ? overrideH : w.height,
+    };
+  });
 }
 
 /** Vergleicht zwei Widget-Arrays inhaltlich — Position, Größe, Config, Typ. */
@@ -100,6 +114,13 @@ export default function DashboardPage(): JSX.Element {
   const [renameDraft, setRenameDraft] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  // Read-Modus-only: visueller Override für die Widget-Höhe, wenn das gerenderte
+  // Markdown bei schmaler Spaltenbreite mehr Zeilen wrappt als das Grid-Slot hoch ist.
+  // Wächst monoton (nie schrumpfen → kein Yoyo-Effekt bei Row-Grenzen), wird beim
+  // Dashboard-Wechsel resetet, NICHT persistiert.
+  const [readHeightOverrides, setReadHeightOverrides] = useState<
+    ReadonlyMap<string, number>
+  >(new Map());
 
   // Initial-Load.
   useEffect(() => {
@@ -144,6 +165,7 @@ export default function DashboardPage(): JSX.Element {
   // Beim Wechsel der Dashboard-ID den Edit-Modus zurücksetzen.
   useEffect(() => {
     setEditMode(false);
+    setReadHeightOverrides(new Map());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboardId]);
 
@@ -313,6 +335,17 @@ export default function DashboardPage(): JSX.Element {
     setEditMode(false);
   }
 
+  function handleContentHeight(key: string, pxHeight: number): void {
+    const neededRows = pxToRows(pxHeight);
+    setReadHeightOverrides((prev) => {
+      const current = prev.get(key) ?? 0;
+      if (neededRows <= current) return prev;
+      const next = new Map(prev);
+      next.set(key, neededRows);
+      return next;
+    });
+  }
+
   function renderWidgetBody(widget: WidgetDto, index: number): JSX.Element {
     switch (widget.type) {
       case 'TEXTBOX':
@@ -322,6 +355,11 @@ export default function DashboardPage(): JSX.Element {
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDeleteRequest(index)}
             readOnly={!editMode}
+            onContentHeight={
+              editMode
+                ? undefined
+                : (px) => handleContentHeight(widgetKey(widget, index), px)
+            }
           />
         );
       case 'KPI':
@@ -521,7 +559,7 @@ export default function DashboardPage(): JSX.Element {
           <ResponsiveGridLayout
             className="layout"
             style={gridMinHeight != null ? { minHeight: gridMinHeight } : undefined}
-            layouts={{ lg: toLayouts(visibleWidgets) }}
+            layouts={{ lg: toLayouts(visibleWidgets, editMode ? undefined : readHeightOverrides) }}
             breakpoints={{ lg: DESKTOP_MIN_WIDTH }}
             cols={{ lg: GRID_COLS }}
             rowHeight={GRID_ROW_HEIGHT}
@@ -543,24 +581,30 @@ export default function DashboardPage(): JSX.Element {
             onDrop={handleDrop}
             draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
           >
-            {visibleWidgets.map((w, i) => (
-              // `data-grid` macht die Position auch an den Children explizit —
-              // hilft react-grid-layout beim Synchronisieren wenn ein neues Item
-              // direkt nach einem Drop in den State kommt und das Layout-Prop
-              // noch nicht durch ist.
-              <Box
-                key={widgetKey(w, i)}
-                data-grid={{
-                  i: widgetKey(w, i),
-                  x: w.posX,
-                  y: w.posY,
-                  w: w.width,
-                  h: w.height,
-                }}
-              >
-                {renderWidgetBody(w, i)}
-              </Box>
-            ))}
+            {visibleWidgets.map((w, i) => {
+              const key = widgetKey(w, i);
+              const overrideH = editMode ? undefined : readHeightOverrides.get(key);
+              const effectiveH =
+                overrideH != null && overrideH > w.height ? overrideH : w.height;
+              return (
+                // `data-grid` macht die Position auch an den Children explizit —
+                // hilft react-grid-layout beim Synchronisieren wenn ein neues Item
+                // direkt nach einem Drop in den State kommt und das Layout-Prop
+                // noch nicht durch ist.
+                <Box
+                  key={key}
+                  data-grid={{
+                    i: key,
+                    x: w.posX,
+                    y: w.posY,
+                    w: w.width,
+                    h: effectiveH,
+                  }}
+                >
+                  {renderWidgetBody(w, i)}
+                </Box>
+              );
+            })}
           </ResponsiveGridLayout>
         </Box>
       )}

@@ -1,0 +1,36 @@
+# Pre-Commit-Hooks fuer python-tools.
+#
+# Installation: `pre-commit install` im python-tools/-Verzeichnis. Die Hooks
+# laufen dann automatisch vor jedem Commit. `pre-commit run --all-files` faehrt
+# alle Hooks manuell ueber das ganze Repo.
+#
+# CLAUDE-Python.md §CI/CD verlangt mindestens: ruff, ruff-format, mypy,
+# trailing-whitespace, end-of-file-fixer.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^python-tools/
+        additional_dependencies:
+          - fastapi==0.115.5
+          - pydantic==2.10.3
+          - types-Pillow==10.2.0.20240822

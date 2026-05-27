@@ -178,6 +178,11 @@ export default function DashboardPage(): JSX.Element {
    * Drop aus der Widget-Palette aufs Canvas. react-grid-layout liefert das `item`
    * mit den berechneten Grid-Koordinaten (x/y) basierend auf der Maus-Position.
    * Der Widget-Typ kommt aus dem Context (von der Palette beim onDragStart gesetzt).
+   *
+   * Achtung: `setDraggingType(null)` muss in den nächsten Tick verzögert werden,
+   * sonst wechselt `droppingItem` (siehe Render unten) im selben Frame auf
+   * undefined, was react-grid-layout's Drop-Animation abbricht und das Widget
+   * visuell wieder verschwinden lässt ("flip back"-Bug).
    */
   function handleDrop(_layout: Layout[], item: Layout): void {
     if (!draggingType) return;
@@ -189,7 +194,7 @@ export default function DashboardPage(): JSX.Element {
       fresh.posY = item.y;
       return { ...prev, widgets: [...prev.widgets, fresh] };
     });
-    setDraggingType(null);
+    setTimeout(() => setDraggingType(null), 0);
   }
 
   async function handleSave(): Promise<void> {
@@ -380,20 +385,35 @@ export default function DashboardPage(): JSX.Element {
             isDraggable={editMode}
             isResizable={editMode}
             isDroppable={editMode}
-            droppingItem={
-              draggingType
-                ? {
-                    i: '__dropping__',
-                    w: newWidget(draggingType).width,
-                    h: newWidget(draggingType).height,
-                  }
-                : undefined
-            }
+            // `droppingItem` muss während des gesamten Drag/Drop-Vorgangs stabil
+            // gesetzt sein. Wenn es undefined wird (z. B. weil draggingType
+            // synchron auf null wechselt), bricht die Drop-Animation ab und das
+            // Widget verschwindet wieder. Default-Maße (2x2) als Fallback.
+            droppingItem={{
+              i: '__dropping__',
+              w: draggingType ? newWidget(draggingType).width : 2,
+              h: draggingType ? newWidget(draggingType).height : 2,
+            }}
             onDrop={handleDrop}
             draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
           >
             {visibleWidgets.map((w, i) => (
-              <Box key={widgetKey(w, i)}>{renderWidgetBody(w, i)}</Box>
+              // `data-grid` macht die Position auch an den Children explizit —
+              // hilft react-grid-layout beim Synchronisieren wenn ein neues Item
+              // direkt nach einem Drop in den State kommt und das Layout-Prop
+              // noch nicht durch ist.
+              <Box
+                key={widgetKey(w, i)}
+                data-grid={{
+                  i: widgetKey(w, i),
+                  x: w.posX,
+                  y: w.posY,
+                  w: w.width,
+                  h: w.height,
+                }}
+              >
+                {renderWidgetBody(w, i)}
+              </Box>
             ))}
           </ResponsiveGridLayout>
         </Box>

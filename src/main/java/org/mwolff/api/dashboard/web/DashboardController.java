@@ -9,12 +9,14 @@ import org.mwolff.api.dashboard.application.DeleteDashboardUseCase;
 import org.mwolff.api.dashboard.application.GetDashboardUseCase;
 import org.mwolff.api.dashboard.application.ListDashboardsUseCase;
 import org.mwolff.api.dashboard.application.MarkAsDefaultUseCase;
+import org.mwolff.api.dashboard.application.RenameDashboardUseCase;
 import org.mwolff.api.dashboard.application.UpdateLayoutUseCase;
 import org.mwolff.api.dashboard.domain.Dashboard;
 import org.mwolff.api.dashboard.domain.Widget;
 import org.mwolff.api.dashboard.web.dto.CreateDashboardRequest;
 import org.mwolff.api.dashboard.web.dto.DashboardDetailResponse;
 import org.mwolff.api.dashboard.web.dto.DashboardSummaryResponse;
+import org.mwolff.api.dashboard.web.dto.RenameDashboardRequest;
 import org.mwolff.api.dashboard.web.dto.UpdateLayoutRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +44,7 @@ public class DashboardController {
   private final GetDashboardUseCase getUseCase;
   private final UpdateLayoutUseCase updateLayoutUseCase;
   private final MarkAsDefaultUseCase markDefaultUseCase;
+  private final RenameDashboardUseCase renameUseCase;
   private final DeleteDashboardUseCase deleteUseCase;
 
   public DashboardController(
@@ -50,12 +53,14 @@ public class DashboardController {
       GetDashboardUseCase getUseCase,
       UpdateLayoutUseCase updateLayoutUseCase,
       MarkAsDefaultUseCase markDefaultUseCase,
+      RenameDashboardUseCase renameUseCase,
       DeleteDashboardUseCase deleteUseCase) {
     this.listUseCase = listUseCase;
     this.createUseCase = createUseCase;
     this.getUseCase = getUseCase;
     this.updateLayoutUseCase = updateLayoutUseCase;
     this.markDefaultUseCase = markDefaultUseCase;
+    this.renameUseCase = renameUseCase;
     this.deleteUseCase = deleteUseCase;
   }
 
@@ -96,6 +101,15 @@ public class DashboardController {
       JwtAuthenticationToken auth, @PathVariable long id) {
     return DashboardSummaryResponse.from(
         markDefaultUseCase.execute(auth.getToken().getSubject(), id));
+  }
+
+  @PutMapping("/{id}/name")
+  public DashboardSummaryResponse rename(
+      JwtAuthenticationToken auth,
+      @PathVariable long id,
+      @Valid @RequestBody RenameDashboardRequest body) {
+    return DashboardSummaryResponse.from(
+        renameUseCase.execute(auth.getToken().getSubject(), id, body.name()));
   }
 
   @DeleteMapping("/{id}")

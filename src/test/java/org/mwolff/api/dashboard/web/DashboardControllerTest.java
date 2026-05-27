@@ -23,6 +23,7 @@ import org.mwolff.api.dashboard.application.GetDashboardUseCase;
 import org.mwolff.api.dashboard.application.GetDashboardUseCase.DashboardWithWidgets;
 import org.mwolff.api.dashboard.application.ListDashboardsUseCase;
 import org.mwolff.api.dashboard.application.MarkAsDefaultUseCase;
+import org.mwolff.api.dashboard.application.RenameDashboardUseCase;
 import org.mwolff.api.dashboard.application.UpdateLayoutUseCase;
 import org.mwolff.api.dashboard.domain.Dashboard;
 import org.mwolff.api.dashboard.domain.DashboardNotFoundException;
@@ -54,6 +55,7 @@ class DashboardControllerTest {
   @MockitoBean private GetDashboardUseCase getUseCase;
   @MockitoBean private UpdateLayoutUseCase updateLayoutUseCase;
   @MockitoBean private MarkAsDefaultUseCase markDefaultUseCase;
+  @MockitoBean private RenameDashboardUseCase renameUseCase;
   @MockitoBean private DeleteDashboardUseCase deleteUseCase;
 
   // SecurityConfig will autowire einen JwtDecoder — fuer Slice-Tests reicht ein Mock.
@@ -239,6 +241,62 @@ class DashboardControllerTest {
 
     mockMvc
         .perform(put("/api/dashboards/7/default").with(userJwt()))
+        .andExpect(status().isNotFound());
+  }
+
+  // ----- PUT /api/dashboards/{id}/name -------------------------------------
+
+  @Test
+  void renameShouldReturnUpdatedSummary() throws Exception {
+    given(renameUseCase.execute(SUB, 5L, "Neuer Name"))
+        .willReturn(
+            new Dashboard(
+                5L, SUB, "Neuer Name", false, java.time.Instant.EPOCH, java.time.Instant.EPOCH));
+
+    mockMvc
+        .perform(
+            put("/api/dashboards/5/name")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Neuer Name\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(5))
+        .andExpect(jsonPath("$.name").value("Neuer Name"));
+  }
+
+  @Test
+  void renameShouldReturn400WhenNameBlank() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/dashboards/5/name")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"\"}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void renameShouldReturn400WhenNameTooLong() throws Exception {
+    final String tooLong = "x".repeat(101);
+    mockMvc
+        .perform(
+            put("/api/dashboards/5/name")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"" + tooLong + "\"}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void renameShouldReturn404WhenForeign() throws Exception {
+    willThrow(new DashboardNotFoundException(7L)).given(renameUseCase).execute(SUB, 7L, "x");
+
+    mockMvc
+        .perform(
+            put("/api/dashboards/7/name")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"x\"}"))
         .andExpect(status().isNotFound());
   }
 

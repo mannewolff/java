@@ -68,4 +68,21 @@ class DashboardTest {
     assertThat(updated.userSub()).isEqualTo(original.userSub());
     assertThat(updated.name()).isEqualTo(original.name());
   }
+
+  @Test
+  void withNameShouldReturnNewInstanceWithChangedName() {
+    final Dashboard original = Dashboard.newInstance("sub-1", "Old", true);
+    final Dashboard updated = original.withName("New");
+    assertThat(updated.name()).isEqualTo("New");
+    assertThat(original.name()).isEqualTo("Old");
+    assertThat(updated.userSub()).isEqualTo(original.userSub());
+    assertThat(updated.isDefault()).isEqualTo(original.isDefault());
+  }
+
+  @Test
+  void withNameShouldRejectBlankName() {
+    final Dashboard original = Dashboard.newInstance("sub-1", "Old", false);
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> original.withName(""))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

@@ -1,15 +1,33 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Skeleton,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
+import DesktopMacIcon from '@mui/icons-material/DesktopMac';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import CloseIcon from '@mui/icons-material/Close';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 
 import {
   getDashboard,
+  renameDashboard,
   updateDashboard,
   type DashboardDetail,
   type WidgetDto,
@@ -76,6 +94,10 @@ export default function DashboardPage(): JSX.Element {
   const [draft, setDraft] = useState<DashboardDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
 
   // Initial-Load.
   useEffect(() => {
@@ -166,12 +188,72 @@ export default function DashboardPage(): JSX.Element {
     });
   }
 
-  function handleWidgetDelete(index: number): void {
+  /**
+   * Löschen über Confirm-Dialog. Erst Index merken, Dialog rendert; bei Bestätigung
+   * wird die eigentliche Löschung gegen den Draft durchgeführt. Persistiert wird
+   * weiterhin erst beim "Speichern".
+   */
+  function handleWidgetDeleteRequest(index: number): void {
+    setPendingDeleteIndex(index);
+  }
+
+  function confirmWidgetDelete(): void {
+    const idx = pendingDeleteIndex;
+    if (idx == null) return;
     setDraft((prev) => {
       if (!prev) return prev;
-      const updated = prev.widgets.filter((_, i) => i !== index);
+      const updated = prev.widgets.filter((_, i) => i !== idx);
       return { ...prev, widgets: updated };
     });
+    setPendingDeleteIndex(null);
+  }
+
+  function cancelWidgetDelete(): void {
+    setPendingDeleteIndex(null);
+  }
+
+  /** Inline-Rename des Dashboard-Namens. */
+  function startRename(): void {
+    if (!detail) return;
+    setRenameDraft(detail.name);
+    setRenameError(null);
+    setRenaming(true);
+  }
+
+  function cancelRename(): void {
+    setRenaming(false);
+    setRenameError(null);
+  }
+
+  async function commitRename(): Promise<void> {
+    if (!detail) return;
+    const trimmed = renameDraft.trim();
+    if (trimmed.length === 0) {
+      setRenameError('Name darf nicht leer sein.');
+      return;
+    }
+    if (trimmed.length > 100) {
+      setRenameError('Name maximal 100 Zeichen.');
+      return;
+    }
+    if (trimmed === detail.name) {
+      // Keine Änderung — einfach schließen ohne Round-Trip.
+      setRenaming(false);
+      return;
+    }
+    try {
+      const updated = await renameDashboard(detail.id, trimmed);
+      setDetail({ ...detail, name: updated.name });
+      // Auch im Draft den Namen mit-aktualisieren, damit "Abbrechen" nicht zurück-rollt.
+      setDraft((prev) => (prev ? { ...prev, name: updated.name } : prev));
+      setRenaming(false);
+    } catch (e) {
+      setRenameError(
+        e instanceof ApiError
+          ? e.message
+          : 'Umbenennen fehlgeschlagen, bitte später erneut versuchen.',
+      );
+    }
   }
 
   /**
@@ -235,7 +317,7 @@ export default function DashboardPage(): JSX.Element {
           <WidgetTextbox
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
-            onDelete={() => handleWidgetDelete(index)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
             readOnly={!editMode}
           />
         );
@@ -244,7 +326,7 @@ export default function DashboardPage(): JSX.Element {
           <WidgetKpi
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
-            onDelete={() => handleWidgetDelete(index)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
             readOnly={!editMode}
           />
         );
@@ -275,7 +357,7 @@ export default function DashboardPage(): JSX.Element {
   if (!isDesktop) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="info" role="alert">
+        <Alert severity="info" role="alert" icon={<DesktopMacIcon />}>
           Dashboards sind für Desktop-Ansicht (Breite ab {DESKTOP_MIN_WIDTH} px) optimiert.
           Bitte am größeren Bildschirm öffnen.
         </Alert>
@@ -284,12 +366,19 @@ export default function DashboardPage(): JSX.Element {
   }
 
   if (!detail || !draft) {
+    // Skeleton-Loader statt CircularProgress: zeigt grob die Form des Dashboards
+    // (Header-Streifen + Grid-Tiles) waehrend der Initial-Load laeuft.
     return (
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}
-        aria-busy="true"
-      >
-        <CircularProgress aria-label="Dashboard wird geladen" />
+      <Box aria-busy="true" aria-label="Dashboard wird geladen">
+        <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Skeleton variant="text" width={280} height={48} />
+          <Skeleton variant="rectangular" width={140} height={36} />
+        </Stack>
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <Skeleton variant="rectangular" width="33%" height={180} />
+          <Skeleton variant="rectangular" width="33%" height={180} />
+          <Skeleton variant="rectangular" width="33%" height={180} />
+        </Stack>
       </Box>
     );
   }
@@ -327,7 +416,53 @@ export default function DashboardPage(): JSX.Element {
           >
             Liste
           </Button>
-          <Typography variant="h4">{detail.name}</Typography>
+          {!renaming && (
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Typography variant="h4">{detail.name}</Typography>
+              <IconButton
+                size="small"
+                aria-label="Dashboard umbenennen"
+                onClick={startRename}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          )}
+          {renaming && (
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <TextField
+                value={renameDraft}
+                onChange={(e) => {
+                  setRenameDraft(e.target.value);
+                  if (renameError) setRenameError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void commitRename();
+                  if (e.key === 'Escape') cancelRename();
+                }}
+                size="small"
+                autoFocus
+                error={renameError != null}
+                helperText={renameError}
+                inputProps={{ 'aria-label': 'Neuer Dashboard-Name', maxLength: 100 }}
+              />
+              <IconButton
+                size="small"
+                aria-label="Umbenennen speichern"
+                onClick={() => void commitRename()}
+                color="primary"
+              >
+                <CheckIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                aria-label="Umbenennen abbrechen"
+                onClick={cancelRename}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          )}
         </Stack>
         <Stack direction="row" alignItems="center" spacing={2}>
           {!editMode && (
@@ -426,6 +561,26 @@ export default function DashboardPage(): JSX.Element {
           </ResponsiveGridLayout>
         </Box>
       )}
+
+      <Dialog
+        open={pendingDeleteIndex !== null}
+        onClose={cancelWidgetDelete}
+        aria-labelledby="widget-delete-title"
+      >
+        <DialogTitle id="widget-delete-title">Widget löschen?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Das Widget wird aus dem Layout entfernt. Die Änderung wird erst mit „Speichern"
+            persistiert — bis dahin kannst du sie über „Abbrechen" zurückrollen.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelWidgetDelete}>Abbrechen</Button>
+          <Button color="error" variant="contained" onClick={confirmWidgetDelete}>
+            Löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

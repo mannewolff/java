@@ -43,4 +43,9 @@ public record Dashboard(
   public Dashboard withDefault(boolean newDefault) {
     return new Dashboard(id, userSub, name, newDefault, createdAt, updatedAt);
   }
+
+  /** Erzeugt eine Kopie mit aktualisiertem {@code name}. Validierung erfolgt im Konstruktor. */
+  public Dashboard withName(String newName) {
+    return new Dashboard(id, userSub, newName, isDefault, createdAt, updatedAt);
+  }
 }

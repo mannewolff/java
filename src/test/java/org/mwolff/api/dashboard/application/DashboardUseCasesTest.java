@@ -168,6 +168,39 @@ class DashboardUseCasesTest {
         .isInstanceOf(DashboardNotFoundException.class);
   }
 
+  // ----- rename -------------------------------------------------------------
+
+  @Test
+  void renameShouldUpdateNameAndPersist() {
+    final Dashboard existing = dashboard(1L, SUB_OWNER, true);
+    given(dashboards.findById(1L)).willReturn(Optional.of(existing));
+    given(dashboards.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+    final Dashboard result =
+        new RenameDashboardUseCase(dashboards).execute(SUB_OWNER, 1L, "Neuer Name");
+
+    assertThat(result.name()).isEqualTo("Neuer Name");
+    assertThat(result.id()).isEqualTo(1L);
+    verify(dashboards).save(any());
+  }
+
+  @Test
+  void renameShouldThrowForForeignDashboard() {
+    given(dashboards.findById(1L)).willReturn(Optional.of(dashboard(1L, SUB_OWNER, true)));
+
+    assertThatThrownBy(() -> new RenameDashboardUseCase(dashboards).execute(SUB_OTHER, 1L, "Neu"))
+        .isInstanceOf(DashboardNotFoundException.class);
+    verify(dashboards, never()).save(any());
+  }
+
+  @Test
+  void renameShouldThrowWhenDashboardMissing() {
+    given(dashboards.findById(99L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> new RenameDashboardUseCase(dashboards).execute(SUB_OWNER, 99L, "Neu"))
+        .isInstanceOf(DashboardNotFoundException.class);
+  }
+
   // ----- delete -------------------------------------------------------------
 
   @Test

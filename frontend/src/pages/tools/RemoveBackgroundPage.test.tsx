@@ -2,6 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RemoveBackgroundPage from './RemoveBackgroundPage';
+import { NotifyProvider } from '../../notify/NotifyProvider';
+
+function renderRb(): ReturnType<typeof render> {
+  return render(
+    <NotifyProvider>
+      <RemoveBackgroundPage />
+    </NotifyProvider>,
+  );
+}
 
 const PNG_BYTES = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -24,14 +33,14 @@ describe('RemoveBackgroundPage', () => {
   });
 
   it('renders the empty drop zone initially', () => {
-    render(<RemoveBackgroundPage />);
+    renderRb();
     expect(screen.getByText(/Hintergrund entfernen/i)).toBeInTheDocument();
     expect(screen.getByText(/Bild hier ablegen/i)).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /Original-Bild/i })).not.toBeInTheDocument();
   });
 
   it('shows the before-preview once a file is selected', async () => {
-    render(<RemoveBackgroundPage />);
+    renderRb();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
 
     await userEvent.upload(input, makePngFile());
@@ -41,23 +50,23 @@ describe('RemoveBackgroundPage', () => {
   });
 
   it('rejects unsupported content types', async () => {
-    render(<RemoveBackgroundPage />);
+    renderRb();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     const txt = new File(['hello'], 'notes.txt', { type: 'text/plain' });
 
     await userEvent.upload(input, txt, { applyAccept: false });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Format nicht unterstützt/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Format nicht unterstützt/i);
   });
 
   it('rejects files larger than 10 MB', async () => {
-    render(<RemoveBackgroundPage />);
+    renderRb();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     const big = makePngFile('huge.png', 11 * 1024 * 1024);
 
     await userEvent.upload(input, big);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Datei zu groß/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Datei zu groß/i);
   });
 
   it('processes the image and shows after-preview + download link', async () => {
@@ -65,7 +74,7 @@ describe('RemoveBackgroundPage', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(processed, { status: 200, headers: { 'Content-Type': 'image/png' } }),
     );
-    render(<RemoveBackgroundPage />);
+    renderRb();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     await userEvent.upload(input, makePngFile());
 
@@ -87,7 +96,7 @@ describe('RemoveBackgroundPage', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     );
-    render(<RemoveBackgroundPage />);
+    renderRb();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     await userEvent.upload(input, makePngFile());
 
@@ -99,7 +108,7 @@ describe('RemoveBackgroundPage', () => {
   });
 
   it('resets state when the reset button is clicked', async () => {
-    render(<RemoveBackgroundPage />);
+    renderRb();
     const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
     await userEvent.upload(input, makePngFile());
     expect(screen.getByRole('img', { name: /Original-Bild/i })).toBeInTheDocument();

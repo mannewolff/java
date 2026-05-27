@@ -139,4 +139,19 @@ class JpaDashboardAdapterIT extends AbstractIntegrationTest {
     assertThat(updated.id()).isEqualTo(original.id());
     assertThat(updated.isDefault()).isTrue();
   }
+
+  // Regression #104: save() musste den Namen-Update durchreichen. Vor dem Fix wurde nur
+  // setDefault() auf der gemanagten Entity aufgerufen, der Name blieb in der DB unverändert.
+  @Test
+  void shouldUpdateNameOnExistingDashboard() {
+    final Dashboard original = adapter.save(Dashboard.newInstance(USER_A, "Neues Dashboard", true));
+    final Dashboard renamed = adapter.save(original.withName("Mein Dashboard"));
+
+    assertThat(renamed.id()).isEqualTo(original.id());
+    assertThat(renamed.name()).isEqualTo("Mein Dashboard");
+    // Reload aus dem Repo, um sicherzustellen, dass die Änderung wirklich persistiert ist und
+    // nicht nur im Domain-Rückgabewert steht.
+    assertThat(adapter.findById(original.id()))
+        .hasValueSatisfying(d -> assertThat(d.name()).isEqualTo("Mein Dashboard"));
+  }
 }

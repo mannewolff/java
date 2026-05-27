@@ -70,6 +70,10 @@ class DashboardEntity {
     return name;
   }
 
+  void setName(String name) {
+    this.name = name;
+  }
+
   boolean isDefault() {
     return isDefault;
   }

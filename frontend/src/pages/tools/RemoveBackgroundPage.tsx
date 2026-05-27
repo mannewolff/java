@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -14,6 +13,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { ApiError } from '../../api/client';
 import { removeBackground } from '../../api/tools';
+import { useNotify } from '../../notify/NotifyProvider';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -36,9 +36,9 @@ export default function RemoveBackgroundPage() {
   const [beforeUrl, setBeforeUrl] = useState<string | null>(null);
   const [afterUrl, setAfterUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const notify = useNotify();
 
   useEffect(() => {
     return () => {
@@ -53,17 +53,15 @@ export default function RemoveBackgroundPage() {
     setFile(null);
     setBeforeUrl(null);
     setAfterUrl(null);
-    setError(null);
   };
 
   const acceptFile = (incoming: File) => {
-    setError(null);
     if (!ACCEPTED_TYPES.includes(incoming.type)) {
-      setError(`Format nicht unterstützt: ${incoming.type || 'unbekannt'}`);
+      notify.error(`Format nicht unterstützt: ${incoming.type || 'unbekannt'}`);
       return;
     }
     if (incoming.size > MAX_BYTES) {
-      setError(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
+      notify.error(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
       return;
     }
     if (beforeUrl) URL.revokeObjectURL(beforeUrl);
@@ -88,18 +86,17 @@ export default function RemoveBackgroundPage() {
   const handleSubmit = async () => {
     if (!file) return;
     setIsProcessing(true);
-    setError(null);
     try {
       const blob = await removeBackground(file);
       if (afterUrl) URL.revokeObjectURL(afterUrl);
       setAfterUrl(URL.createObjectURL(blob));
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        notify.error(err.message);
       } else if (err instanceof Error) {
-        setError(err.message);
+        notify.error(err.message);
       } else {
-        setError('Unbekannter Fehler');
+        notify.error('Unbekannter Fehler');
       }
     } finally {
       setIsProcessing(false);
@@ -115,12 +112,6 @@ export default function RemoveBackgroundPage() {
         Bild hochladen, das Tool entfernt den Hintergrund per KI (rembg) und liefert ein
         PNG mit Alpha-Kanal zurück.
       </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} role="alert">
-          {error}
-        </Alert>
-      )}
 
       <Paper
         onDragOver={(e) => {

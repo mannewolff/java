@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -10,7 +9,6 @@ import {
   IconButton,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   TextField,
   Toolbar,
@@ -25,6 +23,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import { ApiError } from '../../api/client';
 import { cropOg, extractPalette } from '../../api/ogImage';
 import InteractiveCropFrame, { type CropOffsets } from '../../components/InteractiveCropFrame';
+import { useNotify } from '../../notify/NotifyProvider';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -72,10 +71,9 @@ export default function OgImagePage() {
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [snackbar, setSnackbar] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const notify = useNotify();
   const [draftPreset, setDraftPreset] = useState(presetLabelFor(1200, 630));
   const [draftWidth, setDraftWidth] = useState('1200');
   const [draftHeight, setDraftHeight] = useState('630');
@@ -96,7 +94,6 @@ export default function OgImagePage() {
   const runCrop = useCallback(
     async (incoming: File, next: CropOffsets, w: number, h: number) => {
       setIsProcessing(true);
-      setError(null);
       try {
         const blob = await cropOg(incoming, next.yOffset, {
           xOffset: next.xOffset,
@@ -108,22 +105,25 @@ export default function OgImagePage() {
           return URL.createObjectURL(blob);
         });
       } catch (err) {
-        setError(errorMessage(err));
+        notify.error(errorMessage(err));
       } finally {
         setIsProcessing(false);
       }
     },
-    [],
+    [notify],
   );
 
-  const runPalette = useCallback(async (incoming: File) => {
-    try {
-      const colors = await extractPalette(incoming, 6);
-      setPalette(colors);
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  }, []);
+  const runPalette = useCallback(
+    async (incoming: File) => {
+      try {
+        const colors = await extractPalette(incoming, 6);
+        setPalette(colors);
+      } catch (err) {
+        notify.error(errorMessage(err));
+      }
+    },
+    [notify],
+  );
 
   // Debounced re-crop whenever inputs change.
   useEffect(() => {
@@ -142,17 +142,15 @@ export default function OgImagePage() {
     setOffsets({ xOffset: 0.5, yOffset: 0.5 });
     setCropUrl(null);
     setPalette(null);
-    setError(null);
   };
 
   const acceptFile = (incoming: File) => {
-    setError(null);
     if (!ACCEPTED_TYPES.includes(incoming.type)) {
-      setError(`Format nicht unterstützt: ${incoming.type || 'unbekannt'}`);
+      notify.error(`Format nicht unterstützt: ${incoming.type || 'unbekannt'}`);
       return;
     }
     if (incoming.size > MAX_BYTES) {
-      setError(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
+      notify.error(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
       return;
     }
     if (cropUrl) URL.revokeObjectURL(cropUrl);
@@ -180,9 +178,9 @@ export default function OgImagePage() {
   const handleCopyHex = async (hex: string) => {
     try {
       await navigator.clipboard.writeText(hex);
-      setSnackbar(`${hex} kopiert`);
+      notify.info(`${hex} kopiert`);
     } catch {
-      setSnackbar('Konnte nicht in Zwischenablage kopieren');
+      notify.error('Konnte nicht in Zwischenablage kopieren');
     }
   };
 
@@ -243,12 +241,6 @@ export default function OgImagePage() {
         Bild hochladen, Crop-Rahmen mit der Maus verschieben, JPEG downloaden.
         Aktuelle Zielgröße: <strong>{targetWidth}×{targetHeight}</strong>.
       </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} role="alert">
-          {error}
-        </Alert>
-      )}
 
       <Paper
         onDragOver={(e) => {
@@ -437,12 +429,6 @@ export default function OgImagePage() {
         </Box>
       </Drawer>
 
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar(null)}
-        message={snackbar ?? ''}
-      />
     </>
   );
 }

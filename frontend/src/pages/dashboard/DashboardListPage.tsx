@@ -35,6 +35,7 @@ import {
   type DashboardSummary,
 } from '../../api/dashboard';
 import { ApiError } from '../../api/client';
+import { useNotify } from '../../notify/NotifyProvider';
 
 type LoadState =
   | { kind: 'loading' }
@@ -43,6 +44,7 @@ type LoadState =
 
 export default function DashboardListPage(): JSX.Element {
   const navigate = useNavigate();
+  const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [createPending, setCreatePending] = useState(false);
   const [toDelete, setToDelete] = useState<DashboardSummary | null>(null);
@@ -75,10 +77,7 @@ export default function DashboardListPage(): JSX.Element {
       const created = await createDashboard('Neues Dashboard');
       navigate(`/dashboards/${created.id}`);
     } catch (e) {
-      setState({
-        kind: 'error',
-        message: e instanceof ApiError ? e.message : 'Anlegen fehlgeschlagen',
-      });
+      notify.error(e instanceof ApiError ? e.message : 'Anlegen fehlgeschlagen');
     } finally {
       setCreatePending(false);
     }
@@ -91,9 +90,15 @@ export default function DashboardListPage(): JSX.Element {
 
   async function handleConfirmDelete(): Promise<void> {
     if (!toDelete) return;
-    await deleteDashboard(toDelete.id);
-    setToDelete(null);
-    await reload();
+    try {
+      await deleteDashboard(toDelete.id);
+      setToDelete(null);
+      notify.success('Dashboard gelöscht.');
+      await reload();
+    } catch (e) {
+      setToDelete(null);
+      notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen');
+    }
   }
 
   return (

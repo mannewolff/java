@@ -33,6 +33,7 @@ import {
   type WidgetDto,
 } from '../../api/dashboard';
 import { ApiError } from '../../api/client';
+import { useNotify } from '../../notify/NotifyProvider';
 import { DESKTOP_MIN_WIDTH, GRID_COLS, GRID_ROW_HEIGHT, newWidget } from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
@@ -89,6 +90,7 @@ export default function DashboardPage(): JSX.Element {
   const viewportWidth = useViewportWidth();
   const isDesktop = viewportWidth >= DESKTOP_MIN_WIDTH;
   const { editMode, setEditMode, draggingType, setDraggingType } = useEditMode();
+  const notify = useNotify();
 
   const [detail, setDetail] = useState<DashboardDetail | null>(null);
   const [draft, setDraft] = useState<DashboardDetail | null>(null);
@@ -247,6 +249,7 @@ export default function DashboardPage(): JSX.Element {
       // Auch im Draft den Namen mit-aktualisieren, damit "Abbrechen" nicht zurück-rollt.
       setDraft((prev) => (prev ? { ...prev, name: updated.name } : prev));
       setRenaming(false);
+      notify.success('Dashboard umbenannt.');
     } catch (e) {
       setRenameError(
         e instanceof ApiError
@@ -288,13 +291,13 @@ export default function DashboardPage(): JSX.Element {
       setDraft(updated);
       setSaveState('saved');
       setEditMode(false);
+      notify.success('Dashboard gespeichert.');
       // Status nach kurzer Zeit zurück auf idle.
       setTimeout(() => setSaveState('idle'), 1500);
     } catch (e) {
-      setSaveState({
-        kind: 'error',
-        message: e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen',
-      });
+      const message = e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen';
+      setSaveState({ kind: 'error', message });
+      notify.error(message);
     }
   }
 

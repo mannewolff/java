@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -28,6 +27,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { ApiError } from '../../api/client';
 import { resizeImage, type OutputFormat } from '../../api/resize';
+import { useNotify } from '../../notify/NotifyProvider';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -71,8 +71,8 @@ export default function ResizePage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultContentType, setResultContentType] = useState<string>('image/png');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const notify = useNotify();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('auto');
   const [quality, setQuality] = useState(90);
@@ -131,17 +131,15 @@ export default function ResizePage() {
     setTargetW('');
     setTargetH('');
     setResultUrl(null);
-    setError(null);
   };
 
   const acceptFile = (incoming: File) => {
-    setError(null);
     if (!ACCEPTED_TYPES.includes(incoming.type)) {
-      setError(`Format nicht unterstützt: ${incoming.type || 'unbekannt'}`);
+      notify.error(`Format nicht unterstützt: ${incoming.type || 'unbekannt'}`);
       return;
     }
     if (incoming.size > MAX_BYTES) {
-      setError(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
+      notify.error(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
       return;
     }
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
@@ -181,11 +179,11 @@ export default function ResizePage() {
     let w = Number.parseInt(targetW, 10);
     let h = Number.parseInt(targetH, 10);
     if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) {
-      setError('Bitte gültige Breite und Höhe eintragen.');
+      notify.error('Bitte gültige Breite und Höhe eintragen.');
       return;
     }
     if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
-      setError(`Max ${MAX_DIMENSION} px je Achse.`);
+      notify.error(`Max ${MAX_DIMENSION} px je Achse.`);
       return;
     }
     w = clampDownsize(w, 'w');
@@ -194,14 +192,13 @@ export default function ResizePage() {
     setTargetH(String(h));
 
     setIsProcessing(true);
-    setError(null);
     try {
       const { blob, contentType } = await resizeImage(file, w, h, { outputFormat, quality });
       if (resultUrl) URL.revokeObjectURL(resultUrl);
       setResultUrl(URL.createObjectURL(blob));
       setResultContentType(contentType);
     } catch (err) {
-      setError(errorMessage(err));
+      notify.error(errorMessage(err));
     } finally {
       setIsProcessing(false);
     }
@@ -224,12 +221,6 @@ export default function ResizePage() {
         Bild hochladen, neue Breite oder Höhe eintragen — die andere Seite folgt
         proportional. Standardmäßig wird nur verkleinert.
       </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} role="alert">
-          {error}
-        </Alert>
-      )}
 
       <Paper
         onDragOver={(e) => {

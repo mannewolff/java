@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -23,6 +22,7 @@ import TransformIcon from '@mui/icons-material/Transform';
 
 import { ApiError } from '../../api/client';
 import { convertSvgToPng } from '../../api/svgToPng';
+import { useNotify } from '../../notify/NotifyProvider';
 
 const ACCEPTED_TYPES = ['image/svg+xml'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -50,8 +50,8 @@ export default function SvgToPngPage(): JSX.Element {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const notify = useNotify();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [targetW, setTargetW] = useState('');
   const [targetH, setTargetH] = useState('');
@@ -73,13 +73,12 @@ export default function SvgToPngPage(): JSX.Element {
   }, [resultUrl]);
 
   const acceptFile = (incoming: File): void => {
-    setError(null);
     if (!ACCEPTED_TYPES.includes(incoming.type)) {
-      setError(`Format nicht unterstützt: ${incoming.type || 'unbekannt'} (erwartet: SVG)`);
+      notify.error(`Format nicht unterstützt: ${incoming.type || 'unbekannt'} (erwartet: SVG)`);
       return;
     }
     if (incoming.size > MAX_BYTES) {
-      setError(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
+      notify.error(`Datei zu groß (${(incoming.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)`);
       return;
     }
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
@@ -99,7 +98,6 @@ export default function SvgToPngPage(): JSX.Element {
     setResultUrl(null);
     setTargetW('');
     setTargetH('');
-    setError(null);
   };
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -125,16 +123,15 @@ export default function SvgToPngPage(): JSX.Element {
     const w = parseDimension(targetW);
     const h = parseDimension(targetH);
     if (w != null && (w < MIN_DIMENSION || w > MAX_DIMENSION)) {
-      setError(`Breite außerhalb 1..${MAX_DIMENSION} px.`);
+      notify.error(`Breite außerhalb 1..${MAX_DIMENSION} px.`);
       return;
     }
     if (h != null && (h < MIN_DIMENSION || h > MAX_DIMENSION)) {
-      setError(`Höhe außerhalb 1..${MAX_DIMENSION} px.`);
+      notify.error(`Höhe außerhalb 1..${MAX_DIMENSION} px.`);
       return;
     }
 
     setIsProcessing(true);
-    setError(null);
     try {
       const { blob } = await convertSvgToPng(file, {
         width: w ?? undefined,
@@ -144,7 +141,7 @@ export default function SvgToPngPage(): JSX.Element {
       if (resultUrl) URL.revokeObjectURL(resultUrl);
       setResultUrl(URL.createObjectURL(blob));
     } catch (err) {
-      setError(errorMessage(err));
+      notify.error(errorMessage(err));
     } finally {
       setIsProcessing(false);
     }
@@ -183,12 +180,6 @@ export default function SvgToPngPage(): JSX.Element {
         SVG hochladen, optional eine Zielgröße eintragen. Ohne Maße nimmt der Konverter die
         SVG-eigene Geometrie. Hintergrundfarbe per Einstellungen-Drawer.
       </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} role="alert">
-          {error}
-        </Alert>
-      )}
 
       <Paper
         onDragOver={(e) => {

@@ -3,6 +3,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SvgToPngPage from './SvgToPngPage';
+import { NotifyProvider } from '../../notify/NotifyProvider';
+
+function renderSvg(): ReturnType<typeof render> {
+  return render(
+    <NotifyProvider>
+      <SvgToPngPage />
+    </NotifyProvider>,
+  );
+}
 
 const SVG_TEXT =
   '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>';
@@ -33,7 +42,7 @@ describe('SvgToPngPage', () => {
   });
 
   it('renders the empty drop zone initially', () => {
-    render(<SvgToPngPage />);
+    renderSvg();
 
     expect(screen.getByRole('heading', { name: /SVG zu PNG/i })).toBeInTheDocument();
     expect(screen.getByText(/SVG hier ablegen/i)).toBeInTheDocument();
@@ -41,7 +50,7 @@ describe('SvgToPngPage', () => {
   });
 
   it('rejects non-SVG content type', async () => {
-    render(<SvgToPngPage />);
+    renderSvg();
 
     const input = screen.getByLabelText(/SVG auswählen/i) as HTMLInputElement;
     const pngFile = new File([new Uint8Array([0x89, 0x50])], 'image.png', { type: 'image/png' });
@@ -50,23 +59,23 @@ describe('SvgToPngPage', () => {
     // clientseitiger Reject-Pfad nie getroffen. Wir wollen genau diesen pruefen.
     await userEvent.upload(input, pngFile, { applyAccept: false });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Format nicht unterstützt/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Format nicht unterstützt/);
     expect(screen.queryByRole('button', { name: /Konvertieren/i })).not.toBeInTheDocument();
   });
 
   it('rejects oversized SVG', async () => {
-    render(<SvgToPngPage />);
+    renderSvg();
 
     const input = screen.getByLabelText(/SVG auswählen/i) as HTMLInputElement;
     const tooBig = new File(['x'.repeat(11 * 1024 * 1024)], 'big.svg', { type: 'image/svg+xml' });
     await userEvent.upload(input, tooBig);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/zu groß/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/zu groß/);
   });
 
   it('shows source info and converts a valid SVG to PNG', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
-    render(<SvgToPngPage />);
+    renderSvg();
 
     await uploadSvg('icon.svg');
 
@@ -87,7 +96,7 @@ describe('SvgToPngPage', () => {
 
   it('forwards width, height and background as form fields', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
-    render(<SvgToPngPage />);
+    renderSvg();
 
     await uploadSvg();
     await userEvent.type(screen.getByLabelText('Breite'), '512');
@@ -111,7 +120,7 @@ describe('SvgToPngPage', () => {
   });
 
   it('rejects invalid background pattern in the drawer', async () => {
-    render(<SvgToPngPage />);
+    renderSvg();
 
     await uploadSvg();
     await userEvent.click(screen.getByLabelText('Einstellungen öffnen'));
@@ -125,7 +134,7 @@ describe('SvgToPngPage', () => {
   });
 
   it('cancels the settings drawer without committing the draft background', async () => {
-    render(<SvgToPngPage />);
+    renderSvg();
     await uploadSvg();
 
     await userEvent.click(screen.getByLabelText('Einstellungen öffnen'));
@@ -144,7 +153,7 @@ describe('SvgToPngPage', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     );
-    render(<SvgToPngPage />);
+    renderSvg();
 
     await uploadSvg();
     await userEvent.click(screen.getByRole('button', { name: /Konvertieren/i }));
@@ -156,18 +165,18 @@ describe('SvgToPngPage', () => {
 
   it('rejects width out of range without calling the backend', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
-    render(<SvgToPngPage />);
+    renderSvg();
 
     await uploadSvg();
     await userEvent.type(screen.getByLabelText('Breite'), '99999');
     await userEvent.click(screen.getByRole('button', { name: /Konvertieren/i }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Breite außerhalb/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Breite außerhalb/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('reset clears the upload state', async () => {
-    render(<SvgToPngPage />);
+    renderSvg();
     await uploadSvg('clear-me.svg');
 
     expect(screen.getByText('clear-me.svg')).toBeInTheDocument();

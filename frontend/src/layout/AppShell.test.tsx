@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './AppShell';
+import { EditModeProvider } from '../pages/dashboard/EditModeContext';
 
 // AppShell ruft useAuth() fuer User-Info im Header auf. Im Slice-Test gibt es
 // keinen AuthProvider, also wird der Hook gemockt.
@@ -19,19 +20,21 @@ vi.mock('../auth/useAuth', () => ({
   }),
 }));
 
-function renderShell(initialEntry = '/dashboard') {
+function renderShell(initialEntry = '/dashboards/default') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/dashboard" element={<div>Dashboard-Inhalt</div>} />
-          <Route path="/settings" element={<div>Settings-Inhalt</div>} />
-          <Route path="/tools/remove-background" element={<div>Remove BG</div>} />
-          <Route path="/tools/og-image" element={<div>OG Image</div>} />
-          <Route path="/tools/resize" element={<div>Resize</div>} />
-          <Route path="/tools/password" element={<div>Password</div>} />
-        </Route>
-      </Routes>
+      <EditModeProvider>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/dashboards/default" element={<div>Dashboard-Inhalt</div>} />
+            <Route path="/settings" element={<div>Settings-Inhalt</div>} />
+            <Route path="/tools/remove-background" element={<div>Remove BG</div>} />
+            <Route path="/tools/og-image" element={<div>OG Image</div>} />
+            <Route path="/tools/resize" element={<div>Resize</div>} />
+            <Route path="/tools/password" element={<div>Password</div>} />
+          </Route>
+        </Routes>
+      </EditModeProvider>
     </MemoryRouter>,
   );
 }
@@ -43,7 +46,7 @@ describe('AppShell navigation', () => {
 
   it('renders the two top-level entries without expanding any group', () => {
     // given a fresh shell on /dashboard
-    renderShell('/dashboard');
+    renderShell('/dashboards/default');
 
     // then Dashboard and Einstellungen are visible immediately
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
@@ -74,7 +77,7 @@ describe('AppShell navigation', () => {
 
   it('expands a group when its header is clicked and keeps the URL unchanged', async () => {
     // given a fresh shell on /dashboard with no group expanded
-    renderShell('/dashboard');
+    renderShell('/dashboards/default');
     const user = userEvent.setup();
     expect(screen.queryByText('Passwortgenerator')).not.toBeInTheDocument();
 
@@ -103,7 +106,7 @@ describe('AppShell navigation', () => {
 
   it('links the Passwortgenerator entry to /tools/password even though the page does not exist yet', async () => {
     // given the shell with the Nützliche Tools group expanded
-    renderShell('/dashboard');
+    renderShell('/dashboards/default');
     const user = userEvent.setup();
     await user.click(screen.getByText('Nützliche Tools'));
 
@@ -129,7 +132,7 @@ describe('AppShell navigation', () => {
   });
 
   it('keeps Dashboard outside any group at the top level', () => {
-    renderShell('/dashboard');
+    renderShell('/dashboards/default');
     // Dashboard ist kein Kind einer Gruppe; sein Eintrag steht direkt im Drawer.
     const list = screen.getByText('Dashboard').closest('ul');
     expect(list).not.toBeNull();

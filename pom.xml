@@ -260,6 +260,15 @@
                                   (siehe ApiApplicationIT) — bewusst ausgeschlossen.
                                 -->
                                 <exclude>org/mwolff/api/tools/infrastructure/python/PythonToolsConfig.class</exclude>
+                                <!--
+                                  Dashboard-Persistence-Layer: JPA-Entities (Getter/Setter ohne
+                                  Logik) und der JpaDashboardAdapter sind nur via Testcontainers-
+                                  MariaDB sinnvoll testbar. Die fachliche Logik liegt in den
+                                  Application-Use-Cases und ist dort zu 100% gedeckt (siehe
+                                  DashboardUseCasesTest); der Adapter wird via *IT mit echter
+                                  MariaDB verifiziert.
+                                -->
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>

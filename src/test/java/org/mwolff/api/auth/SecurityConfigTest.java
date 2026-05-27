@@ -107,7 +107,8 @@ class SecurityConfigTest {
 
     assertThat(config).isNotNull();
     assertThat(config.getAllowedOrigins())
-        .containsExactlyInAnyOrder("http://localhost:5173", "http://localhost:8080");
+        .containsExactlyInAnyOrder(
+            "http://localhost:5173", "http://localhost:8080", "https://toolbox.mwolff.org");
     assertThat(config.getAllowedMethods())
         .containsExactlyInAnyOrder("GET", "POST", "PUT", "DELETE", "OPTIONS");
     assertThat(config.getAllowedHeaders())

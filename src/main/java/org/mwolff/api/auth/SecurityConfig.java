@@ -14,7 +14,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
-class SecurityConfig {
+public class SecurityConfig {
 
   @Bean
   SecurityFilterChain filterChain(final HttpSecurity http) throws Exception {
@@ -50,7 +50,16 @@ class SecurityConfig {
   @Bean
   CorsConfigurationSource corsConfigurationSource() {
     final CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8080"));
+    // Erlaubte Origins: Dev (Vite/Spring lokal) + Production. Same-origin-Requests
+    // im Browser bei PUT/POST mit JSON-Body senden trotzdem den `Origin`-Header und
+    // gehen durch diesen Filter — fehlt Production hier, lehnt Spring mit
+    // "Invalid CORS request" und HTTP 403 ab (auch wenn das Frontend
+    // dieselbe Domain bedient).
+    configuration.setAllowedOrigins(
+        List.of(
+            "http://localhost:5173",
+            "http://localhost:8080",
+            "https://toolbox.mwolff.org"));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
     configuration.setAllowCredentials(true);

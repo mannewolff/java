@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './layout/AppShell';
-import DashboardPage from './pages/DashboardPage';
+import DashboardListPage from './pages/dashboard/DashboardListPage';
+import DashboardPage from './pages/dashboard/DashboardPage';
+import DashboardDefaultRedirect from './pages/dashboard/DashboardDefaultRedirect';
+import { EditModeProvider } from './pages/dashboard/EditModeContext';
 import SettingsPage from './pages/SettingsPage';
 import RemoveBackgroundPage from './pages/tools/RemoveBackgroundPage';
 import OgImagePage from './pages/tools/OgImagePage';
@@ -14,12 +17,20 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <AppShell />
+            {/* EditModeProvider wrappt AppShell, damit Sidebar und DashboardPage
+                denselben State sehen (Sidebar wechselt auf Widget-Palette im Edit-Modus). */}
+            <EditModeProvider>
+              <AppShell />
+            </EditModeProvider>
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route index element={<Navigate to="/dashboards/default" replace />} />
+        <Route path="/dashboards" element={<DashboardListPage />} />
+        <Route path="/dashboards/default" element={<DashboardDefaultRedirect />} />
+        <Route path="/dashboards/:id" element={<DashboardPage />} />
+        {/* Backward-Compat: alter /dashboard-Bookmark landet beim Default. */}
+        <Route path="/dashboard" element={<Navigate to="/dashboards/default" replace />} />
         <Route path="/tools/remove-background" element={<RemoveBackgroundPage />} />
         <Route path="/tools/og-image" element={<OgImagePage />} />
         <Route path="/tools/resize" element={<ResizePage />} />

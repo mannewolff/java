@@ -21,7 +21,9 @@
     <Or>
       <Class name="~.*Response"/>
       <Class name="~.*Result"/>
+      <Class name="~.*Request"/>
       <Class name="~.*UseCase"/>
+      <Class name="~.*UseCase\$.*"/>
       <Class name="~.*Adapter"/>
       <Class name="~.*Service"/>
       <Class name="~.*Controller"/>

@@ -304,9 +304,16 @@ export default function DashboardPage(): JSX.Element {
           'radial-gradient(circle, rgba(0, 0, 0, 0.18) 1px, transparent 1.5px)',
         backgroundSize: `calc(100% / ${GRID_COLS}) ${GRID_ROW_HEIGHT}px`,
         backgroundPosition: '0 0',
-        minHeight: 240,
       }
     : {};
+
+  // Mindest-Höhe für das Grid selbst im Edit-Modus — sonst kollabiert das Element
+  // auf 0 px wenn 0 Widgets da sind oder die existierenden Widgets nur die ersten
+  // paar Reihen belegen. Drops außerhalb existierender Widgets würden dann keinen
+  // Placeholder triggern, weil die Lib keinen gültigen Drop-Bereich findet. 480 px
+  // (~ 12 Grid-Reihen bei 40 px row-height) ist groß genug für eine sichtbare
+  // leere Drop-Fläche, aber so klein dass es bei vollen Dashboards nicht stört.
+  const gridMinHeight = editMode ? 480 : undefined;
 
   return (
     <Box>
@@ -375,6 +382,7 @@ export default function DashboardPage(): JSX.Element {
         <Box sx={canvasBackground}>
           <ResponsiveGridLayout
             className="layout"
+            style={gridMinHeight != null ? { minHeight: gridMinHeight } : undefined}
             layouts={{ lg: toLayouts(visibleWidgets) }}
             breakpoints={{ lg: DESKTOP_MIN_WIDTH }}
             cols={{ lg: GRID_COLS }}

@@ -136,39 +136,59 @@ export default function DashboardPage(): JSX.Element {
     return () => window.removeEventListener('beforeunload', handler);
   }, [detail, draft]);
 
+  /**
+   * Hinweis: alle Mutator-Funktionen unten benutzen den functional-setState-Form
+   * (`setDraft(prev => ...)`). Grund: react-grid-layout feuert `onLayoutChange`
+   * gelegentlich direkt nach `onDrop`. Beide schreiben auf `draft`. Mit normaler
+   * Setter-Form sieht der zweite Aufruf das `draft` aus dem Closure (Zustand
+   * vor dem Drop) und überschreibt das frisch gedropte Widget wieder weg —
+   * Folge: das Widget "flippt zurück". Functional-setState liest jeweils den
+   * aktuellsten State und vermeidet die Race.
+   */
   function handleLayoutChange(newLayout: Layout[]): void {
-    if (!draft || !editMode) return;
-    const updated: WidgetDto[] = draft.widgets.map((w, i) => {
-      const item = newLayout.find((l) => l.i === widgetKey(w, i));
-      if (!item) return w;
-      return { ...w, posX: item.x, posY: item.y, width: item.w, height: item.h };
+    if (!editMode) return;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const updated: WidgetDto[] = prev.widgets.map((w, i) => {
+        const item = newLayout.find((l) => l.i === widgetKey(w, i));
+        if (!item) return w;
+        return { ...w, posX: item.x, posY: item.y, width: item.w, height: item.h };
+      });
+      return { ...prev, widgets: updated };
     });
-    setDraft({ ...draft, widgets: updated });
   }
 
   function handleWidgetChange(index: number, next: WidgetDto): void {
-    if (!draft) return;
-    const updated = draft.widgets.map((w, i) => (i === index ? next : w));
-    setDraft({ ...draft, widgets: updated });
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const updated = prev.widgets.map((w, i) => (i === index ? next : w));
+      return { ...prev, widgets: updated };
+    });
   }
 
   function handleWidgetDelete(index: number): void {
-    if (!draft) return;
-    const updated = draft.widgets.filter((_, i) => i !== index);
-    setDraft({ ...draft, widgets: updated });
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const updated = prev.widgets.filter((_, i) => i !== index);
+      return { ...prev, widgets: updated };
+    });
   }
 
   /**
-   * Drop aus der Widget-Palette aufs Canvas. react-grid-layout liefert das `item` mit
-   * berechneten Grid-Koordinaten (x/y) basierend auf der Maus-Position. Der Widget-Typ
-   * kommt aus dem Context (von der Palette beim onDragStart gesetzt).
+   * Drop aus der Widget-Palette aufs Canvas. react-grid-layout liefert das `item`
+   * mit den berechneten Grid-Koordinaten (x/y) basierend auf der Maus-Position.
+   * Der Widget-Typ kommt aus dem Context (von der Palette beim onDragStart gesetzt).
    */
   function handleDrop(_layout: Layout[], item: Layout): void {
-    if (!draft || !draggingType) return;
-    const fresh = newWidget(draggingType);
-    fresh.posX = item.x;
-    fresh.posY = item.y;
-    setDraft({ ...draft, widgets: [...draft.widgets, fresh] });
+    if (!draggingType) return;
+    const type = draggingType;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const fresh = newWidget(type);
+      fresh.posX = item.x;
+      fresh.posY = item.y;
+      return { ...prev, widgets: [...prev.widgets, fresh] };
+    });
     setDraggingType(null);
   }
 

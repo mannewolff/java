@@ -29,9 +29,11 @@ import {
   KANBAN_COLUMNS,
   createKanbanItem,
   deleteKanbanItem,
+  getKanbanSettings,
   listKanbanItems,
   moveKanbanItem,
   updateKanbanItem,
+  updateKanbanSettings,
   type KanbanBoard,
   type KanbanColumn as KanbanColumnId,
   type KanbanItem,
@@ -40,7 +42,11 @@ import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
 import KanbanColumnView from './KanbanColumn';
 import KanbanEditDrawer from './KanbanEditDrawer';
+import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
+
+/** Default-Retention (auch Backend-Default), bis das initiale GET den echten Wert liefert. */
+const DEFAULT_RETENTION_DAYS = 5;
 
 const COLUMN_LABELS: Record<KanbanColumnId, string> = {
   BACKLOG: 'Backlog',
@@ -75,10 +81,8 @@ export default function KanbanPage(): JSX.Element {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [pendingDelete, setPendingDelete] = useState<KanbanItem | null>(null);
-
-  // Retention-Default — die echte Anzeige kommt mit #101. Hier nur fuer die Countdown-Anzeige
-  // an den DONE-Cards, damit das Skelett bereits Werte liefert.
-  const retentionDays = 5;
+  const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -100,9 +104,27 @@ export default function KanbanPage(): JSX.Element {
     }
   }, []);
 
+  // Initial-Load: Items und Settings parallel. Settings-Failure soll den Board-Load nicht
+  // sprengen — wir fallen einfach auf den Default-Retention-Wert zurueck.
   useEffect(() => {
     void reload();
+    void getKanbanSettings()
+      .then((s) => setRetentionDays(s.doneRetentionDays))
+      .catch(() => {
+        // Default bleibt; KEIN Toast, weil das nur die Countdown-Anzeige beeinflusst.
+      });
   }, [reload]);
+
+  async function handleSettingsSubmit(doneRetentionDays: number): Promise<void> {
+    try {
+      const saved = await updateKanbanSettings(doneRetentionDays);
+      setRetentionDays(saved.doneRetentionDays);
+      setSettingsOpen(false);
+      notify.success('Einstellungen gespeichert.');
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
+  }
 
   function startCreate(defaultColumn: KanbanColumnId): void {
     setEditTarget({ item: null, defaultColumn });
@@ -226,12 +248,9 @@ export default function KanbanPage(): JSX.Element {
             Neues Item
           </Button>
           <Tooltip title="Einstellungen (Cleanup-Retention)">
-            {/* Settings-Drawer kommt mit #101 — bis dahin: dezenter Hinweis. */}
             <IconButton
               aria-label="Kanban-Einstellungen"
-              onClick={() =>
-                notify.info('Einstellungs-Drawer folgt mit dem nächsten Kanban-Issue.')
-              }
+              onClick={() => setSettingsOpen(true)}
             >
               <SettingsIcon />
             </IconButton>
@@ -292,6 +311,13 @@ export default function KanbanPage(): JSX.Element {
         initialBody={editTarget?.item?.body ?? ''}
         onClose={() => setEditTarget(null)}
         onSubmit={handleSubmitEdit}
+      />
+
+      <KanbanSettingsDrawer
+        open={settingsOpen}
+        currentRetentionDays={retentionDays}
+        onClose={() => setSettingsOpen(false)}
+        onSubmit={handleSettingsSubmit}
       />
 
       <Dialog

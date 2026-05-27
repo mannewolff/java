@@ -12,19 +12,25 @@ vi.mock('../../api/kanban', () => ({
   updateKanbanItem: vi.fn(),
   moveKanbanItem: vi.fn(),
   deleteKanbanItem: vi.fn(),
+  getKanbanSettings: vi.fn(),
+  updateKanbanSettings: vi.fn(),
 }));
 
 import {
   createKanbanItem,
   deleteKanbanItem,
+  getKanbanSettings,
   listKanbanItems,
   updateKanbanItem,
+  updateKanbanSettings,
 } from '../../api/kanban';
 
 const list = listKanbanItems as ReturnType<typeof vi.fn>;
 const create = createKanbanItem as ReturnType<typeof vi.fn>;
 const update = updateKanbanItem as ReturnType<typeof vi.fn>;
 const del = deleteKanbanItem as ReturnType<typeof vi.fn>;
+const getSettings = getKanbanSettings as ReturnType<typeof vi.fn>;
+const putSettings = updateKanbanSettings as ReturnType<typeof vi.fn>;
 
 function renderPage() {
   return render(
@@ -53,6 +59,10 @@ describe('KanbanPage', () => {
     create.mockReset();
     update.mockReset();
     del.mockReset();
+    getSettings.mockReset();
+    putSettings.mockReset();
+    // Default-Settings für jeden Test (kann pro Test überschrieben werden).
+    getSettings.mockResolvedValue({ doneRetentionDays: 5 });
   });
 
   afterEach(() => cleanup());
@@ -224,5 +234,50 @@ describe('KanbanPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/konnten nicht geladen/i),
     );
+  });
+
+  it('öffnet den Settings-Drawer mit dem geladenen Retention-Wert', async () => {
+    getSettings.mockResolvedValue({ doneRetentionDays: 14 });
+    list.mockResolvedValueOnce({
+      BACKLOG: [],
+      IN_PROGRESS: [],
+      IN_REVIEW: [],
+      DONE: [],
+    });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Noch keine Kanban-Items')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Kanban-Einstellungen' }));
+
+    await waitFor(() => expect(screen.getByText('Kanban-Einstellungen')).toBeInTheDocument());
+    // Header-Text trägt den geladenen Wert.
+    expect(screen.getByText(/Done-Items nach/)).toHaveTextContent('14');
+  });
+
+  it('persistiert eine neue Retention via updateKanbanSettings', async () => {
+    getSettings.mockResolvedValue({ doneRetentionDays: 5 });
+    putSettings.mockResolvedValueOnce({ doneRetentionDays: 10 });
+    list.mockResolvedValueOnce({
+      BACKLOG: [],
+      IN_PROGRESS: [],
+      IN_REVIEW: [],
+      DONE: [],
+    });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Noch keine Kanban-Items')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Kanban-Einstellungen' }));
+    await screen.findByText('Kanban-Einstellungen');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    await waitFor(() => expect(putSettings).toHaveBeenCalledTimes(1));
+    // Übernehmen schickt den aktuellen Draft (5 in diesem Fall, weil wir den Slider nicht
+    // synthetisch bewegt haben — userEvent + MUI-Slider ist brüchig; reicht für den
+    // API-Call-Pfad).
+    expect(putSettings).toHaveBeenCalledWith(5);
   });
 });

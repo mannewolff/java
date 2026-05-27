@@ -2,11 +2,12 @@
 
 Endpoints:
 
-- POST /remove-bg -> rembg-basierter Hintergrund-Removal, liefert PNG mit Alpha.
-- POST /crop      -> Pillow-basierter Cover-Crop auf 1200x630 (OpenGraph / WordPress).
-- POST /palette   -> colorthief-basierte Brandpalette, liefert N Hex-Farben.
-- POST /resize    -> Pillow LANCZOS-Resize auf width x height.
-- GET  /health    -> Liveness-Check fuer Docker-Healthcheck und Spring.
+- POST /remove-bg   -> rembg-basierter Hintergrund-Removal, liefert PNG mit Alpha.
+- POST /crop        -> Pillow-basierter Cover-Crop auf 1200x630 (OpenGraph / WordPress).
+- POST /palette     -> colorthief-basierte Brandpalette, liefert N Hex-Farben.
+- POST /resize      -> Pillow LANCZOS-Resize auf width x height.
+- POST /svg-to-png  -> cairosvg-basierte SVG->PNG-Konvertierung, optional skaliert.
+- GET  /health      -> Liveness-Check fuer Docker-Healthcheck und Spring.
 """
 
 from __future__ import annotations
@@ -33,6 +34,13 @@ OG_MAX_DIMENSION: int = 4096
 
 RESIZE_MIN_DIMENSION: int = 1
 RESIZE_MAX_DIMENSION: int = 8192
+
+SVG_CONTENT_TYPES: frozenset[str] = frozenset({"image/svg+xml"})
+SVG_MIN_DIMENSION: int = 1
+SVG_MAX_DIMENSION: int = 8192
+# Pattern: "transparent" oder ein #rrggbb-Hex (case-insensitive). Reicht fuer V1 — falls
+# spaeter benannte Farben gebraucht werden, hier erweitern.
+SVG_BACKGROUND_PATTERN: str = r"^(transparent|#[0-9a-fA-F]{6})$"
 
 FORMAT_TO_MEDIA: dict[str, str] = {
     "PNG": "image/png",
@@ -139,7 +147,17 @@ def _resize(
 
 async def _read_and_validate(file: UploadFile) -> bytes:
     """Standard-Upload-Validierung: erlaubter Content-Type, nicht leer, nicht zu gross."""
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
+    return await _read_validated(file, ALLOWED_CONTENT_TYPES)
+
+
+async def _read_and_validate_svg(file: UploadFile) -> bytes:
+    """SVG-Variante der Upload-Validierung: erlaubt nur image/svg+xml."""
+    return await _read_validated(file, SVG_CONTENT_TYPES)
+
+
+async def _read_validated(file: UploadFile, allowed: frozenset[str]) -> bytes:
+    """Gemeinsame Upload-Validierungs-Logik: Content-Type, Empty, Size."""
+    if file.content_type not in allowed:
         raise HTTPException(
             status_code=415,
             detail=f"Unsupported content type: {file.content_type}",
@@ -150,6 +168,30 @@ async def _read_and_validate(file: UploadFile) -> bytes:
     if len(contents) > MAX_BYTES:
         raise HTTPException(status_code=413, detail="File too large")
     return contents
+
+
+def _svg_to_png(
+    data: bytes,
+    width: int | None,
+    height: int | None,
+    background: str,
+) -> bytes:
+    """Lazy-import cairosvg und rendere SVG-Bytes als PNG-Bytes.
+
+    Beide Dimensionen optional: ohne Angabe nimmt cairosvg die SVG-eigene Geometrie.
+    `background` == "transparent" laesst den Alpha-Kanal offen, sonst wird die Hex-Farbe
+    als opaker Hintergrund eingebrannt.
+    """
+    import cairosvg  # local import: keeps cairosvg out of test imports when patched
+
+    kwargs: dict[str, object] = {"bytestring": data}
+    if width is not None:
+        kwargs["output_width"] = width
+    if height is not None:
+        kwargs["output_height"] = height
+    if background != "transparent":
+        kwargs["background_color"] = background
+    return cairosvg.svg2png(**kwargs)
 
 
 @app.get("/health")
@@ -249,3 +291,29 @@ async def palette(
         raise HTTPException(status_code=500, detail=detail) from exc
 
     return {"colors": colors}
+
+
+@app.post("/svg-to-png")
+async def svg_to_png(
+    file: Annotated[UploadFile, File()],
+    width: Annotated[int | None, Form(ge=SVG_MIN_DIMENSION, le=SVG_MAX_DIMENSION)] = None,
+    height: Annotated[int | None, Form(ge=SVG_MIN_DIMENSION, le=SVG_MAX_DIMENSION)] = None,
+    background: Annotated[str, Form(pattern=SVG_BACKGROUND_PATTERN)] = "transparent",
+) -> Response:
+    """Konvertiert ein SVG zu PNG. width/height optional, sonst SVG-eigene Geometrie."""
+    contents = await _read_and_validate_svg(file)
+
+    try:
+        result = _svg_to_png(
+            contents,
+            width=width,
+            height=height,
+            background=background,
+        )
+    except Exception as exc:  # noqa: BLE001 — Wrap any cairosvg failure
+        logger.error("svg-to-png failed", exc_info=True)
+        traceback.print_exc()
+        detail = f"SVG conversion failed: {type(exc).__name__}: {exc}"
+        raise HTTPException(status_code=500, detail=detail) from exc
+
+    return Response(content=result, media_type="image/png")

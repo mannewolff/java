@@ -56,10 +56,7 @@ public class SecurityConfig {
     // "Invalid CORS request" und HTTP 403 ab (auch wenn das Frontend
     // dieselbe Domain bedient).
     configuration.setAllowedOrigins(
-        List.of(
-            "http://localhost:5173",
-            "http://localhost:8080",
-            "https://toolbox.mwolff.org"));
+        List.of("http://localhost:5173", "http://localhost:8080", "https://toolbox.mwolff.org"));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
     configuration.setAllowCredentials(true);

@@ -115,4 +115,48 @@ class ParamsTest {
   void paletteParamsShouldExposeCount() {
     assertThat(new PaletteParams(6).count()).isEqualTo(6);
   }
+
+  @Test
+  void svgToPngParamsShouldExposeFieldsWhenValid() {
+    final SvgToPngParams params = new SvgToPngParams(256, 128, "#aabbcc");
+    assertThat(params.width()).isEqualTo(256);
+    assertThat(params.height()).isEqualTo(128);
+    assertThat(params.background()).isEqualTo("#aabbcc");
+  }
+
+  @Test
+  void svgToPngParamsShouldAcceptNullDimensionsAndTransparent() {
+    final SvgToPngParams params = new SvgToPngParams(null, null, SvgToPngParams.TRANSPARENT);
+    assertThat(params.width()).isNull();
+    assertThat(params.height()).isNull();
+    assertThat(params.background()).isEqualTo("transparent");
+  }
+
+  @Test
+  void svgToPngParamsShouldRejectZeroWidth() {
+    assertThatThrownBy(() -> new SvgToPngParams(0, 100, "transparent"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("width");
+  }
+
+  @Test
+  void svgToPngParamsShouldRejectZeroHeight() {
+    assertThatThrownBy(() -> new SvgToPngParams(100, 0, "transparent"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("height");
+  }
+
+  @Test
+  void svgToPngParamsShouldRejectNullBackground() {
+    assertThatThrownBy(() -> new SvgToPngParams(100, 100, null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("background");
+  }
+
+  @Test
+  void svgToPngParamsShouldRejectInvalidBackgroundPattern() {
+    assertThatThrownBy(() -> new SvgToPngParams(100, 100, "red"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("background");
+  }
 }

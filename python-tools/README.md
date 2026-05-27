@@ -10,6 +10,7 @@ FastAPI-Microservice für Bild-Werkzeuge der persönlichen Toolbox.
 | `POST` | `/crop` | Cover-fit-Crop auf 1200×630 (OpenGraph / WordPress). Returnt JPEG. |
 | `POST` | `/palette` | Dominante Farben per [colorthief](https://github.com/fengsp/color-thief-py). Returnt JSON. |
 | `POST` | `/resize` | Proportionales (oder freies) Skalieren via Pillow LANCZOS. Returnt Bild im gewählten Format. |
+| `POST` | `/svg-to-png` | SVG zu PNG via [cairosvg](https://cairosvg.org/). Optional `width`/`height`/`background`. |
 | `GET`  | `/health` | Liveness-Check für Docker- und Spring-Healthchecks. |
 
 ### `POST /remove-bg`
@@ -50,6 +51,17 @@ Response: `application/json`, z. B. `{"colors":["#aabbcc","#001122",...]}` — R
 | `quality` | int | 90 | 50–95 | JPEG-/WEBP-Quality, wird bei `png` ignoriert |
 
 Response: `image/*` passend zum gewählten / erkannten Format, exakt `width × height` Pixel.
+
+### `POST /svg-to-png`
+
+| Feld | Typ | Default | Range | Beschreibung |
+|---|---|---|---|---|
+| `file` | multipart-Datei | — | — | SVG, Content-Type `image/svg+xml`, max 10 MiB |
+| `width` | int | — | 1–8192 | Zielbreite in Pixeln (optional, sonst SVG-eigene Breite) |
+| `height` | int | — | 1–8192 | Zielhöhe in Pixeln (optional, sonst SVG-eigene Höhe) |
+| `background` | string | `transparent` | `transparent` oder `#rrggbb` | Hintergrundfarbe; `transparent` lässt den Alpha-Kanal offen |
+
+Response: `image/png`. Rendering via [cairosvg](https://cairosvg.org/) (Native-Lib `libcairo`, im Docker-Image vorinstalliert).
 
 ## Fehler
 

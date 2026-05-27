@@ -80,4 +80,37 @@ class TikaUploadValidatorTest {
       assertThat(ex.code()).isEqualTo("UNSUPPORTED_FORMAT");
     }
   }
+
+  // ---- validateSvg ----
+
+  private static final byte[] SVG_BYTES =
+      ("<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\""
+              + " height=\"10\"><rect width=\"10\" height=\"10\"/></svg>")
+          .getBytes();
+
+  @Test
+  void shouldAcceptRealSvg() {
+    final UploadedImage svg = new UploadedImage(SVG_BYTES, "image/svg+xml", "logo.svg");
+
+    validator.validateSvg(svg);
+  }
+
+  @Test
+  void shouldRejectNonSvgInSvgPath() {
+    final UploadedImage png = new UploadedImage(PNG_HEADER, "image/png", "image.png");
+
+    assertThatThrownBy(() -> validator.validateSvg(png))
+        .isInstanceOf(InvalidUploadException.class)
+        .matches(t -> ((InvalidUploadException) t).code().equals("UNSUPPORTED_FORMAT"));
+  }
+
+  @Test
+  void shouldRejectOversizedSvg() {
+    final byte[] huge = new byte[(int) (TikaUploadValidator.MAX_BYTES + 1)];
+    final UploadedImage svg = new UploadedImage(huge, "image/svg+xml", "huge.svg");
+
+    assertThatThrownBy(() -> validator.validateSvg(svg))
+        .isInstanceOf(InvalidUploadException.class)
+        .matches(t -> ((InvalidUploadException) t).code().equals("FILE_TOO_LARGE"));
+  }
 }

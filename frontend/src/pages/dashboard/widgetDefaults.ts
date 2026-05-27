@@ -15,10 +15,10 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number
   TEXTBOX: { width: 4, height: 3 },
 };
 
-/** Initial-Config je Widget-Typ — bewusst minimal, Phase 3+4 füllen das mit Inhalt. */
+/** Initial-Config je Widget-Typ — passend zu den Widget-Komponenten in widgets/. */
 export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
-  KPI: JSON.stringify({ label: 'KPI', value: 0 }),
-  TEXTBOX: JSON.stringify({ text: 'Neuer Text' }),
+  KPI: JSON.stringify({ value: 0, label: 'Neue Kennzahl', color: 'neutral' }),
+  TEXTBOX: JSON.stringify({ markdown: '# Neue Textbox\n\nText hier eingeben.' }),
 };
 
 /** Erzeugt ein neues Widget mit Default-Größe und -Config an Position (0, 0). */

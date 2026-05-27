@@ -10,6 +10,7 @@ import {
   updateDashboard,
   type DashboardDetail,
   type WidgetDto,
+  type WidgetType,
 } from '../../api/dashboard';
 import { ApiError } from '../../api/client';
 import {
@@ -17,8 +18,11 @@ import {
   DESKTOP_MIN_WIDTH,
   GRID_COLS,
   GRID_ROW_HEIGHT,
+  newWidget,
 } from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
+import WidgetKpi from './widgets/WidgetKpi';
+import WidgetTextbox from './widgets/WidgetTextbox';
 
 type SaveState = 'idle' | 'pending' | 'saved' | { kind: 'error'; message: string };
 
@@ -116,6 +120,58 @@ export default function DashboardPage(): JSX.Element {
     scheduleSave(updated);
   }
 
+  function handleWidgetChange(index: number, next: WidgetDto): void {
+    if (!detail) return;
+    const updated = detail.widgets.map((w, i) => (i === index ? next : w));
+    setDetail({ ...detail, widgets: updated });
+    scheduleSave(updated);
+  }
+
+  function handleWidgetDelete(index: number): void {
+    if (!detail) return;
+    const updated = detail.widgets.filter((_, i) => i !== index);
+    setDetail({ ...detail, widgets: updated });
+    scheduleSave(updated);
+  }
+
+  function handleAddWidget(type: WidgetType): void {
+    if (!detail) return;
+    const updated = [...detail.widgets, newWidget(type)];
+    setDetail({ ...detail, widgets: updated });
+    scheduleSave(updated);
+  }
+
+  function renderWidgetBody(widget: WidgetDto, index: number): JSX.Element {
+    switch (widget.type) {
+      case 'TEXTBOX':
+        return (
+          <WidgetTextbox
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDelete(index)}
+          />
+        );
+      case 'KPI':
+        return (
+          <WidgetKpi
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDelete(index)}
+          />
+        );
+      // Unbekannter Typ — minimaler Fallback ohne Crash. Backend-Enum und Frontend-Switch
+      // sind theoretisch immer in Sync, das Default-Branch ist defensiv für Schema-Drift.
+      default:
+        return (
+          <Paper variant="outlined" sx={{ p: 2, height: '100%', overflow: 'hidden' }}>
+            <Typography variant="caption" color="text.secondary">
+              {widget.type}
+            </Typography>
+          </Paper>
+        );
+    }
+  }
+
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
@@ -165,14 +221,32 @@ export default function DashboardPage(): JSX.Element {
           </Button>
           <Typography variant="h4">{detail.name}</Typography>
         </Stack>
-        <SaveStatus state={saveState} />
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => handleAddWidget('TEXTBOX')}
+            >
+              Textbox hinzufügen
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => handleAddWidget('KPI')}
+            >
+              KPI hinzufügen
+            </Button>
+          </Stack>
+          <SaveStatus state={saveState} />
+        </Stack>
       </Stack>
 
       {detail.widgets.length === 0 && (
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
           <Typography>Dieses Dashboard ist noch leer.</Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            Widget-Typen kommen in den nächsten Phasen (#41 Textbox, #42 KPI).
+            Klicke oben rechts auf „Textbox hinzufügen" oder „KPI hinzufügen", um zu starten.
           </Typography>
         </Paper>
       )}
@@ -187,16 +261,10 @@ export default function DashboardPage(): JSX.Element {
           compactType="vertical"
           preventCollision={false}
           onLayoutChange={handleLayoutChange}
+          draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
         >
           {detail.widgets.map((w, i) => (
-            <Paper key={widgetKey(w, i)} variant="outlined" sx={{ p: 2, overflow: 'hidden' }}>
-              <Typography variant="caption" color="text.secondary">
-                {w.type}
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
-                {w.config}
-              </Typography>
-            </Paper>
+            <Box key={widgetKey(w, i)}>{renderWidgetBody(w, i)}</Box>
           ))}
         </ResponsiveGridLayout>
       )}

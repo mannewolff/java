@@ -56,7 +56,7 @@ describe('DashboardListPage', () => {
     expect(screen.getByLabelText('Dashboards werden geladen')).toBeInTheDocument();
   });
 
-  it('shows empty hint when list is empty', async () => {
+  it('shows empty-state CTA card when list is empty', async () => {
     list.mockResolvedValueOnce([]);
 
     render_();
@@ -64,6 +64,10 @@ describe('DashboardListPage', () => {
     await waitFor(() =>
       expect(screen.getByText(/Noch keine Dashboards/)).toBeInTheDocument(),
     );
+    // CTA-Button neben dem "+"-Header-Button
+    expect(
+      screen.getByRole('button', { name: 'Erstes Dashboard anlegen' }),
+    ).toBeInTheDocument();
   });
 
   it('renders dashboards with Default chip and star icon', async () => {

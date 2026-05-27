@@ -10,12 +10,14 @@ import { DESKTOP_MIN_WIDTH, WIDGET_DEFAULTS } from './widgetDefaults';
 vi.mock('../../api/dashboard', () => ({
   getDashboard: vi.fn(),
   updateDashboard: vi.fn(),
+  renameDashboard: vi.fn(),
 }));
 
-import { getDashboard, updateDashboard } from '../../api/dashboard';
+import { getDashboard, renameDashboard, updateDashboard } from '../../api/dashboard';
 
 const get = getDashboard as ReturnType<typeof vi.fn>;
 const update = updateDashboard as ReturnType<typeof vi.fn>;
+const rename = renameDashboard as ReturnType<typeof vi.fn>;
 
 function setViewport(width: number): void {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
@@ -43,6 +45,7 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     get.mockReset();
     update.mockReset();
+    rename.mockReset();
     setViewport(1280); // Desktop
   });
 
@@ -221,5 +224,169 @@ describe('DashboardPage', () => {
   it('exposes documented widget defaults — TEXTBOX 4×3, KPI 2×2', () => {
     expect(WIDGET_DEFAULTS.TEXTBOX).toEqual({ width: 4, height: 3 });
     expect(WIDGET_DEFAULTS.KPI).toEqual({ width: 2, height: 2 });
+  });
+
+  // ---- Inline-Rename (#43) ----
+
+  it('renames the dashboard via the inline rename flow', async () => {
+    const initial = {
+      id: 1,
+      name: 'Main',
+      isDefault: true,
+      createdAt: ts(),
+      updatedAt: ts(),
+      widgets: [
+        {
+          id: 7,
+          type: 'TEXTBOX' as const,
+          posX: 0,
+          posY: 0,
+          width: 4,
+          height: 3,
+          config: JSON.stringify({ markdown: '# Hello' }),
+        },
+      ],
+    };
+    get.mockResolvedValueOnce(initial);
+    rename.mockResolvedValueOnce({ ...initial, name: 'Renamed' });
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByText('Main')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Dashboard umbenennen' }));
+
+    const input = screen.getByLabelText('Neuer Dashboard-Name') as HTMLInputElement;
+    expect(input.value).toBe('Main');
+    await user.clear(input);
+    await user.type(input, 'Renamed');
+    await user.click(screen.getByRole('button', { name: 'Umbenennen speichern' }));
+
+    await waitFor(() => expect(rename).toHaveBeenCalledWith(1, 'Renamed'));
+    await waitFor(() => expect(screen.getByText('Renamed')).toBeInTheDocument());
+  });
+
+  it('shows an inline error when renaming to an empty name', async () => {
+    const initial = {
+      id: 1,
+      name: 'Main',
+      isDefault: true,
+      createdAt: ts(),
+      updatedAt: ts(),
+      widgets: [
+        {
+          id: 7,
+          type: 'TEXTBOX' as const,
+          posX: 0,
+          posY: 0,
+          width: 4,
+          height: 3,
+          config: JSON.stringify({ markdown: '# Hello' }),
+        },
+      ],
+    };
+    get.mockResolvedValueOnce(initial);
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByText('Main')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Dashboard umbenennen' }));
+    const input = screen.getByLabelText('Neuer Dashboard-Name');
+    await user.clear(input);
+    await user.click(screen.getByRole('button', { name: 'Umbenennen speichern' }));
+
+    expect(screen.getByText(/Name darf nicht leer sein/)).toBeInTheDocument();
+    expect(rename).not.toHaveBeenCalled();
+  });
+
+  // ---- Widget-Lösch-Confirm (#43) ----
+
+  it('opens a confirm dialog when widget delete is clicked', async () => {
+    const initial = {
+      id: 1,
+      name: 'Main',
+      isDefault: true,
+      createdAt: ts(),
+      updatedAt: ts(),
+      widgets: [
+        {
+          id: 7,
+          type: 'TEXTBOX' as const,
+          posX: 0,
+          posY: 0,
+          width: 4,
+          height: 3,
+          config: JSON.stringify({ markdown: '# Hello' }),
+        },
+      ],
+    };
+    get.mockResolvedValueOnce(initial);
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Bearbeiten/ })).toBeInTheDocument());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Bearbeiten/ }));
+
+    // Warte bis Edit-Mode-Indikator (Speichern-Button) da ist  jetzt sind auch die
+    // Widget-IconButtons gerendert.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Textbox löschen' })).toBeInTheDocument(),
+    );
+
+    // Trash-Icon → Confirm-Dialog
+    await user.click(screen.getByRole('button', { name: 'Textbox löschen' }));
+    expect(screen.getByText(/Widget löschen\?/)).toBeInTheDocument();
+  });
+
+  it('removes the widget from the draft when delete is confirmed', async () => {
+    const initial = {
+      id: 1,
+      name: 'Main',
+      isDefault: true,
+      createdAt: ts(),
+      updatedAt: ts(),
+      widgets: [
+        {
+          id: 7,
+          type: 'TEXTBOX' as const,
+          posX: 0,
+          posY: 0,
+          width: 4,
+          height: 3,
+          config: JSON.stringify({ markdown: '# Hello' }),
+        },
+      ],
+    };
+    get.mockResolvedValueOnce(initial);
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Bearbeiten/ })).toBeInTheDocument());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Bearbeiten/ }));
+
+    await user.click(screen.getByRole('button', { name: 'Textbox löschen' }));
+    await user.click(screen.getByRole('button', { name: 'Löschen' }));
+
+    // Widget verschwindet aus dem Render — der Delete-Button ist nicht mehr da.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Textbox löschen' })).not.toBeInTheDocument(),
+    );
   });
 });

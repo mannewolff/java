@@ -48,6 +48,10 @@ export function setDefaultDashboard(id: number): Promise<DashboardSummary> {
   return api.put<DashboardSummary>(`${PATH}/${id}/default`, {});
 }
 
+export function renameDashboard(id: number, name: string): Promise<DashboardSummary> {
+  return api.put<DashboardSummary>(`${PATH}/${id}/name`, { name });
+}
+
 export function deleteDashboard(id: number): Promise<void> {
   return api.del(`${PATH}/${id}`);
 }

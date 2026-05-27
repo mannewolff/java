@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -16,11 +15,14 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  Paper,
+  Skeleton,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
@@ -110,17 +112,41 @@ export default function DashboardListPage(): JSX.Element {
       </Stack>
 
       {state.kind === 'loading' && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }} aria-busy="true">
-          <CircularProgress aria-label="Dashboards werden geladen" />
-        </Box>
+        <Stack spacing={1.5} aria-busy="true" aria-label="Dashboards werden geladen">
+          <Skeleton variant="rectangular" height={56} />
+          <Skeleton variant="rectangular" height={56} />
+          <Skeleton variant="rectangular" height={56} />
+        </Stack>
       )}
 
       {state.kind === 'error' && <Alert severity="error">{state.message}</Alert>}
 
       {state.kind === 'ready' && state.dashboards.length === 0 && (
-        <Typography color="text.secondary">
-          Noch keine Dashboards. Lege oben mit „Neu" eines an.
-        </Typography>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 6,
+            textAlign: 'center',
+            color: 'text.secondary',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <DashboardCustomizeIcon sx={{ fontSize: 56, color: 'action.disabled' }} />
+          <Typography variant="h6">Noch keine Dashboards</Typography>
+          <Typography variant="body2">Leg dein erstes Dashboard an und befülle es mit Widgets.</Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => void handleCreate()}
+            disabled={createPending}
+            aria-label="Erstes Dashboard anlegen"
+          >
+            Erstes Dashboard anlegen
+          </Button>
+        </Paper>
       )}
 
       {state.kind === 'ready' && state.dashboards.length > 0 && (

@@ -10,6 +10,7 @@ FastAPI-Microservice für Bild-Werkzeuge der persönlichen Toolbox.
 | `POST` | `/crop` | Cover-fit-Crop auf 1200×630 (OpenGraph / WordPress). Returnt JPEG. |
 | `POST` | `/palette` | Dominante Farben per [colorthief](https://github.com/fengsp/color-thief-py). Returnt JSON. |
 | `POST` | `/resize` | Proportionales (oder freies) Skalieren via Pillow LANCZOS. Returnt Bild im gewählten Format. |
+| `POST` | `/svg-to-png` | SVG zu PNG via [cairosvg](https://cairosvg.org/). Optional `width`/`height`/`background`. |
 | `GET`  | `/health` | Liveness-Check für Docker- und Spring-Healthchecks. |
 
 ### `POST /remove-bg`
@@ -51,6 +52,17 @@ Response: `application/json`, z. B. `{"colors":["#aabbcc","#001122",...]}` — R
 
 Response: `image/*` passend zum gewählten / erkannten Format, exakt `width × height` Pixel.
 
+### `POST /svg-to-png`
+
+| Feld | Typ | Default | Range | Beschreibung |
+|---|---|---|---|---|
+| `file` | multipart-Datei | — | — | SVG, Content-Type `image/svg+xml`, max 10 MiB |
+| `width` | int | — | 1–8192 | Zielbreite in Pixeln (optional, sonst SVG-eigene Breite) |
+| `height` | int | — | 1–8192 | Zielhöhe in Pixeln (optional, sonst SVG-eigene Höhe) |
+| `background` | string | `transparent` | `transparent` oder `#rrggbb` | Hintergrundfarbe; `transparent` lässt den Alpha-Kanal offen |
+
+Response: `image/png`. Rendering via [cairosvg](https://cairosvg.org/) (Native-Lib `libcairo`, im Docker-Image vorinstalliert).
+
 ## Fehler
 
 | Status | Bedeutung |
@@ -65,24 +77,30 @@ Bei 500-Fehlern steht der volle Traceback in den Container-Logs (`docker compose
 
 ## Lokal entwickeln
 
+Setup folgt [CLAUDE-Python.md](../CLAUDE-Python.md) — uv als Paketmanager, `pyproject.toml` + `uv.lock` als Single Source of Truth.
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-uvicorn main:app --reload
+# uv einmalig installieren (macOS: `brew install uv`, sonst https://docs.astral.sh/uv/)
+uv sync --frozen      # installiert prod + dev deps aus uv.lock in .venv/
+uv run uvicorn main:app --reload
 ```
 
 Erster `POST /remove-bg`-Aufruf lädt das U2Net-Modell (~180 MB) nach `~/.u2net/`. Im Docker-Build ist es bereits vorgeladen.
 
-## Tests
-
-Tests laufen mit gemockten Schwergewichten — `rembg` und `colorthief` werden über lazy imports + monkeypatch ersetzt. Für die `/crop`-Tests wird ein echtes Pillow erwartet, das aber Teil von `requirements.txt` ist.
+### Lint, Typecheck, Tests
 
 ```bash
-.venv/bin/python -m pytest --cov=. --cov-report=term
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy --strict .
+uv run pytest         # mit Coverage-Gate (fail_under=90 in pyproject.toml)
 ```
 
-Aktueller Stand: 29 Tests, 100 % Coverage auf `main.py`.
+Pre-Commit-Hooks (`.pre-commit-config.yaml`): einmalig `pre-commit install`, dann laufen `ruff`, `ruff-format`, `mypy`, `trailing-whitespace` und `end-of-file-fixer` automatisch vor jedem Commit.
+
+Tests laufen mit gemockten Schwergewichten — `rembg` und `colorthief` werden über lazy imports + monkeypatch ersetzt. Für die `/crop`-Tests wird ein echtes Pillow erwartet, das aber Teil der prod-deps ist.
+
+Aktueller Stand: 51 Tests, 100 % Coverage auf `main.py`.
 
 ## Docker
 

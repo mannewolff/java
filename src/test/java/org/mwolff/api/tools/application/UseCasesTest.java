@@ -18,6 +18,7 @@ import org.mwolff.api.tools.domain.PaletteParams;
 import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsPort;
 import org.mwolff.api.tools.domain.ResizeParams;
+import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
 import org.mwolff.api.tools.domain.UploadValidatorPort;
 import org.mwolff.api.tools.domain.UploadedImage;
@@ -120,5 +121,31 @@ class UseCasesTest {
     assertThatThrownBy(() -> new ExtractPaletteUseCase(validator, tools).execute(image, params))
         .isInstanceOf(InvalidUploadException.class);
     verify(tools, never()).extractPalette(any(), any());
+  }
+
+  @Test
+  void svgToPngShouldValidateAsSvgAndDelegate() {
+    final UploadedImage svg = new UploadedImage(new byte[] {1}, "image/svg+xml", "logo.svg");
+    final SvgToPngParams params = new SvgToPngParams(128, 128, "transparent");
+    final ToolImageResult expected = new ToolImageResult(new byte[] {9}, "image/png");
+    given(tools.convertSvgToPng(svg, params)).willReturn(expected);
+
+    final ToolImageResult result = new SvgToPngUseCase(validator, tools).execute(svg, params);
+
+    assertThat(result).isSameAs(expected);
+    verify(validator).validateSvg(svg);
+  }
+
+  @Test
+  void svgToPngShouldShortCircuitOnInvalidUpload() {
+    final UploadedImage svg = new UploadedImage(new byte[] {1}, "image/svg+xml", "logo.svg");
+    final SvgToPngParams params = new SvgToPngParams(null, null, "transparent");
+    willThrow(new InvalidUploadException("UNSUPPORTED_FORMAT", "not svg"))
+        .given(validator)
+        .validateSvg(svg);
+
+    assertThatThrownBy(() -> new SvgToPngUseCase(validator, tools).execute(svg, params))
+        .isInstanceOf(InvalidUploadException.class);
+    verify(tools, never()).convertSvgToPng(any(), any());
   }
 }

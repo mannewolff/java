@@ -109,10 +109,8 @@ npm run dev
 
 # Terminal 3 – Python-Tools (für Hintergrund-Entfernung)
 cd python-tools
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
+uv sync --frozen   # uv einmalig via `brew install uv` o.ä. installieren
+uv run uvicorn main:app --reload
 ```
 
 Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter. Spring spricht python-tools unter `http://localhost:8000` an (siehe `PYTHON_TOOLS_URL`).

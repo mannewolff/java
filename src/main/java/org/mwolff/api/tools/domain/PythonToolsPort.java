@@ -14,4 +14,6 @@ public interface PythonToolsPort {
   ToolImageResult removeBackground(UploadedImage image);
 
   PaletteResult extractPalette(UploadedImage image, PaletteParams params);
+
+  ToolImageResult convertSvgToPng(UploadedImage image, SvgToPngParams params);
 }

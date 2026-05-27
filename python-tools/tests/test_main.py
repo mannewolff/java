@@ -824,3 +824,170 @@ def test_remove_background_invokes_rembg() -> None:
 
     # Then
     assert result == b"input:processed"
+
+
+# ---------------------------------------------------------------------------
+# /svg-to-png
+# ---------------------------------------------------------------------------
+
+
+TINY_SVG_BYTES: bytes = (
+    b'<?xml version="1.0" standalone="no"?>'
+    b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+    b'<rect width="10" height="10" fill="red"/></svg>'
+)
+
+
+def test_svg_to_png_happy_path_returns_png(client: TestClient) -> None:
+    # Given
+    fake_png = b"\x89PNG\r\n\x1a\nfake-cairosvg-output"
+
+    # When
+    with patch.object(main, "_svg_to_png", return_value=fake_png) as conv:
+        response = client.post(
+            "/svg-to-png",
+            files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+        )
+
+    # Then
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == fake_png
+    conv.assert_called_once_with(TINY_SVG_BYTES, width=None, height=None, background="transparent")
+
+
+def test_svg_to_png_forwards_width_height_and_background(client: TestClient) -> None:
+    # When
+    with patch.object(main, "_svg_to_png", return_value=b"png") as conv:
+        response = client.post(
+            "/svg-to-png",
+            files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+            data={"width": "512", "height": "256", "background": "#ffffff"},
+        )
+
+    # Then
+    assert response.status_code == 200
+    conv.assert_called_once_with(TINY_SVG_BYTES, width=512, height=256, background="#ffffff")
+
+
+def test_svg_to_png_rejects_png_content_type(client: TestClient) -> None:
+    # When  png hat einen anderen Content-Type als SVG, muss abgelehnt werden.
+    response = client.post(
+        "/svg-to-png",
+        files={"file": ("input.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+    )
+
+    # Then
+    assert response.status_code == 415
+    assert "Unsupported content type" in response.json()["detail"]
+
+
+def test_svg_to_png_rejects_empty_file(client: TestClient) -> None:
+    # When
+    response = client.post(
+        "/svg-to-png",
+        files={"file": ("empty.svg", io.BytesIO(b""), "image/svg+xml")},
+    )
+
+    # Then
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Empty file"
+
+
+def test_svg_to_png_rejects_oversized_file(client: TestClient) -> None:
+    # Given  knapp ueber MAX_BYTES.
+    too_big = b"<svg/>" + b"x" * (main.MAX_BYTES)
+
+    # When
+    response = client.post(
+        "/svg-to-png",
+        files={"file": ("huge.svg", io.BytesIO(too_big), "image/svg+xml")},
+    )
+
+    # Then
+    assert response.status_code == 413
+    assert response.json()["detail"] == "File too large"
+
+
+def test_svg_to_png_rejects_invalid_background_format(client: TestClient) -> None:
+    # When  "red" ist kein erlaubtes Pattern (nur transparent oder #rrggbb).
+    response = client.post(
+        "/svg-to-png",
+        files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+        data={"background": "red"},
+    )
+
+    # Then  FastAPI/Pydantic liefert 422 fuer Pattern-Mismatch.
+    assert response.status_code == 422
+
+
+def test_svg_to_png_rejects_width_out_of_range(client: TestClient) -> None:
+    # When
+    response = client.post(
+        "/svg-to-png",
+        files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+        data={"width": "0"},
+    )
+
+    # Then
+    assert response.status_code == 422
+
+
+def test_svg_to_png_wraps_cairosvg_exception_as_500(client: TestClient) -> None:
+    # When
+    with patch.object(main, "_svg_to_png", side_effect=ValueError("bad svg")):
+        response = client.post(
+            "/svg-to-png",
+            files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+        )
+
+    # Then
+    assert response.status_code == 500
+    assert "SVG conversion failed" in response.json()["detail"]
+    assert "ValueError" in response.json()["detail"]
+
+
+def test_svg_to_png_invokes_cairosvg_with_bytestring_only_when_no_options() -> None:
+    """Lazy-import-Wrapper darf nur die SVG-Bytes weitergeben, wenn keine Optionen gesetzt sind."""
+    # Given
+    fake_cairosvg = types.ModuleType("cairosvg")
+    captured: dict[str, object] = {}
+
+    def fake_svg2png(**kwargs: object) -> bytes:
+        captured.update(kwargs)
+        return b"fake-png"
+
+    fake_cairosvg.svg2png = fake_svg2png  # type: ignore[attr-defined]
+
+    # When
+    with patch.dict("sys.modules", {"cairosvg": fake_cairosvg}):
+        result = main._svg_to_png(b"<svg/>", width=None, height=None, background="transparent")
+
+    # Then
+    assert result == b"fake-png"
+    assert captured == {"bytestring": b"<svg/>"}
+
+
+def test_svg_to_png_invokes_cairosvg_with_all_options() -> None:
+    """Mit explizitem width/height/background werden alle vier kwargs weitergegeben."""
+    # Given
+    fake_cairosvg = types.ModuleType("cairosvg")
+    captured: dict[str, object] = {}
+
+    def fake_svg2png(**kwargs: object) -> bytes:
+        captured.update(kwargs)
+        return b"fake-png"
+
+    fake_cairosvg.svg2png = fake_svg2png  # type: ignore[attr-defined]
+
+    # When
+    with patch.dict("sys.modules", {"cairosvg": fake_cairosvg}):
+        main._svg_to_png(b"<svg/>", width=64, height=32, background="#abcdef")
+
+    # Then
+    assert captured == {
+        "bytestring": b"<svg/>",
+        "output_width": 64,
+        "output_height": 32,
+        "background_color": "#abcdef",
+    }

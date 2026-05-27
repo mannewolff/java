@@ -8,6 +8,7 @@ import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsException;
 import org.mwolff.api.tools.domain.PythonToolsPort;
 import org.mwolff.api.tools.domain.ResizeParams;
+import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
 import org.mwolff.api.tools.domain.UploadedImage;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   private static final String CROP_PATH = "/crop";
   private static final String REMOVE_BG_PATH = "/remove-bg";
   private static final String PALETTE_PATH = "/palette";
+  private static final String SVG_TO_PNG_PATH = "/svg-to-png";
 
   private final RestClient client;
 
@@ -65,6 +67,21 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   public ToolImageResult removeBackground(UploadedImage image) {
     final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
     return postForImage(REMOVE_BG_PATH, body, "remove-bg");
+  }
+
+  @Override
+  public ToolImageResult convertSvgToPng(UploadedImage image, SvgToPngParams params) {
+    final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
+    // width/height optional — nur weiterleiten wenn gesetzt, sonst nimmt cairosvg
+    // die SVG-eigene Geometrie.
+    if (params.width() != null) {
+      body.add("width", Integer.toString(params.width()));
+    }
+    if (params.height() != null) {
+      body.add("height", Integer.toString(params.height()));
+    }
+    body.add("background", params.background());
+    return postForImage(SVG_TO_PNG_PATH, body, "svg-to-png");
   }
 
   @Override

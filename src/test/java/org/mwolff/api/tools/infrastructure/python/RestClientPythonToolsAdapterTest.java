@@ -15,6 +15,7 @@ import org.mwolff.api.tools.domain.PaletteParams;
 import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsException;
 import org.mwolff.api.tools.domain.ResizeParams;
+import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
 import org.mwolff.api.tools.domain.UploadedImage;
 import org.springframework.web.client.RestClient;
@@ -333,5 +334,63 @@ class RestClientPythonToolsAdapterTest {
     assertThat(request).isNotNull();
     final String body = request.getBody().readString(StandardCharsets.UTF_8);
     assertThat(body).contains("filename=\"upload\"");
+  }
+
+  // ----- svg-to-png --------------------------------------------------------
+
+  private final UploadedImage svgImage =
+      new UploadedImage("<svg/>".getBytes(StandardCharsets.UTF_8), "image/svg+xml", "logo.svg");
+
+  @Test
+  void svgToPngShouldForwardAllFormFieldsWhenDimensionsGiven() throws Exception {
+    final byte[] processed = "fake-png".getBytes(StandardCharsets.UTF_8);
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(processed)));
+
+    final ToolImageResult result =
+        adapter.convertSvgToPng(svgImage, new SvgToPngParams(512, 256, "#ffffff"));
+
+    assertThat(result.bytes()).isEqualTo(processed);
+    assertThat(result.contentType()).isEqualTo("image/png");
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    assertThat(request.getPath()).isEqualTo("/svg-to-png");
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("name=\"file\"");
+    assertThat(body).contains("name=\"width\"").contains("512");
+    assertThat(body).contains("name=\"height\"").contains("256");
+    assertThat(body).contains("name=\"background\"").contains("#ffffff");
+  }
+
+  @Test
+  void svgToPngShouldOmitWidthAndHeightWhenNull() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {1})));
+
+    adapter.convertSvgToPng(svgImage, new SvgToPngParams(null, null, "transparent"));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).doesNotContain("name=\"width\"");
+    assertThat(body).doesNotContain("name=\"height\"");
+    assertThat(body).contains("name=\"background\"").contains("transparent");
+  }
+
+  @Test
+  void svgToPngShouldThrowOnUpstreamServerError() {
+    server.enqueue(new MockResponse().setResponseCode(500).setBody("cairo-crash"));
+
+    assertThatThrownBy(
+            () -> adapter.convertSvgToPng(svgImage, new SvgToPngParams(null, null, "transparent")))
+        .isInstanceOf(PythonToolsException.class)
+        .hasMessageContaining("python-tools call failed")
+        .hasMessageNotContaining("cairo-crash");
   }
 }

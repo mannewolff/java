@@ -107,6 +107,85 @@ describe('WidgetTextbox', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
+  it('meldet im Read-Modus die scrollHeight des Containers an onContentHeight (Auto-Resize)', () => {
+    // jsdom hat keinen ResizeObserver — wir stellen einen Stub, der nach `observe`
+    // synchron feuert. Damit testen wir, dass WidgetTextbox die scrollHeight an
+    // den Callback durchreicht.
+    let captured: ResizeObserverCallback | null = null;
+    type RO = {
+      observe: (t: Element) => void;
+      disconnect: () => void;
+      unobserve: (t: Element) => void;
+    };
+    class StubResizeObserver implements RO {
+      constructor(cb: ResizeObserverCallback) {
+        captured = cb;
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+    }
+    const original = (globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+    (globalThis as unknown as { ResizeObserver: typeof StubResizeObserver }).ResizeObserver =
+      StubResizeObserver;
+
+    const onContentHeight = vi.fn();
+    render(
+      <WidgetTextbox
+        widget={makeWidget('# Langer Text\n\nNoch mehr Inhalt der scrollt.')}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+        readOnly
+        onContentHeight={onContentHeight}
+      />,
+    );
+
+    // ResizeObserver ist instanziiert. scrollHeight ist in jsdom 0, der Aufruf erfolgt aber.
+    expect(captured).not.toBeNull();
+    // Simuliere ein Resize-Event — der Stub-Callback ruft intern Element.scrollHeight ab.
+    captured!([], {} as ResizeObserver);
+    expect(onContentHeight).toHaveBeenCalled();
+    expect(typeof onContentHeight.mock.calls[0][0]).toBe('number');
+
+    if (original) {
+      (globalThis as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver =
+        original;
+    } else {
+      delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+    }
+  });
+
+  it('startet keinen ResizeObserver, wenn nicht readOnly ist', () => {
+    const observeSpy = vi.fn();
+    class StubResizeObserver {
+      observe = observeSpy;
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+    }
+    const original = (globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+    (globalThis as unknown as { ResizeObserver: typeof StubResizeObserver }).ResizeObserver =
+      StubResizeObserver;
+
+    render(
+      <WidgetTextbox
+        widget={makeWidget('Text')}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+        // editMode → kein readOnly, kein Auto-Resize
+        onContentHeight={vi.fn()}
+      />,
+    );
+
+    expect(observeSpy).not.toHaveBeenCalled();
+
+    if (original) {
+      (globalThis as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver =
+        original;
+    } else {
+      delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+    }
+  });
+
   it('fängt invalide Config-JSON ab und rendert ohne Crash', () => {
     const widget: WidgetDto = {
       type: 'TEXTBOX',

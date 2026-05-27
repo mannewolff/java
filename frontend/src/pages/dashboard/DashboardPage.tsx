@@ -21,6 +21,7 @@ import {
   newWidget,
 } from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
+import WidgetKpi from './widgets/WidgetKpi';
 import WidgetTextbox from './widgets/WidgetTextbox';
 
 type SaveState = 'idle' | 'pending' | 'saved' | { kind: 'error'; message: string };
@@ -150,15 +151,21 @@ export default function DashboardPage(): JSX.Element {
             onDelete={() => handleWidgetDelete(index)}
           />
         );
-      // KPI folgt in #42 — bis dahin Fallback auf die rohe Anzeige.
+      case 'KPI':
+        return (
+          <WidgetKpi
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDelete(index)}
+          />
+        );
+      // Unbekannter Typ — minimaler Fallback ohne Crash. Backend-Enum und Frontend-Switch
+      // sind theoretisch immer in Sync, das Default-Branch ist defensiv für Schema-Drift.
       default:
         return (
           <Paper variant="outlined" sx={{ p: 2, height: '100%', overflow: 'hidden' }}>
             <Typography variant="caption" color="text.secondary">
               {widget.type}
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
-              {widget.config}
             </Typography>
           </Paper>
         );

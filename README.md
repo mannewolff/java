@@ -1,27 +1,31 @@
 # java goes KI
-Dieses Projekt ist vollständig mit KI entwickelt worden. Kein Editor, kein VI, kein nichts, kein gar nichts. Nur ein Prompt und, in diesem Fall, mehrere KI-Modelle. Ziel ist es, eine Toolbox zu bauen, wo ich Dinge, die ich immer und immer wieder brauche, mit abarbeiten kann. Und sind es nur so triviale Dinge wie von einem Icon den Hintergrund transparent zu machen. Dieses Tool ist nicht fürs Deployment gedacht. Es läuft lokal bei mir und hilft mir. Es ist ein Projekt, wo ich zeigen kann, dass auch etwas komplexere Dinge mit KI entwickelt werden können oder eben nicht. 
+Dieses Projekt ist vollständig mit KI entwickelt worden. Kein Editor, kein VI, kein nichts, kein gar nichts. Nur ein Prompt und, in diesem Fall, mehrere KI-Modelle. Ziel ist es, eine Toolbox zu bauen, wo ich Dinge, die ich immer und immer wieder brauche, mit abarbeiten kann. Und sind es nur so triviale Dinge wie von einem Icon den Hintergrund transparent zu machen. Es läuft lokal bei mir und – inzwischen auch für mich persönlich – live unter toolbox.mwolff.org, ist aber keine produktive Anwendung für Dritte. Es ist ein Projekt, wo ich zeigen kann, dass auch etwas komplexere Dinge mit KI entwickelt werden können oder eben nicht. 
 
 ## API
 
-Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Stil eines Dashboards (links Menü, rechts Inhalt). TDD-Scaffold inkl. Unit-, Slice- und Testcontainers-Integrationstests.
+Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Stil eines Dashboards (links Menü, rechts Inhalt). Authentifizierung über Keycloak (OIDC/JWT). TDD-Scaffold inkl. Unit-, Slice- und Testcontainers-Integrationstests.
 
 ## Stack
 
 - Java 21, Spring Boot 3.5, Maven
-- MariaDB (via Docker / Testcontainers)
+- MariaDB 11 (via Docker / Testcontainers)
 - Flyway für Schemamigrationen
-- JUnit 5 · Mockito · AssertJ · Testcontainers
-- React 18 · TypeScript · Vite · MUI 6 · React Router 6
+- Keycloak 26 (eigener Container, Realm-Config als Code in `infra/keycloak/`)
+- JUnit 5 · Mockito · AssertJ · Testcontainers · ArchUnit · PIT
+- React 18 · TypeScript · Vite · MUI 6 · React Router 6 · `react-grid-layout`
+- FastAPI (Python 3.12, uv-managed) für die Image-Pipeline (Pillow, rembg, cairosvg, colorthief)
 
 ## Projektstruktur
 
 ```
-src/main/java/org/mwolff/api/      Application + Domain
+src/main/java/org/mwolff/api/      Application + Domain (auth, dashboard, tools, common)
 src/main/resources/                application.yml, Flyway-Migrationen
 src/test/java/org/mwolff/api/      Tests (*Test = schnell, *IT = Testcontainers)
 frontend/                          React-App (Vite + TS + MUI)
-python-tools/                      FastAPI-Microservice (rembg, Pillow)
-Dockerfile, docker-compose.yml     Lokales Deployment (API + MariaDB + python-tools + Frontend)
+python-tools/                      FastAPI-Microservice (uv + ruff + mypy)
+infra/keycloak/                    Realm-Exports (toolbox-dev, toolbox) + Admin-README
+infra/mariadb/init/                Init-Scripts (Keycloak-Schema + DB-User)
+Dockerfile, docker-compose.yml     Lokales Deployment (api + mariadb + keycloak + python-tools)
 ```
 
 ## Schnellstart
@@ -43,10 +47,22 @@ cp .env.example .env       # ggf. Passwörter anpassen
 docker compose up --build
 ```
 
-Anschließend ist die API unter `http://localhost:8080` erreichbar:
+Anschließend laufen vier Services:
+
+| Service | URL |
+|---|---|
+| API + Frontend (Spring Boot, ausgeliefertes React-Bundle) | http://localhost:8080 |
+| Keycloak (Identity, Realm `toolbox-dev`) | http://localhost:8081 |
+| MariaDB | localhost:3306 (innerhalb des Netzwerks `mariadb:3306`) |
+| python-tools (FastAPI) | innerhalb des Netzwerks `python-tools:8000` |
+
+Health-Check und Login:
 
 ```bash
 curl -s http://localhost:8080/actuator/health
+# Browser: http://localhost:8080 → Login-Redirect zu Keycloak → Self-Register
+# Anschließend muss der Admin im Realm den User von PENDING auf USER promoten.
+# Details: infra/keycloak/README.md
 ```
 
 Konkrete Tool-Endpunkte und Beispielaufrufe finden sich im Abschnitt [Tools](#tools).
@@ -68,17 +84,18 @@ Validation per `@Valid` an Controller-DTOs, Fehler werden vom `GlobalExceptionHa
 
 | Typ | Beispiel | Ausführung |
 |---|---|---|
-| Unit (Mockito) | `*ServiceTest` | `mvn test` |
+| Unit (Mockito + AssertJ) | `*UseCasesTest`, `*Test` in `domain/` | `mvn test` |
 | Slice (`@WebMvcTest`) | `*ControllerTest` | `mvn test` |
-| Repository (`@DataJpaTest` + Testcontainers) | `*RepositoryIT` | `mvn verify` |
-| End-to-end (`@SpringBootTest`) | `*ApiIT` | `mvn verify` |
-| Smoketest | `ApiApplicationIT` | `mvn verify` |
+| Architektur (ArchUnit) | `*LayerArchitectureTest` | `mvn test` |
+| Adapter (`@DataJpaTest` + Testcontainers) | `JpaDashboardAdapterIT` | `mvn verify` |
+| Smoketest (`@SpringBootTest`) | `ApiApplicationIT` | `mvn verify` |
+| Mutation Testing (PIT) | gesamtes Domain/Application | `mvn verify` |
 
-Neue ITs erben von `AbstractIntegrationTest`, dort hängt eine wiederverwendete `MariaDBContainer` mit `@ServiceConnection`.
+Neue ITs erben von `AbstractIntegrationTest`, dort hängt eine wiederverwendete `MariaDBContainer` mit `@ServiceConnection`. Coverage-Ziel für Domain/Application/Web ist 100/100 (JaCoCo). Persistence-Schicht steht in den JaCoCo-Excludes, weil nur via Testcontainers sinnvoll testbar.
 
 ## Konfiguration
 
-Alle DB-Werte sind über Umgebungsvariablen mit Defaults parametrisiert:
+Alle DB- und Auth-Werte sind über Umgebungsvariablen mit Defaults parametrisiert:
 
 | Variable | Default (lokal) | Default (Profile `docker`) |
 |---|---|---|
@@ -89,31 +106,37 @@ Alle DB-Werte sind über Umgebungsvariablen mit Defaults parametrisiert:
 | `DB_PASSWORD` | `api` | `api` |
 | `SERVER_PORT` | `8080` | `8080` |
 | `PYTHON_TOOLS_URL` | `http://localhost:8000` | `http://python-tools:8000` |
+| `KEYCLOAK_ISSUER_URI` | `http://localhost:8081/realms/toolbox-dev` | `http://keycloak:8080/realms/toolbox-dev` |
 
-Schemamigrationen liegen unter `src/main/resources/db/migration` und werden beim Start von Flyway angewendet (`ddl-auto: validate`).
+Schemamigrationen liegen unter `src/main/resources/db/migration` und werden beim Start von Flyway angewendet (`ddl-auto: validate`). Realm-Exports liegen unter `infra/keycloak/` und werden beim ersten Keycloak-Start automatisch importiert.
 
 ## Frontend / Dev-Workflow
 
 Drei Startwege je nach Iterationsgeschwindigkeit:
 
-### 1. Dev-Modus (drei Prozesse, schneller HMR)
+### 1. Dev-Modus (vier Prozesse, schneller HMR)
+
+Keycloak und MariaDB laufen permanent als Container, der Rest läuft nativ für schnellen Reload:
 
 ```bash
-# Terminal 1 – Backend
+# Terminal 1 – Infra (MariaDB + Keycloak)
+docker compose up mariadb keycloak
+
+# Terminal 2 – Backend
 mvn spring-boot:run -P skip-frontend
 
-# Terminal 2 – Frontend mit Hot Reload
+# Terminal 3 – Frontend mit Hot Reload
 cd frontend
 npm install   # nur beim ersten Mal
 npm run dev
 
-# Terminal 3 – Python-Tools (für Hintergrund-Entfernung)
+# Terminal 4 – Python-Tools (Image-Pipeline)
 cd python-tools
 uv sync --frozen   # uv einmalig via `brew install uv` o.ä. installieren
 uv run uvicorn main:app --reload
 ```
 
-Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter. Spring spricht python-tools unter `http://localhost:8000` an (siehe `PYTHON_TOOLS_URL`).
+Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter. Spring spricht python-tools unter `http://localhost:8000` an (siehe `PYTHON_TOOLS_URL`). Login geht über Keycloak auf `:8081`, Realm `toolbox-dev`.
 
 ### 2. Voller Build (ein jar)
 
@@ -136,34 +159,55 @@ mvn -P skip-frontend package
 docker compose up --build
 ```
 
-`docker compose` startet vier Services: MariaDB, python-tools (FastAPI mit vorgeladenem rembg-Modell), API (Spring Boot mit eingebettetem Frontend) und das Frontend-Build innerhalb des API-Images. `http://localhost:8080` liefert die React-App, JSON-API und Tool-Endpoints.
+`docker compose` startet vier Services: `mariadb`, `keycloak`, `python-tools` (FastAPI mit vorgeladenem rembg-Modell) und `api` (Spring Boot mit eingebettetem React-Bundle). `http://localhost:8080` liefert die React-App, JSON-API und Tool-Endpoints; `http://localhost:8081` Keycloak.
 
-## Tools
+## Features
 
-Persönliche Toolbox-Funktionen, jeweils unter `/tools/...` im UI und `/api/tools/...` im Backend erreichbar.
+Alle UI-Routen sind hinter Keycloak-Login und erfordern Rolle `USER`. Backend-Endpunkte sind Bearer-only JWT-protected.
+
+### Dashboards (Hauptfunktion)
+
+| Route | Endpoint | Zweck |
+|---|---|---|
+| `/dashboards` | `GET/POST /api/dashboards` | Liste, Anlegen, Default markieren, Löschen |
+| `/dashboards/:id` | `GET /api/dashboards/{id}`, `PUT /api/dashboards/{id}` | Detail mit Widgets, Layout speichern |
+| `/dashboards/:id` (inline rename) | `PUT /api/dashboards/{id}/name` | Inline-Rename |
+
+Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
+
+### Image-Tools
 
 | Tool | UI-Route | Backend-Endpoint | Implementierung |
 |---|---|---|---|
 | Hintergrund entfernen | `/tools/remove-background` | `POST /api/tools/remove-background` | Spring proxy → python-tools (rembg / U2Net) |
 | Beitragsbild (1200×630) | `/tools/og-image` | `POST /api/tools/crop-og`, `POST /api/tools/palette` | Spring proxy → python-tools (Pillow + colorthief) |
 | Bild verkleinern | `/tools/resize` | `POST /api/tools/resize` | Spring proxy → python-tools (Pillow LANCZOS) |
+| SVG → PNG | `/tools/svg-to-png` | `POST /api/tools/svg-to-png` | Spring proxy → python-tools (cairosvg) |
 
-Smoke-Tests gegen das Backend (bei laufendem Docker-Stack):
+### Sonstiges
+
+| Tool | UI-Route | Implementierung |
+|---|---|---|
+| Passwort-Generator + bcrypt-Hash | `/tools/password` | Rein clientseitig (`bcryptjs`) |
+
+### Smoke-Tests
+
+Bevorzugter Pfad ist der Browser: einloggen über Keycloak, jeweilige `/tools/...`-Route ansteuern, Bild hochladen. Für API-Tests per `curl` braucht es einen Bearer-Token. Da im Realm nur PKCE (`toolbox-web`) und bearer-only (`toolbox-api`) konfiguriert sind, ist der pragmatische Weg: im laufenden Browser die Devtools öffnen, in einem `fetch`-Request den `Authorization`-Header inspizieren und den Token kopieren:
 
 ```bash
+TOKEN=<aus Browser-Devtools kopiert>
+
 # Hintergrund entfernen
-curl -fS -F file=@icon.png \
+curl -fS -H "Authorization: Bearer $TOKEN" -F file=@icon.png \
      http://localhost:8080/api/tools/remove-background -o icon-transparent.png
 
-# Beitragsbild auf 1200x630 croppen (y_offset 0=oben, 1=unten, default 0.5)
-curl -fS -F file=@photo.jpg -F y_offset=0.3 \
-     http://localhost:8080/api/tools/crop-og -o featured.jpg
+# SVG → PNG
+curl -fS -H "Authorization: Bearer $TOKEN" -F file=@logo.svg -F width=512 \
+     http://localhost:8080/api/tools/svg-to-png -o logo.png
+```
 
-# Brandpalette extrahieren (count 2-10, default 6)
-curl -fS -F file=@photo.jpg -F count=6 \
-     http://localhost:8080/api/tools/palette
+Health-Endpoint ist offen (keine Auth):
 
-# Bild verkleinern (width + height Pflicht, output_format optional)
-curl -fS -F file=@photo.jpg -F width=400 -F height=300 \
-     http://localhost:8080/api/tools/resize -o resized.jpg
+```bash
+curl -s http://localhost:8080/actuator/health
 ```

@@ -17,7 +17,6 @@ import {
   ListItemButton,
   ListItemText,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -43,7 +42,6 @@ type LoadState =
 export default function DashboardListPage(): JSX.Element {
   const navigate = useNavigate();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const [newName, setNewName] = useState('');
   const [createPending, setCreatePending] = useState(false);
   const [toDelete, setToDelete] = useState<DashboardSummary | null>(null);
 
@@ -63,14 +61,17 @@ export default function DashboardListPage(): JSX.Element {
     void reload();
   }, []);
 
+  /**
+   * Klick auf "+" legt direkt ein Dashboard mit dem Default-Namen "Neues Dashboard" an
+   * und navigiert auf das frische Dashboard. Kein Modal, kein Inline-Input — Umbenennen
+   * passiert im Dashboard selbst (Inline-Edit auf dem Namen, siehe #43).
+   */
   async function handleCreate(): Promise<void> {
-    const trimmed = newName.trim();
-    if (!trimmed || createPending) return;
+    if (createPending) return;
     setCreatePending(true);
     try {
-      await createDashboard(trimmed);
-      setNewName('');
-      await reload();
+      const created = await createDashboard('Neues Dashboard');
+      navigate(`/dashboards/${created.id}`);
     } catch (e) {
       setState({
         kind: 'error',
@@ -95,31 +96,16 @@ export default function DashboardListPage(): JSX.Element {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Dashboards
-      </Typography>
-
-      <Stack direction="row" spacing={1} sx={{ mb: 3, alignItems: 'flex-start' }}>
-        <TextField
-          label="Neues Dashboard"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          size="small"
-          inputProps={{ maxLength: 100 }}
-          sx={{ flexGrow: 1, maxWidth: 400 }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              void handleCreate();
-            }
-          }}
-        />
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+        <Typography variant="h4">Dashboards</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => void handleCreate()}
-          disabled={!newName.trim() || createPending}
+          disabled={createPending}
+          aria-label="Neues Dashboard anlegen"
         >
-          Anlegen
+          Neu
         </Button>
       </Stack>
 
@@ -133,7 +119,7 @@ export default function DashboardListPage(): JSX.Element {
 
       {state.kind === 'ready' && state.dashboards.length === 0 && (
         <Typography color="text.secondary">
-          Noch keine Dashboards. Lege oben eines an.
+          Noch keine Dashboards. Lege oben mit „Neu" eines an.
         </Typography>
       )}
 

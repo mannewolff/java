@@ -2,8 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
+
+// `Responsive` allein kennt die Container-Breite nicht und berechnet Spalten aus einem Default —
+// Folge: horizontales Resize/Drag wird unzuverlässig. `WidthProvider` injiziert die Breite via
+// ResizeObserver und reagiert auch live auf Browser-Window-Resize.
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 import {
   getDashboard,
@@ -252,21 +257,34 @@ export default function DashboardPage(): JSX.Element {
       )}
 
       {detail.widgets.length > 0 && (
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={{ lg: toLayouts(detail.widgets) }}
-          breakpoints={{ lg: DESKTOP_MIN_WIDTH }}
-          cols={{ lg: GRID_COLS }}
-          rowHeight={GRID_ROW_HEIGHT}
-          compactType="vertical"
-          preventCollision={false}
-          onLayoutChange={handleLayoutChange}
-          draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
+        <Box
+          sx={{
+            // Dezentes Punkte-Raster im Hintergrund — radial-gradient mit divider-Farbe
+            // und gleichmäßiger Tile-Größe (Spaltenbreite × Row-Höhe). Macht die 12-Spalten-
+            // Struktur sichtbar, ohne aufdringlich zu sein. In #80 wird das auf den
+            // Edit-Modus eingeschränkt.
+            backgroundImage:
+              'radial-gradient(circle, rgba(0, 0, 0, 0.18) 1px, transparent 1.5px)',
+            backgroundSize: `calc(100% / ${GRID_COLS}) ${GRID_ROW_HEIGHT}px`,
+            backgroundPosition: '0 0',
+          }}
         >
-          {detail.widgets.map((w, i) => (
-            <Box key={widgetKey(w, i)}>{renderWidgetBody(w, i)}</Box>
-          ))}
-        </ResponsiveGridLayout>
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={{ lg: toLayouts(detail.widgets) }}
+            breakpoints={{ lg: DESKTOP_MIN_WIDTH }}
+            cols={{ lg: GRID_COLS }}
+            rowHeight={GRID_ROW_HEIGHT}
+            compactType="vertical"
+            preventCollision={false}
+            onLayoutChange={handleLayoutChange}
+            draggableCancel=".MuiIconButton-root,.MuiDrawer-root,.MuiButtonBase-root[role='button']"
+          >
+            {detail.widgets.map((w, i) => (
+              <Box key={widgetKey(w, i)}>{renderWidgetBody(w, i)}</Box>
+            ))}
+          </ResponsiveGridLayout>
+        </Box>
       )}
     </Box>
   );

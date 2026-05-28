@@ -28,7 +28,16 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number
 
 /** Initial-Config je Widget-Typ — passend zu den Widget-Komponenten in widgets/. */
 export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
-  KPI: JSON.stringify({ value: 0, label: 'Neue Kennzahl', color: 'neutral' }),
+  KPI: JSON.stringify({
+    style: 'gauge',
+    value: 50,
+    label: 'Neue Kennzahl',
+    min: 0,
+    max: 100,
+    lowEnd: 33,
+    mediumEnd: 66,
+    rangeLabel: '',
+  }),
   TEXTBOX: JSON.stringify({ markdown: '# Neue Textbox\n\nText hier eingeben.' }),
   PLOT: JSON.stringify({
     timeSeriesId: null,

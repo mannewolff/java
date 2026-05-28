@@ -19,15 +19,28 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 import type { WidgetDto } from '../../../api/dashboard';
+import {
+  getLatestEntry,
+  getTimeSeries,
+  listTimeSeries,
+  type TimeSeriesEntry as TsEntry,
+  type TimeSeriesSummary,
+} from '../../../api/timeseries';
+import { ApiError } from '../../../api/client';
 
 type KpiColor = 'neutral' | 'success' | 'warning' | 'error';
-type KpiStyle = 'number' | 'gauge';
+type KpiStyle = 'number' | 'gauge' | 'timeseries';
 
 const COLORS: ReadonlyArray<KpiColor> = ['neutral', 'success', 'warning', 'error'];
 const STYLES: ReadonlyArray<{ value: KpiStyle; label: string }> = [
   { value: 'gauge', label: 'Gauge (Tacho)' },
   { value: 'number', label: 'Zahl (Number)' },
+  { value: 'timeseries', label: 'Zeitreihe' },
 ];
+
+const MIN_REFRESH_SECONDS = 5;
+const MAX_REFRESH_SECONDS = 3600;
+const DEFAULT_REFRESH_SECONDS = 30;
 
 interface NumberConfig {
   style: 'number';
@@ -49,14 +62,21 @@ interface GaugeConfig {
   rangeLabel: string;
 }
 
-type KpiConfig = NumberConfig | GaugeConfig;
+interface TimeSeriesConfig {
+  style: 'timeseries';
+  timeSeriesId: number | null;
+  refreshSeconds: number;
+  label: string;
+}
+
+type KpiConfig = NumberConfig | GaugeConfig | TimeSeriesConfig;
 
 function isKpiColor(v: unknown): v is KpiColor {
   return typeof v === 'string' && (COLORS as readonly string[]).includes(v);
 }
 
 function isKpiStyle(v: unknown): v is KpiStyle {
-  return v === 'gauge' || v === 'number';
+  return v === 'gauge' || v === 'number' || v === 'timeseries';
 }
 
 const NUMBER_DEFAULTS = {
@@ -99,6 +119,17 @@ function parseConfig(raw: string): KpiConfig {
         typeof parsed.rangeLabel === 'string' ? parsed.rangeLabel : GAUGE_DEFAULTS.rangeLabel,
     };
   }
+  if (style === 'timeseries') {
+    return {
+      style: 'timeseries',
+      timeSeriesId: typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
+      refreshSeconds:
+        typeof parsed.refreshSeconds === 'number'
+          ? clampRefresh(parsed.refreshSeconds)
+          : DEFAULT_REFRESH_SECONDS,
+      label: typeof parsed.label === 'string' ? parsed.label : '',
+    };
+  }
   return {
     style: 'number',
     value: typeof parsed.value === 'number' ? parsed.value : NUMBER_DEFAULTS.value,
@@ -106,6 +137,11 @@ function parseConfig(raw: string): KpiConfig {
     trend: typeof parsed.trend === 'number' ? parsed.trend : NUMBER_DEFAULTS.trend,
     color: isKpiColor(parsed.color) ? parsed.color : NUMBER_DEFAULTS.color,
   };
+}
+
+function clampRefresh(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_REFRESH_SECONDS;
+  return Math.max(MIN_REFRESH_SECONDS, Math.min(MAX_REFRESH_SECONDS, Math.round(n)));
 }
 
 /** MUI palette key for the color accent. `neutral` maps to a grey-ish divider color. */
@@ -194,6 +230,22 @@ export default function WidgetKpi({
   const [draftMediumEnd, setDraftMediumEnd] = useState(String(gaugeConfig.mediumEnd));
   const [draftRangeLabel, setDraftRangeLabel] = useState(gaugeConfig.rangeLabel);
 
+  // TimeSeries-Drafts
+  const tsConfig: TimeSeriesConfig =
+    config.style === 'timeseries'
+      ? config
+      : {
+          style: 'timeseries',
+          timeSeriesId: null,
+          refreshSeconds: DEFAULT_REFRESH_SECONDS,
+          label: '',
+        };
+  const [draftSeriesId, setDraftSeriesId] = useState<string>(
+    tsConfig.timeSeriesId == null ? '' : String(tsConfig.timeSeriesId),
+  );
+  const [draftRefresh, setDraftRefresh] = useState<string>(String(tsConfig.refreshSeconds));
+  const [seriesList, setSeriesList] = useState<TimeSeriesSummary[] | null>(null);
+
   useEffect(() => {
     if (!open) return;
     setDraftStyle(config.style);
@@ -202,13 +254,21 @@ export default function WidgetKpi({
       setDraftValue(String(config.value));
       setDraftTrend(config.trend == null ? '' : String(config.trend));
       setDraftColor(config.color);
-    } else {
+    } else if (config.style === 'gauge') {
       setDraftGaugeValue(String(config.value));
       setDraftMin(String(config.min));
       setDraftMax(String(config.max));
       setDraftLowEnd(String(config.lowEnd));
       setDraftMediumEnd(String(config.mediumEnd));
       setDraftRangeLabel(config.rangeLabel);
+    } else {
+      setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
+      setDraftRefresh(String(config.refreshSeconds));
+    }
+    if (seriesList === null) {
+      listTimeSeries()
+        .then(setSeriesList)
+        .catch(() => setSeriesList([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -225,7 +285,7 @@ export default function WidgetKpi({
         trend: trendNum != null && Number.isFinite(trendNum) ? trendNum : null,
         color: draftColor,
       };
-    } else {
+    } else if (draftStyle === 'gauge') {
       next = {
         style: 'gauge',
         value: parseOrDefault(draftGaugeValue, GAUGE_DEFAULTS.value),
@@ -235,6 +295,13 @@ export default function WidgetKpi({
         lowEnd: parseOrDefault(draftLowEnd, GAUGE_DEFAULTS.lowEnd),
         mediumEnd: parseOrDefault(draftMediumEnd, GAUGE_DEFAULTS.mediumEnd),
         rangeLabel: draftRangeLabel,
+      };
+    } else {
+      next = {
+        style: 'timeseries',
+        timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
+        refreshSeconds: clampRefresh(parseOrDefault(draftRefresh, DEFAULT_REFRESH_SECONDS)),
+        label: draftLabel,
       };
     }
     onChange({ ...widget, config: JSON.stringify(next) });
@@ -284,7 +351,13 @@ export default function WidgetKpi({
         </Stack>
       )}
 
-      {config.style === 'number' ? <NumberView config={config} /> : <GaugeView config={config} />}
+      {config.style === 'number' ? (
+        <NumberView config={config} />
+      ) : config.style === 'gauge' ? (
+        <GaugeView config={config} />
+      ) : (
+        <TimeSeriesView config={config} />
+      )}
 
       <Drawer
         anchor="right"
@@ -405,6 +478,35 @@ export default function WidgetKpi({
                   onChange={(e) => setDraftRangeLabel(e.target.value)}
                   fullWidth
                   placeholder="z. B. 70% to 100%"
+                />
+              </>
+            )}
+            {draftStyle === 'timeseries' && (
+              <>
+                <TextField
+                  select
+                  label="Zeitreihe"
+                  value={draftSeriesId}
+                  onChange={(e) => setDraftSeriesId(e.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">
+                    <em>— bitte wählen —</em>
+                  </MenuItem>
+                  {(seriesList ?? []).map((ts) => (
+                    <MenuItem key={ts.id} value={String(ts.id)}>
+                      {ts.name} ({ts.unit})
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Refresh-Intervall (Sekunden)"
+                  type="number"
+                  value={draftRefresh}
+                  onChange={(e) => setDraftRefresh(e.target.value)}
+                  fullWidth
+                  inputProps={{ min: MIN_REFRESH_SECONDS, max: MAX_REFRESH_SECONDS, step: 1 }}
+                  helperText={`${MIN_REFRESH_SECONDS} bis ${MAX_REFRESH_SECONDS} Sekunden`}
                 />
               </>
             )}
@@ -570,5 +672,102 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
         </Typography>
       )}
     </Box>
+  );
+}
+
+type TsState =
+  | { kind: 'loading' }
+  | { kind: 'no-config' }
+  | { kind: 'no-data' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; entry: TsEntry; summary: TimeSeriesSummary };
+
+function TimeSeriesView({ config }: { config: TimeSeriesConfig }): JSX.Element {
+  const [state, setState] = useState<TsState>(
+    config.timeSeriesId == null ? { kind: 'no-config' } : { kind: 'loading' },
+  );
+
+  useEffect(() => {
+    if (config.timeSeriesId == null) {
+      setState({ kind: 'no-config' });
+      return;
+    }
+    const id = config.timeSeriesId;
+    let cancelled = false;
+
+    async function tick(): Promise<void> {
+      try {
+        const [entry, summary] = await Promise.all([getLatestEntry(id), getTimeSeries(id)]);
+        if (!cancelled) setState({ kind: 'ready', entry, summary });
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 404) {
+          setState({ kind: 'no-data' });
+        } else {
+          setState({
+            kind: 'error',
+            message: e instanceof ApiError ? e.message : 'Fehler beim Laden',
+          });
+        }
+      }
+    }
+
+    void tick();
+    const handle = window.setInterval(() => void tick(), config.refreshSeconds * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [config.timeSeriesId, config.refreshSeconds]);
+
+  if (state.kind === 'no-config') {
+    return (
+      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+        Bitte Zeitreihe wählen.
+      </Typography>
+    );
+  }
+  if (state.kind === 'loading') {
+    return (
+      <Typography variant="caption" color="text.secondary" aria-label="KPI-Loading">
+        Lade…
+      </Typography>
+    );
+  }
+  if (state.kind === 'no-data') {
+    return (
+      <Typography variant="caption" color="text.secondary" aria-label="KPI-No-Data">
+        Keine Daten
+      </Typography>
+    );
+  }
+  if (state.kind === 'error') {
+    return (
+      <Typography variant="caption" color="error" aria-label="KPI-Error">
+        {state.message}
+      </Typography>
+    );
+  }
+
+  const label = config.label || state.summary.name;
+  return (
+    <>
+      <Typography
+        variant="h3"
+        component="div"
+        sx={{ fontWeight: 700, lineHeight: 1.1, textAlign: 'center' }}
+        aria-label="KPI-Wert"
+      >
+        {state.entry.value}
+        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+          {state.summary.unit}
+        </Typography>
+      </Typography>
+      {label && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, textAlign: 'center' }}>
+          {label}
+        </Typography>
+      )}
+    </>
   );
 }

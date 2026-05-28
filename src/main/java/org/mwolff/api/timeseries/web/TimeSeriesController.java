@@ -10,6 +10,7 @@ import org.mwolff.api.timeseries.application.AddEntryUseCase;
 import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.CreateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.DeleteTimeSeriesUseCase;
+import org.mwolff.api.timeseries.application.GetLatestEntryUseCase;
 import org.mwolff.api.timeseries.application.GetTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.ListEntriesUseCase;
 import org.mwolff.api.timeseries.application.ListTimeSeriesUseCase;
@@ -54,6 +55,7 @@ public class TimeSeriesController {
   private final AddEntryUseCase addEntryUseCase;
   private final ListEntriesUseCase listEntriesUseCase;
   private final AggregateTimeSeriesUseCase aggregateUseCase;
+  private final GetLatestEntryUseCase latestEntryUseCase;
 
   public TimeSeriesController(
       ListTimeSeriesUseCase listUseCase,
@@ -63,7 +65,8 @@ public class TimeSeriesController {
       DeleteTimeSeriesUseCase deleteUseCase,
       AddEntryUseCase addEntryUseCase,
       ListEntriesUseCase listEntriesUseCase,
-      AggregateTimeSeriesUseCase aggregateUseCase) {
+      AggregateTimeSeriesUseCase aggregateUseCase,
+      GetLatestEntryUseCase latestEntryUseCase) {
     this.listUseCase = listUseCase;
     this.createUseCase = createUseCase;
     this.getUseCase = getUseCase;
@@ -72,6 +75,7 @@ public class TimeSeriesController {
     this.addEntryUseCase = addEntryUseCase;
     this.listEntriesUseCase = listEntriesUseCase;
     this.aggregateUseCase = aggregateUseCase;
+    this.latestEntryUseCase = latestEntryUseCase;
   }
 
   @GetMapping
@@ -145,6 +149,12 @@ public class TimeSeriesController {
     final TimeSeriesEntry created =
         addEntryUseCase.execute(auth.getToken().getSubject(), id, body.timestamp(), body.value());
     return ResponseEntity.status(HttpStatus.CREATED).body(TimeSeriesEntryResponse.from(created));
+  }
+
+  @GetMapping("/{id}/latest")
+  public TimeSeriesEntryResponse latest(JwtAuthenticationToken auth, @PathVariable long id) {
+    return TimeSeriesEntryResponse.from(
+        latestEntryUseCase.execute(auth.getToken().getSubject(), id));
   }
 
   @GetMapping("/{id}/aggregate")

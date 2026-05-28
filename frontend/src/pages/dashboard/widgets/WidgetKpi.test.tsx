@@ -1,9 +1,22 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WidgetKpi from './WidgetKpi';
 import type { WidgetDto } from '../../../api/dashboard';
+
+vi.mock('../../../api/timeseries', () => ({
+  getLatestEntry: vi.fn(),
+  getTimeSeries: vi.fn(),
+  listTimeSeries: vi.fn(),
+}));
+
+import { getLatestEntry, getTimeSeries, listTimeSeries } from '../../../api/timeseries';
+import { ApiError } from '../../../api/client';
+
+const latest = getLatestEntry as ReturnType<typeof vi.fn>;
+const getTs = getTimeSeries as ReturnType<typeof vi.fn>;
+const listTs = listTimeSeries as ReturnType<typeof vi.fn>;
 
 interface KpiConfigInput {
   value?: number;
@@ -30,6 +43,11 @@ function makeWidget(config: KpiConfigInput = {}): WidgetDto {
 }
 
 describe('WidgetKpi', () => {
+  beforeEach(() => {
+    // Drawer ruft listTimeSeries beim Oeffnen — Default-Mock damit Style-Wechsel
+    // funktioniert ohne explizit gemockt zu haben.
+    listTs.mockResolvedValue([]);
+  });
   afterEach(() => cleanup());
 
   it('rendert Wert und Label', () => {
@@ -280,5 +298,122 @@ describe('WidgetKpi', () => {
     const passed = JSON.parse(onChange.mock.calls[0][0].config);
     expect(passed.style).toBe('gauge');
     expect(passed.value).toBe(75);
+  });
+
+  // ----- TimeSeries-Sub-Type (#94) ---------------------------------------
+
+  function tsWidget(over: Partial<{
+    timeSeriesId: number | null;
+    refreshSeconds: number;
+    label: string;
+  }> = {}): WidgetDto {
+    return {
+      id: 1,
+      type: 'KPI',
+      posX: 0,
+      posY: 0,
+      width: 2,
+      height: 2,
+      config: JSON.stringify({
+        style: 'timeseries',
+        timeSeriesId: over.timeSeriesId === undefined ? 42 : over.timeSeriesId,
+        refreshSeconds: over.refreshSeconds ?? 30,
+        label: over.label ?? '',
+      }),
+    };
+  }
+
+  describe('timeseries style', () => {
+    beforeEach(() => {
+      latest.mockReset();
+      getTs.mockReset();
+      listTs.mockReset();
+      listTs.mockResolvedValue([]);
+    });
+
+    it('zeigt "Bitte Zeitreihe wählen" wenn keine konfiguriert', () => {
+      render(
+        <WidgetKpi
+          widget={tsWidget({ timeSeriesId: null })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(/Bitte Zeitreihe wählen/)).toBeInTheDocument();
+      expect(latest).not.toHaveBeenCalled();
+    });
+
+    it('zeigt Lade-State initial', () => {
+      latest.mockReturnValueOnce(new Promise(() => undefined));
+      getTs.mockReturnValueOnce(new Promise(() => undefined));
+
+      render(<WidgetKpi widget={tsWidget()} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+      expect(screen.getByLabelText('KPI-Loading')).toBeInTheDocument();
+    });
+
+    it('rendert Wert + Einheit + Series-Name nach erfolgreichem Fetch', async () => {
+      latest.mockResolvedValueOnce({ id: 99, timestamp: 'x', value: 78.5 });
+      getTs.mockResolvedValueOnce({
+        id: 42,
+        name: 'Gewicht',
+        unit: 'kg',
+        dataType: 'DECIMAL',
+        entryCount: 5,
+        createdAt: 'x',
+        updatedAt: 'x',
+      });
+
+      render(<WidgetKpi widget={tsWidget()} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+      await waitFor(() =>
+        expect(screen.getByLabelText('KPI-Wert')).toHaveTextContent('78.5'),
+      );
+      expect(screen.getByLabelText('KPI-Wert')).toHaveTextContent('kg');
+      expect(screen.getByText('Gewicht')).toBeInTheDocument();
+    });
+
+    it('zeigt "Keine Daten" bei 404 ohne Crash', async () => {
+      latest.mockRejectedValueOnce(new ApiError(404, 'not found', null));
+      getTs.mockRejectedValueOnce(new ApiError(404, 'not found', null));
+
+      render(<WidgetKpi widget={tsWidget()} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+      await waitFor(() => expect(screen.getByLabelText('KPI-No-Data')).toBeInTheDocument());
+    });
+
+    it('zeigt Error-Message bei 500', async () => {
+      latest.mockRejectedValueOnce(new ApiError(500, 'boom', null));
+      getTs.mockRejectedValueOnce(new ApiError(500, 'boom', null));
+
+      render(<WidgetKpi widget={tsWidget()} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+      await waitFor(() => expect(screen.getByLabelText('KPI-Error')).toBeInTheDocument());
+    });
+
+    it('Drawer Style-Wechsel zu timeseries macht Refresh-Intervall sichtbar', async () => {
+      listTs.mockResolvedValue([
+        {
+          id: 1,
+          name: 'Weight',
+          unit: 'kg',
+          dataType: 'DECIMAL',
+          entryCount: 0,
+          createdAt: 'x',
+          updatedAt: 'x',
+        },
+      ]);
+      const user = userEvent.setup();
+      render(<WidgetKpi widget={makeWidget()} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+      await user.click(screen.getByLabelText('Darstellung'));
+      await user.click(screen.getByRole('option', { name: 'Zeitreihe' }));
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/Refresh-Intervall/)).toBeInTheDocument(),
+      );
+    });
   });
 });

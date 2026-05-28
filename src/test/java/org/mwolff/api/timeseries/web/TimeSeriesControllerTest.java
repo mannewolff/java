@@ -23,6 +23,7 @@ import org.mwolff.api.timeseries.application.AddEntryUseCase;
 import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.CreateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.DeleteTimeSeriesUseCase;
+import org.mwolff.api.timeseries.application.GetLatestEntryUseCase;
 import org.mwolff.api.timeseries.application.GetTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.GetTimeSeriesUseCase.TimeSeriesDetail;
 import org.mwolff.api.timeseries.application.ListEntriesUseCase;
@@ -64,6 +65,7 @@ class TimeSeriesControllerTest {
   @MockitoBean private AddEntryUseCase addEntryUseCase;
   @MockitoBean private ListEntriesUseCase listEntriesUseCase;
   @MockitoBean private AggregateTimeSeriesUseCase aggregateUseCase;
+  @MockitoBean private GetLatestEntryUseCase latestEntryUseCase;
 
   @MockitoBean private JwtDecoder jwtDecoder;
 
@@ -388,5 +390,30 @@ class TimeSeriesControllerTest {
     mockMvc
         .perform(get("/api/timeseries/1/aggregate").with(userJwt()))
         .andExpect(status().isBadRequest());
+  }
+
+  // ----- GET /api/timeseries/{id}/latest -----------------------------------
+
+  @Test
+  void latestShouldReturnEntry() throws Exception {
+    given(latestEntryUseCase.execute(SUB, 1L))
+        .willReturn(
+            new TimeSeriesEntry(
+                99L, 1L, Instant.parse("2026-05-27T12:00:00Z"), new BigDecimal("78.5")));
+
+    mockMvc
+        .perform(get("/api/timeseries/1/latest").with(userJwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(99))
+        .andExpect(jsonPath("$.value").value(78.5));
+  }
+
+  @Test
+  void latestShouldReturn404WhenForeignOrEmpty() throws Exception {
+    willThrow(new TimeSeriesNotFoundException(99L)).given(latestEntryUseCase).execute(SUB, 99L);
+
+    mockMvc
+        .perform(get("/api/timeseries/99/latest").with(userJwt()))
+        .andExpect(status().isNotFound());
   }
 }

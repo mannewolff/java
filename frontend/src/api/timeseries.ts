@@ -82,6 +82,10 @@ export function addEntry(
   return api.post<TimeSeriesEntry>(`${PATH}/${id}/entries`, { timestamp, value });
 }
 
+export function getLatestEntry(id: number): Promise<TimeSeriesEntry> {
+  return api.get<TimeSeriesEntry>(`${PATH}/${id}/latest`);
+}
+
 export type Granularity = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
 export interface AggregateBucket {

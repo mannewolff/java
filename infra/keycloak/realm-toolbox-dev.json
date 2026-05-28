@@ -1,7 +1,8 @@
 {
   "realm": "toolbox-dev",
   "enabled": true,
-  "displayName": "Toolbox (Dev)",
+  "displayName": "Mannes Toolbox (Dev)",
+  "loginTheme": "toolbox",
   "registrationAllowed": true,
   "registrationEmailAsUsername": false,
   "rememberMe": true,

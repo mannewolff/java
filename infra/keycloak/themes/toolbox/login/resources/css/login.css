@@ -1,0 +1,211 @@
+/*
+ * Toolbox-Login-Theme
+ *
+ * Brand-Petrol (#3d8a98) als Akzent, Gradient als Hintergrund. Bewusst ohne
+ * externe Asset-Files, damit das Theme komplett aus Repo-Code besteht und
+ * Deploy nur einen Volume-Mount braucht.
+ */
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+                 Arial, sans-serif;
+    color: #1a1a1a;
+}
+
+body.toolbox-page {
+    background: linear-gradient(135deg, #3d8a98 0%, #256270 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+}
+
+.toolbox-shell {
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.toolbox-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: #ffffff;
+    text-align: center;
+}
+
+.toolbox-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+}
+
+.toolbox-title {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.toolbox-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 32px 28px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.toolbox-card h1,
+.toolbox-card h2 {
+    margin: 0 0 20px 0;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+/* Keycloak rendert Form-Elemente mit .pf-c-form, .pf-c-button etc. von PatternFly.
+   Wir styled die Subset, die in den Standard-Templates verwendet werden. */
+.toolbox-card label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.toolbox-card input[type="text"],
+.toolbox-card input[type="email"],
+.toolbox-card input[type="password"],
+.toolbox-card input[type="tel"],
+.toolbox-card select,
+.toolbox-card textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d0d4d8;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #f7f8fa;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.toolbox-card input:focus,
+.toolbox-card select:focus,
+.toolbox-card textarea:focus {
+    outline: none;
+    border-color: #3d8a98;
+    background: #ffffff;
+}
+
+.toolbox-card input[type="submit"],
+.toolbox-card button[type="submit"],
+.toolbox-card .pf-c-button.pf-m-primary {
+    width: 100%;
+    padding: 12px 16px;
+    margin-top: 16px;
+    border: none;
+    border-radius: 8px;
+    background: #3d8a98;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.toolbox-card input[type="submit"]:hover,
+.toolbox-card button[type="submit"]:hover,
+.toolbox-card .pf-c-button.pf-m-primary:hover {
+    background: #256270;
+}
+
+.toolbox-card a {
+    color: #3d8a98;
+    text-decoration: none;
+}
+
+.toolbox-card a:hover {
+    text-decoration: underline;
+}
+
+.toolbox-alert {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+}
+
+.toolbox-alert-error,
+.toolbox-alert-warning {
+    background: #fdecea;
+    border-color: #f5c2c0;
+    color: #7a1f1c;
+}
+
+.toolbox-alert-success {
+    background: #ecf6ee;
+    border-color: #b9d9bf;
+    color: #1f6a2c;
+}
+
+.toolbox-alert-info {
+    background: #e8f3f6;
+    border-color: #bcd9e0;
+    color: #1d4a55;
+}
+
+.toolbox-info {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #eaeaea;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.toolbox-branding {
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.toolbox-branding p {
+    margin: 0;
+}
+
+.toolbox-branding a {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+.toolbox-branding a:hover {
+    text-decoration: none;
+}
+
+/* Keycloak rendert ggf. Checkboxes (z. B. "Remember me") als Wrapper. Etwas Luft. */
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.checkbox input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    accent-color: #3d8a98;
+}

@@ -167,3 +167,65 @@ nach dem ersten Start ignoriert).
 - `docker-compose.yml` exponiert Keycloak nur auf `127.0.0.1:8081`. Der
   Reverse-Proxy ist der einzige öffentliche Pfad zu Keycloak. Aufmachen
   (z.B. `0.0.0.0:8081`) nur, wenn das Setup das wirklich braucht.
+
+## Custom-Theme `toolbox` (Issue #66)
+
+Login-, Register-, Forgot-Password- und OAuth-Consent-Seiten laufen mit einem
+eigenen Toolbox-Theme. Aktivierung erfolgt per Realm-Setting `"loginTheme":
+"toolbox"` in beiden Realm-JSONs.
+
+### Layout
+
+```
+infra/keycloak/themes/toolbox/login/
+├── theme.properties              # parent=base, locales=de,en
+├── template.ftl                  # Master-Layout mit Logo + Card + Branding-Block
+├── messages/
+│   └── messages_de.properties    # Deutsche Labels (Login, Register, etc.)
+└── resources/
+    ├── css/login.css             # Brand-Petrol #3d8a98, Gradient-Hintergrund
+    └── img/logo.png              # Kopie aus frontend/public/logo.png
+```
+
+### Mount
+
+`docker-compose.yml` mountet das Verzeichnis als read-only Volume:
+
+```yaml
+keycloak:
+  volumes:
+    - ./infra/keycloak/themes:/opt/keycloak/themes:ro
+```
+
+### Deploy auf bestehender Installation
+
+Bei Änderungen am Theme reicht ein Recreate des Keycloak-Containers — kein
+Schema-Migration, kein Realm-Re-Import nötig:
+
+```bash
+cd ~/opt/java
+git pull
+docker compose up -d --force-recreate keycloak
+```
+
+`--force-recreate` ist Pflicht, weil Compose Volume-Mount-Änderungen erst beim
+Recreate übernimmt (Memory: `feedback-docker-compose-up-recreate`).
+
+### Anpassungen
+
+- Brand-Farbe sitzt in `resources/css/login.css` als CSS-Hex `#3d8a98`/`#256270`.
+  Wer das ändert, sollte auch `frontend/src/theme.ts` mitziehen.
+- Der Branding-Text mit Blog-Link steht in `template.ftl` (Block
+  `.toolbox-branding`). Übersetzungen liefern wir hier nicht — der Text ist
+  bewusst hardcoded auf Deutsch.
+- Logo-Quelle ist `frontend/public/logo.png`; bei Logo-Wechsel beide Stellen
+  aktualisieren (oder den Mount auf ein gemeinsames Asset-Verzeichnis
+  umstellen).
+
+### Was greift, was nicht
+
+- Login, Register, Forgot-Password, Verify-Email, OAuth-Consent → Toolbox-Theme.
+- Account-Self-Service-Page (`/realms/<realm>/account/`) und E-Mail-Templates
+  → weiterhin Keycloak-Default. Eigenes `account`- bzw. `email`-Theme ist
+  möglich, aktuell nicht im Scope. Falls gewünscht, gleiche Struktur, anderes
+  Subverzeichnis.

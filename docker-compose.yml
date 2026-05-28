@@ -58,6 +58,10 @@ services:
       # Realm-JSONs werden beim ersten Start importiert. User-Daten / Secrets sind hier
       # bewusst nicht enthalten — die Files sind Code, nicht Backup.
       - ./infra/keycloak:/opt/keycloak/data/import:ro
+      # Custom-Theme "toolbox" — wird vom Realm via loginTheme aktiviert. Themes liegen
+      # eine Ebene tiefer unter infra/keycloak/themes/, damit der Realm-Import-Mount
+      # daruebermit das Verzeichnis sieht aber nicht versucht, es als Realm zu importieren.
+      - ./infra/keycloak/themes:/opt/keycloak/themes:ro
     healthcheck:
       # /dev/tcp ist ein Bash-Builtin und im Keycloak-Image (UBI + Bash) verfuegbar. Wir
       # pingen den Keycloak-Management-Port 9000 (Health-Endpoint) per simpler TCP-Probe.

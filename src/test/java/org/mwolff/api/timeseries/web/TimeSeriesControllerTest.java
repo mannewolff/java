@@ -20,6 +20,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.auth.SecurityConfig;
 import org.mwolff.api.timeseries.application.AddEntryUseCase;
+import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.CreateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.DeleteTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.GetTimeSeriesUseCase;
@@ -28,6 +29,8 @@ import org.mwolff.api.timeseries.application.ListEntriesUseCase;
 import org.mwolff.api.timeseries.application.ListTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.ListTimeSeriesUseCase.TimeSeriesWithCount;
 import org.mwolff.api.timeseries.application.UpdateTimeSeriesUseCase;
+import org.mwolff.api.timeseries.domain.AggregateBucket;
+import org.mwolff.api.timeseries.domain.Granularity;
 import org.mwolff.api.timeseries.domain.TimeSeries;
 import org.mwolff.api.timeseries.domain.TimeSeriesDataType;
 import org.mwolff.api.timeseries.domain.TimeSeriesEntry;
@@ -60,6 +63,7 @@ class TimeSeriesControllerTest {
   @MockitoBean private DeleteTimeSeriesUseCase deleteUseCase;
   @MockitoBean private AddEntryUseCase addEntryUseCase;
   @MockitoBean private ListEntriesUseCase listEntriesUseCase;
+  @MockitoBean private AggregateTimeSeriesUseCase aggregateUseCase;
 
   @MockitoBean private JwtDecoder jwtDecoder;
 
@@ -340,5 +344,49 @@ class TimeSeriesControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"timestamp\":\"2026-05-27T12:00:00Z\",\"value\":1}"))
         .andExpect(status().isNotFound());
+  }
+
+  // ----- GET /api/timeseries/{id}/aggregate --------------------------------
+
+  @Test
+  void aggregateShouldReturnBuckets() throws Exception {
+    given(
+            aggregateUseCase.execute(
+                eq(SUB), eq(1L), eq(Granularity.DAILY), eq(Optional.empty()), eq(Optional.empty())))
+        .willReturn(
+            List.of(
+                new AggregateBucket(
+                    Instant.parse("2026-05-27T00:00:00Z"),
+                    2L,
+                    new BigDecimal("10"),
+                    new BigDecimal("20"),
+                    new BigDecimal("15"),
+                    new BigDecimal("20"))));
+
+    mockMvc
+        .perform(get("/api/timeseries/1/aggregate?granularity=DAILY").with(userJwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].count").value(2))
+        .andExpect(jsonPath("$[0].min").value(10))
+        .andExpect(jsonPath("$[0].avg").value(15))
+        .andExpect(jsonPath("$[0].last").value(20));
+  }
+
+  @Test
+  void aggregateShouldReturn404ForForeign() throws Exception {
+    willThrow(new TimeSeriesNotFoundException(99L))
+        .given(aggregateUseCase)
+        .execute(eq(SUB), eq(99L), any(), any(), any());
+
+    mockMvc
+        .perform(get("/api/timeseries/99/aggregate?granularity=DAILY").with(userJwt()))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void aggregateShouldReturn400WithoutGranularity() throws Exception {
+    mockMvc
+        .perform(get("/api/timeseries/1/aggregate").with(userJwt()))
+        .andExpect(status().isBadRequest());
   }
 }

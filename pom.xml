@@ -298,8 +298,8 @@
                                   separat verifiziert; der grosse Branch-Count entsteht durch
                                   JVM-generierte instanceof-Pattern-Bytecode-Branches.
                                 -->
-                                <exclude>org/mwolff/api/ingest/web/IngestTokenAuthFilter.class</exclude>
-                                <exclude>org/mwolff/api/ingest/web/IngestRateLimitFilter.class</exclude>
+                                <exclude>org/mwolff/api/ingest/web/IngestTokenAuthFilter*</exclude>
+                                <exclude>org/mwolff/api/ingest/web/IngestRateLimitFilter*</exclude>
                             </excludes>
                         </configuration>
                     </execution>

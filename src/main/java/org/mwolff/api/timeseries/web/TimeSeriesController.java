@@ -7,15 +7,18 @@ import java.util.Optional;
 import jakarta.validation.Valid;
 
 import org.mwolff.api.timeseries.application.AddEntryUseCase;
+import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.CreateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.DeleteTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.GetTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.ListEntriesUseCase;
 import org.mwolff.api.timeseries.application.ListTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.UpdateTimeSeriesUseCase;
+import org.mwolff.api.timeseries.domain.Granularity;
 import org.mwolff.api.timeseries.domain.TimeSeries;
 import org.mwolff.api.timeseries.domain.TimeSeriesEntry;
 import org.mwolff.api.timeseries.web.dto.AddEntryRequest;
+import org.mwolff.api.timeseries.web.dto.AggregateBucketResponse;
 import org.mwolff.api.timeseries.web.dto.CreateTimeSeriesRequest;
 import org.mwolff.api.timeseries.web.dto.TimeSeriesEntryResponse;
 import org.mwolff.api.timeseries.web.dto.TimeSeriesSummaryResponse;
@@ -50,6 +53,7 @@ public class TimeSeriesController {
   private final DeleteTimeSeriesUseCase deleteUseCase;
   private final AddEntryUseCase addEntryUseCase;
   private final ListEntriesUseCase listEntriesUseCase;
+  private final AggregateTimeSeriesUseCase aggregateUseCase;
 
   public TimeSeriesController(
       ListTimeSeriesUseCase listUseCase,
@@ -58,7 +62,8 @@ public class TimeSeriesController {
       UpdateTimeSeriesUseCase updateUseCase,
       DeleteTimeSeriesUseCase deleteUseCase,
       AddEntryUseCase addEntryUseCase,
-      ListEntriesUseCase listEntriesUseCase) {
+      ListEntriesUseCase listEntriesUseCase,
+      AggregateTimeSeriesUseCase aggregateUseCase) {
     this.listUseCase = listUseCase;
     this.createUseCase = createUseCase;
     this.getUseCase = getUseCase;
@@ -66,6 +71,7 @@ public class TimeSeriesController {
     this.deleteUseCase = deleteUseCase;
     this.addEntryUseCase = addEntryUseCase;
     this.listEntriesUseCase = listEntriesUseCase;
+    this.aggregateUseCase = aggregateUseCase;
   }
 
   @GetMapping
@@ -139,5 +145,26 @@ public class TimeSeriesController {
     final TimeSeriesEntry created =
         addEntryUseCase.execute(auth.getToken().getSubject(), id, body.timestamp(), body.value());
     return ResponseEntity.status(HttpStatus.CREATED).body(TimeSeriesEntryResponse.from(created));
+  }
+
+  @GetMapping("/{id}/aggregate")
+  public List<AggregateBucketResponse> aggregate(
+      JwtAuthenticationToken auth,
+      @PathVariable long id,
+      @RequestParam Granularity granularity,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          Instant from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          Instant to) {
+    return aggregateUseCase
+        .execute(
+            auth.getToken().getSubject(),
+            id,
+            granularity,
+            Optional.ofNullable(from),
+            Optional.ofNullable(to))
+        .stream()
+        .map(AggregateBucketResponse::from)
+        .toList();
   }
 }

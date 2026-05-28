@@ -3,6 +3,7 @@ import type { SvgIconProps } from '@mui/material';
 import type { ComponentType } from 'react';
 import TextSnippetIcon from '@mui/icons-material/TextSnippet';
 import InsightsIcon from '@mui/icons-material/Insights';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 
 import type { WidgetType } from '../../api/dashboard';
 
@@ -19,6 +20,7 @@ interface PaletteEntry {
 const PALETTE_ENTRIES: ReadonlyArray<PaletteEntry> = [
   { type: 'TEXTBOX', label: 'Textbox', icon: TextSnippetIcon },
   { type: 'KPI', label: 'KPI', icon: InsightsIcon },
+  { type: 'PLOT', label: 'Plot', icon: ShowChartIcon },
 ];
 
 interface Props {

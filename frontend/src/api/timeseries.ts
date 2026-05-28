@@ -81,3 +81,27 @@ export function addEntry(
 ): Promise<TimeSeriesEntry> {
   return api.post<TimeSeriesEntry>(`${PATH}/${id}/entries`, { timestamp, value });
 }
+
+export type Granularity = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
+export interface AggregateBucket {
+  bucketStart: string;
+  count: number;
+  min: number;
+  max: number;
+  avg: number;
+  last: number;
+}
+
+export function aggregateTimeSeries(
+  id: number,
+  granularity: Granularity,
+  from?: string,
+  to?: string,
+): Promise<AggregateBucket[]> {
+  const search = new URLSearchParams();
+  search.set('granularity', granularity);
+  if (from) search.set('from', from);
+  if (to) search.set('to', to);
+  return api.get<AggregateBucket[]>(`${PATH}/${id}/aggregate?${search.toString()}`);
+}

@@ -6,5 +6,6 @@ package org.mwolff.api.dashboard.domain;
  */
 public enum WidgetType {
   TEXTBOX,
-  KPI
+  KPI,
+  PLOT
 }

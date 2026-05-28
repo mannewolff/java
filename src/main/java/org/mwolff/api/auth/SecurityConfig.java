@@ -50,6 +50,10 @@ public class SecurityConfig {
                     // Ingest-Token-Verwaltung: JWT-User legt Tokens fuer Maschinen an (#92).
                     .requestMatchers("/api/ingest-tokens/**")
                     .hasRole("USER")
+                    // OpenAPI-Doku (#96): Schema + Swagger-UI eingeloggt erreichbar.
+                    .requestMatchers(
+                        "/api/openapi/**", "/api/swagger-ui/**", "/api/swagger-ui.html")
+                    .hasRole("USER")
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
                     .permitAll()

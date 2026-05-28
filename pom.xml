@@ -107,6 +107,11 @@
             <artifactId>tika-core</artifactId>
             <version>2.9.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.7.0</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -300,6 +305,12 @@
                                 -->
                                 <exclude>org/mwolff/api/ingest/web/IngestTokenAuthFilter*</exclude>
                                 <exclude>org/mwolff/api/ingest/web/IngestRateLimitFilter*</exclude>
+                                <!--
+                                  OpenApiConfig: nur Bean-Wiring fuer springdoc-openapi (Title,
+                                  Server-URLs, Security-Schemes). Wird via OpenApiSchemaIT
+                                  gegen den vollen ApplicationContext verifiziert.
+                                -->
+                                <exclude>org/mwolff/api/common/OpenApiConfig.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>

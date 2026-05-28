@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 
 import org.mwolff.api.timeseries.application.AddEntryUseCase;
 import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
+import org.mwolff.api.timeseries.application.BulkAddEntriesUseCase;
 import org.mwolff.api.timeseries.application.CreateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.DeleteTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.GetLatestEntryUseCase;
@@ -20,6 +21,8 @@ import org.mwolff.api.timeseries.domain.TimeSeries;
 import org.mwolff.api.timeseries.domain.TimeSeriesEntry;
 import org.mwolff.api.timeseries.web.dto.AddEntryRequest;
 import org.mwolff.api.timeseries.web.dto.AggregateBucketResponse;
+import org.mwolff.api.timeseries.web.dto.BulkImportResponse;
+import org.mwolff.api.timeseries.web.dto.BulkImportResponse.BulkRowError;
 import org.mwolff.api.timeseries.web.dto.CreateTimeSeriesRequest;
 import org.mwolff.api.timeseries.web.dto.TimeSeriesEntryResponse;
 import org.mwolff.api.timeseries.web.dto.TimeSeriesSummaryResponse;
@@ -56,6 +59,10 @@ public class TimeSeriesController {
   private final ListEntriesUseCase listEntriesUseCase;
   private final AggregateTimeSeriesUseCase aggregateUseCase;
   private final GetLatestEntryUseCase latestEntryUseCase;
+  private final BulkAddEntriesUseCase bulkUseCase;
+
+  /** 5 MiB Hardlimit fuer Bulk-Body — schuetzt vor versehentlichem 100-MB-Upload. */
+  static final int MAX_BULK_BYTES = 5 * 1024 * 1024;
 
   public TimeSeriesController(
       ListTimeSeriesUseCase listUseCase,
@@ -66,7 +73,8 @@ public class TimeSeriesController {
       AddEntryUseCase addEntryUseCase,
       ListEntriesUseCase listEntriesUseCase,
       AggregateTimeSeriesUseCase aggregateUseCase,
-      GetLatestEntryUseCase latestEntryUseCase) {
+      GetLatestEntryUseCase latestEntryUseCase,
+      BulkAddEntriesUseCase bulkUseCase) {
     this.listUseCase = listUseCase;
     this.createUseCase = createUseCase;
     this.getUseCase = getUseCase;
@@ -76,6 +84,7 @@ public class TimeSeriesController {
     this.listEntriesUseCase = listEntriesUseCase;
     this.aggregateUseCase = aggregateUseCase;
     this.latestEntryUseCase = latestEntryUseCase;
+    this.bulkUseCase = bulkUseCase;
   }
 
   @GetMapping
@@ -155,6 +164,24 @@ public class TimeSeriesController {
   public TimeSeriesEntryResponse latest(JwtAuthenticationToken auth, @PathVariable long id) {
     return TimeSeriesEntryResponse.from(
         latestEntryUseCase.execute(auth.getToken().getSubject(), id));
+  }
+
+  @PostMapping(path = "/{id}/entries/bulk", consumes = "text/csv")
+  public ResponseEntity<BulkImportResponse> bulkImport(
+      JwtAuthenticationToken auth, @PathVariable long id, @RequestBody byte[] body) {
+    if (body.length > MAX_BULK_BYTES) {
+      throw new IllegalArgumentException("body too large: max " + MAX_BULK_BYTES + " bytes");
+    }
+    final String csv = new String(body, java.nio.charset.StandardCharsets.UTF_8);
+    final CsvBulkParser.ParseResult parsed = CsvBulkParser.parse(csv);
+    if (parsed.hasErrors()) {
+      final List<BulkRowError> mapped =
+          parsed.errors().stream().map(e -> new BulkRowError(e.line(), e.reason())).toList();
+      return ResponseEntity.badRequest().body(new BulkImportResponse(0, mapped));
+    }
+    final int inserted = bulkUseCase.execute(auth.getToken().getSubject(), id, parsed.rows());
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(new BulkImportResponse(inserted, List.of()));
   }
 
   @GetMapping("/{id}/aggregate")

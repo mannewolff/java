@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mwolff.api.auth.SecurityConfig;
 import org.mwolff.api.timeseries.application.AddEntryUseCase;
 import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
+import org.mwolff.api.timeseries.application.BulkAddEntriesUseCase;
 import org.mwolff.api.timeseries.application.CreateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.DeleteTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.GetLatestEntryUseCase;
@@ -66,6 +67,7 @@ class TimeSeriesControllerTest {
   @MockitoBean private ListEntriesUseCase listEntriesUseCase;
   @MockitoBean private AggregateTimeSeriesUseCase aggregateUseCase;
   @MockitoBean private GetLatestEntryUseCase latestEntryUseCase;
+  @MockitoBean private BulkAddEntriesUseCase bulkUseCase;
 
   @MockitoBean private JwtDecoder jwtDecoder;
 
@@ -414,6 +416,73 @@ class TimeSeriesControllerTest {
 
     mockMvc
         .perform(get("/api/timeseries/99/latest").with(userJwt()))
+        .andExpect(status().isNotFound());
+  }
+
+  // ----- POST /api/timeseries/{id}/entries/bulk ----------------------------
+
+  @Test
+  void bulkShouldReturn201WhenAllRowsValid() throws Exception {
+    given(bulkUseCase.execute(eq(SUB), eq(1L), any())).willReturn(2);
+
+    final String csv = "2026-05-27T12:00:00Z,78.5\n2026-05-28T12:00:00Z,79.0\n";
+
+    mockMvc
+        .perform(
+            post("/api/timeseries/1/entries/bulk")
+                .with(userJwt())
+                .contentType("text/csv")
+                .content(csv))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.inserted").value(2))
+        .andExpect(jsonPath("$.errors").isArray())
+        .andExpect(jsonPath("$.errors").isEmpty());
+  }
+
+  @Test
+  void bulkShouldReturn400WithErrorsWhenParseFails() throws Exception {
+    final String csv = "timestamp,value\nnicht-datum,78.5\n";
+
+    mockMvc
+        .perform(
+            post("/api/timeseries/1/entries/bulk")
+                .with(userJwt())
+                .contentType("text/csv")
+                .content(csv))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.inserted").value(0))
+        .andExpect(
+            jsonPath("$.errors[0].reason")
+                .value(org.hamcrest.Matchers.containsString("invalid timestamp")));
+  }
+
+  @Test
+  void bulkShouldReturn400WhenBodyTooLarge() throws Exception {
+    // 6 MiB body, 5 MiB hardlimit
+    final byte[] big = new byte[6 * 1024 * 1024];
+    java.util.Arrays.fill(big, (byte) 'x');
+
+    mockMvc
+        .perform(
+            post("/api/timeseries/1/entries/bulk")
+                .with(userJwt())
+                .contentType("text/csv")
+                .content(big))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void bulkShouldReturn404WhenForeignSeries() throws Exception {
+    willThrow(new TimeSeriesNotFoundException(99L))
+        .given(bulkUseCase)
+        .execute(eq(SUB), eq(99L), any());
+
+    mockMvc
+        .perform(
+            post("/api/timeseries/99/entries/bulk")
+                .with(userJwt())
+                .contentType("text/csv")
+                .content("2026-05-27T12:00:00Z,1\n"))
         .andExpect(status().isNotFound());
   }
 }

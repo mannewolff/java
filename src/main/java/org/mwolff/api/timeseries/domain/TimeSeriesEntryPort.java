@@ -20,4 +20,10 @@ public interface TimeSeriesEntryPort {
       long timeSeriesId, Optional<Instant> from, Optional<Instant> to, int limit);
 
   TimeSeriesEntry save(TimeSeriesEntry entry);
+
+  /**
+   * Speichert eine Liste von Eintraegen in einem Batch. Implementierungen sollten in Batches von
+   * z.&nbsp;B. 1000 Inserts arbeiten, damit Memory-Footprint stabil bleibt.
+   */
+  List<TimeSeriesEntry> saveAll(List<TimeSeriesEntry> newEntries);
 }

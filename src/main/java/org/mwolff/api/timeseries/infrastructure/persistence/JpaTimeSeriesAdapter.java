@@ -99,6 +99,15 @@ class JpaTimeSeriesAdapter implements TimeSeriesPort, TimeSeriesEntryPort {
     return toDomain(entryRepo.save(entity));
   }
 
+  @Override
+  public List<TimeSeriesEntry> saveAll(List<TimeSeriesEntry> newEntries) {
+    final List<TimeSeriesEntryEntity> entities =
+        newEntries.stream()
+            .map(e -> new TimeSeriesEntryEntity(e.timeSeriesId(), e.timestamp(), e.value()))
+            .toList();
+    return entryRepo.saveAll(entities).stream().map(JpaTimeSeriesAdapter::toDomain).toList();
+  }
+
   // ----- Mapping -----------------------------------------------------------
 
   private static TimeSeries toDomain(TimeSeriesEntity entity) {

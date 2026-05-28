@@ -36,6 +36,7 @@ import {
 } from '../../api/timeseries';
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
+import BulkImportDialog from './BulkImportDialog';
 
 type LoadState =
   | { kind: 'loading' }
@@ -81,6 +82,8 @@ export default function TimeSeriesDetailPage(): JSX.Element {
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   async function reload(): Promise<void> {
     try {
@@ -306,8 +309,26 @@ export default function TimeSeriesDetailPage(): JSX.Element {
               >
                 Eintragen
               </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setBulkOpen(true)}
+                sx={{ mt: { xs: 0, sm: '6px' } }}
+              >
+                CSV-Import
+              </Button>
             </Stack>
           </Paper>
+
+          <BulkImportDialog
+            open={bulkOpen}
+            onClose={() => setBulkOpen(false)}
+            timeSeriesId={state.summary.id}
+            onSuccess={() => {
+              setBulkOpen(false);
+              notify.success('CSV-Import erfolgreich.');
+              void reload();
+            }}
+          />
 
           <Paper variant="outlined">
             <Typography variant="h6" sx={{ p: 2 }}>

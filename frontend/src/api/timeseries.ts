@@ -86,6 +86,40 @@ export function getLatestEntry(id: number): Promise<TimeSeriesEntry> {
   return api.get<TimeSeriesEntry>(`${PATH}/${id}/latest`);
 }
 
+export interface BulkImportResult {
+  inserted: number;
+  errors: { line: number; reason: string }[];
+}
+
+/**
+ * Custom-Request, weil der Endpoint text/csv erwartet (nicht JSON wie sonst).
+ * Liefert sowohl im Erfolgs- als auch im 400-Validierungsfall ein BulkImportResult —
+ * der Aufrufer prueft die errors-Liste.
+ */
+export async function bulkImportCsv(
+  id: number,
+  csv: string,
+): Promise<BulkImportResult> {
+  const { getAccessToken, notifyAuthExpired } = await import('../auth/tokenBridge');
+  const token = getAccessToken();
+  const response = await fetch(`/api${PATH}/${id}/entries/bulk`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'text/csv',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: csv,
+  });
+  if (response.status === 401) {
+    notifyAuthExpired();
+  }
+  if (response.status === 404) {
+    return { inserted: 0, errors: [{ line: 0, reason: 'Zeitreihe nicht gefunden' }] };
+  }
+  return (await response.json()) as BulkImportResult;
+}
+
 export type Granularity = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
 export interface AggregateBucket {

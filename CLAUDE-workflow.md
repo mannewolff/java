@@ -72,6 +72,17 @@ Knappe Anweisung. Erst nach explizitem `push main` (oder gleichwertiger Formulie
 - PR `main` → `production` wird vom User erstellt und gemerged.
 - Production-Branch hat Branch-Protection — kein Direkt-Push.
 
+#### PR-Zusammenfassung bei User-Merge
+
+Wenn der User den Merge nach `production` **selbst** macht (z. B. über die GitHub-UI), schreibt Claude **vor dem Merge** eine PR-Zusammenfassung in den Chat:
+
+- **Titel** (kurz, < 70 Zeichen)
+- **Beschreibung** mit Summary-Bullets, Test plan, Deploy-Hinweisen
+
+Der Block ist so formatiert, dass der User ihn 1:1 in den GitHub-PR-Dialog kopieren kann.
+
+Wenn der User stattdessen `merge production` als Trigger-Phrase sendet, läuft alles wie bisher: Claude erstellt PR + merged automatisch via `gh pr create` / `gh pr merge`, mit derselben Zusammenfassung im PR-Body.
+
 ---
 
 ## 📊 Kanban-Board (optionale Steuerung)

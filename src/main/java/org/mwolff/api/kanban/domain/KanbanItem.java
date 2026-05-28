@@ -63,7 +63,10 @@ public record KanbanItem(
     }
   }
 
-  /** Erzeugt ein noch nicht persistiertes Item, am Ende der Zielspalte (position wird Use-Case-seitig gesetzt). */
+  /**
+   * Erzeugt ein noch nicht persistiertes Item, am Ende der Zielspalte (position wird
+   * Use-Case-seitig gesetzt).
+   */
   public static KanbanItem newInstance(
       String userSub, String title, String body, KanbanColumn column, int position) {
     final Instant movedToDone = column == KanbanColumn.DONE ? Instant.now() : null;
@@ -83,8 +86,7 @@ public record KanbanItem(
   public KanbanItem withColumnAndPosition(KanbanColumn newColumn, int newPosition, Instant now) {
     final boolean enteringDone = newColumn == KanbanColumn.DONE && column != KanbanColumn.DONE;
     final boolean leavingDone = column == KanbanColumn.DONE && newColumn != KanbanColumn.DONE;
-    final Instant nextMovedToDone =
-        enteringDone ? now : leavingDone ? null : movedToDoneAt;
+    final Instant nextMovedToDone = enteringDone ? now : leavingDone ? null : movedToDoneAt;
     return new KanbanItem(
         id, userSub, title, body, newColumn, newPosition, createdAt, updatedAt, nextMovedToDone);
   }

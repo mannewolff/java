@@ -83,8 +83,7 @@ public class KanbanItemController {
       @PathVariable long id,
       @Valid @RequestBody UpdateKanbanItemRequest body) {
     return KanbanItemResponse.from(
-        updateContentUseCase.execute(
-            auth.getToken().getSubject(), id, body.title(), body.body()));
+        updateContentUseCase.execute(auth.getToken().getSubject(), id, body.title(), body.body()));
   }
 
   @PutMapping("/{id}/move")

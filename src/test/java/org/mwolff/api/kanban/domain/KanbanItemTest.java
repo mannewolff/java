@@ -83,7 +83,8 @@ class KanbanItemTest {
 
   @Test
   void withContentShouldUpdateTitleAndBodyOnly() {
-    final KanbanItem original = KanbanItem.newInstance("u", "Old", "old body", KanbanColumn.BACKLOG, 0);
+    final KanbanItem original =
+        KanbanItem.newInstance("u", "Old", "old body", KanbanColumn.BACKLOG, 0);
     final KanbanItem updated = original.withContent("New", "new body");
     assertThat(updated.title()).isEqualTo("New");
     assertThat(updated.body()).isEqualTo("new body");
@@ -94,8 +95,7 @@ class KanbanItemTest {
   @Test
   void withColumnAndPositionSetsMovedToDoneAtOnEntry() {
     final Instant now = Instant.parse("2026-01-01T12:00:00Z");
-    final KanbanItem original =
-        KanbanItem.newInstance("u", "T", "", KanbanColumn.IN_REVIEW, 2);
+    final KanbanItem original = KanbanItem.newInstance("u", "T", "", KanbanColumn.IN_REVIEW, 2);
     final KanbanItem moved = original.withColumnAndPosition(KanbanColumn.DONE, 0, now);
     assertThat(moved.column()).isEqualTo(KanbanColumn.DONE);
     assertThat(moved.movedToDoneAt()).isEqualTo(now);

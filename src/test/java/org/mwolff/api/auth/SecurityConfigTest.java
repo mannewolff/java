@@ -112,7 +112,7 @@ class SecurityConfigTest {
     assertThat(config.getAllowedMethods())
         .containsExactlyInAnyOrder("GET", "POST", "PUT", "DELETE", "OPTIONS");
     assertThat(config.getAllowedHeaders())
-        .containsExactlyInAnyOrder("Authorization", "Content-Type", "Accept");
+        .containsExactlyInAnyOrder("Authorization", "Content-Type", "Accept", "X-Ingest-Token");
     assertThat(config.getAllowCredentials()).isTrue();
     assertThat(config.getMaxAge()).isEqualTo(3600L);
   }

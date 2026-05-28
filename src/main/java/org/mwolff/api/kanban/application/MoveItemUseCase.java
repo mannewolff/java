@@ -48,7 +48,8 @@ public class MoveItemUseCase {
 
     final int clampedTargetPosition;
     if (sourceColumn == targetColumn) {
-      clampedTargetPosition = reindexWithinSameColumn(userSub, sourceColumn, sourcePosition, targetPosition);
+      clampedTargetPosition =
+          reindexWithinSameColumn(userSub, sourceColumn, sourcePosition, targetPosition);
     } else {
       reindexAfterRemoval(userSub, sourceColumn, sourcePosition);
       clampedTargetPosition = reindexBeforeInsertion(userSub, targetColumn, targetPosition);
@@ -73,14 +74,14 @@ public class MoveItemUseCase {
     if (clamped > fromPosition) {
       // Item wandert nach unten — alles dazwischen rutscht um 1 nach oben.
       for (final KanbanItem other : column_) {
-if (other.position() > fromPosition && other.position() <= clamped) {
+        if (other.position() > fromPosition && other.position() <= clamped) {
           items.updatePosition(other.id(), other.position() - 1);
         }
       }
     } else {
       // Item wandert nach oben — alles dazwischen rutscht um 1 nach unten.
       for (final KanbanItem other : column_) {
-if (other.position() >= clamped && other.position() < fromPosition) {
+        if (other.position() >= clamped && other.position() < fromPosition) {
           items.updatePosition(other.id(), other.position() + 1);
         }
       }

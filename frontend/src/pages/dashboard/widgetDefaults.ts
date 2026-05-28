@@ -23,12 +23,27 @@ export function pxToRows(pxHeight: number): number {
 export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number }> = {
   KPI: { width: 2, height: 2 },
   TEXTBOX: { width: 4, height: 3 },
+  PLOT: { width: 6, height: 4 },
 };
 
 /** Initial-Config je Widget-Typ — passend zu den Widget-Komponenten in widgets/. */
 export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
-  KPI: JSON.stringify({ value: 0, label: 'Neue Kennzahl', color: 'neutral' }),
+  KPI: JSON.stringify({
+    style: 'gauge',
+    value: 50,
+    label: 'Neue Kennzahl',
+    min: 0,
+    max: 100,
+    lowEnd: 33,
+    mediumEnd: 66,
+    rangeLabel: '',
+  }),
   TEXTBOX: JSON.stringify({ markdown: '# Neue Textbox\n\nText hier eingeben.' }),
+  PLOT: JSON.stringify({
+    timeSeriesId: null,
+    metric: 'avg',
+    defaultGranularity: 'DAILY',
+  }),
 };
 
 /** Erzeugt ein neues Widget mit Default-Größe und -Config an Position (0, 0). */

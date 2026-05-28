@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -16,7 +17,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class SecurityConfig {
 
+  /**
+   * Default-Filter-Chain fuer alle Pfade ausser {@code /api/ingest/**} — JWT-basierte Auth fuer das
+   * Web-UI. Die Ingest-Filter-Chain liegt in {@link org.mwolff.api.ingest.web.IngestSecurityConfig}
+   * und greift via {@code @Order(1)} vorher.
+   */
   @Bean
+  @Order(2)
   SecurityFilterChain filterChain(final HttpSecurity http) throws Exception {
     final JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
     jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(new JwtAuthoritiesConverter());
@@ -36,6 +43,16 @@ public class SecurityConfig {
                     .hasRole("USER")
                     // Kanban-Endpoints — gleicher Auth-Gate wie Dashboards (#99).
                     .requestMatchers("/api/kanban/**")
+                    .hasRole("USER")
+                    // TimeSeries-Endpoints — gleicher Auth-Gate wie Dashboards (#90).
+                    .requestMatchers("/api/timeseries/**")
+                    .hasRole("USER")
+                    // Ingest-Token-Verwaltung: JWT-User legt Tokens fuer Maschinen an (#92).
+                    .requestMatchers("/api/ingest-tokens/**")
+                    .hasRole("USER")
+                    // OpenAPI-Doku (#96): Schema + Swagger-UI eingeloggt erreichbar.
+                    .requestMatchers(
+                        "/api/openapi/**", "/api/swagger-ui/**", "/api/swagger-ui.html")
                     .hasRole("USER")
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
@@ -61,7 +78,8 @@ public class SecurityConfig {
     configuration.setAllowedOrigins(
         List.of("http://localhost:5173", "http://localhost:8080", "https://toolbox.mwolff.org"));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+    configuration.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "Accept", "X-Ingest-Token"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 

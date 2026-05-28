@@ -1,10 +1,10 @@
 package org.mwolff.api.kanban.web.dto;
 
-import org.mwolff.api.kanban.domain.KanbanColumn;
-import org.mwolff.api.kanban.domain.KanbanItem;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+
+import org.mwolff.api.kanban.domain.KanbanColumn;
+import org.mwolff.api.kanban.domain.KanbanItem;
 
 /**
  * Body für Anlage eines neuen Items. {@code body} kann leer sein, fehlt {@code column} → Default

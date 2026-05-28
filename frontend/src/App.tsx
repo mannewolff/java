@@ -12,6 +12,9 @@ import ResizePage from './pages/tools/ResizePage';
 import SvgToPngPage from './pages/tools/SvgToPngPage';
 import PasswordPage from './pages/tools/PasswordPage';
 import KanbanPage from './pages/kanban/KanbanPage';
+import TimeSeriesListPage from './pages/timeseries/TimeSeriesListPage';
+import TimeSeriesDetailPage from './pages/timeseries/TimeSeriesDetailPage';
+import IngestTokenSettingsPage from './pages/settings/IngestTokenSettingsPage';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 
 export default function App() {
@@ -42,7 +45,10 @@ export default function App() {
         <Route path="/tools/svg-to-png" element={<SvgToPngPage />} />
         <Route path="/tools/password" element={<PasswordPage />} />
         <Route path="/kanban" element={<KanbanPage />} />
+        <Route path="/timeseries" element={<TimeSeriesListPage />} />
+        <Route path="/timeseries/:id" element={<TimeSeriesDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/tokens" element={<IngestTokenSettingsPage />} />
       </Route>
     </Routes>
   );

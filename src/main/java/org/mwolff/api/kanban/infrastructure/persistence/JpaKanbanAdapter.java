@@ -27,9 +27,7 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
 
   @Override
   public List<KanbanItem> findAllByUser(String userSub) {
-    return itemRepo
-        .findAllByUserSubOrderByColumnNameAscPositionInColumnAsc(userSub)
-        .stream()
+    return itemRepo.findAllByUserSubOrderByColumnNameAscPositionInColumnAsc(userSub).stream()
         .map(JpaKanbanAdapter::toDomain)
         .toList();
   }

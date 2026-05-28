@@ -11,6 +11,7 @@ import {
   TextField,
   Toolbar,
   Typography,
+  useTheme,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
@@ -18,12 +19,31 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 import type { WidgetDto } from '../../../api/dashboard';
+import {
+  getLatestEntry,
+  getTimeSeries,
+  listTimeSeries,
+  type TimeSeriesEntry as TsEntry,
+  type TimeSeriesSummary,
+} from '../../../api/timeseries';
+import { ApiError } from '../../../api/client';
 
 type KpiColor = 'neutral' | 'success' | 'warning' | 'error';
+type KpiStyle = 'number' | 'gauge' | 'timeseries';
 
 const COLORS: ReadonlyArray<KpiColor> = ['neutral', 'success', 'warning', 'error'];
+const STYLES: ReadonlyArray<{ value: KpiStyle; label: string }> = [
+  { value: 'gauge', label: 'Gauge (Tacho)' },
+  { value: 'number', label: 'Zahl (Number)' },
+  { value: 'timeseries', label: 'Zeitreihe' },
+];
 
-interface KpiConfig {
+const MIN_REFRESH_SECONDS = 5;
+const MAX_REFRESH_SECONDS = 3600;
+const DEFAULT_REFRESH_SECONDS = 30;
+
+interface NumberConfig {
+  style: 'number';
   value: number;
   label: string;
   /** Trend in percent. `null` = no trend shown. */
@@ -31,22 +51,97 @@ interface KpiConfig {
   color: KpiColor;
 }
 
+interface GaugeConfig {
+  style: 'gauge';
+  value: number;
+  label: string;
+  min: number;
+  max: number;
+  lowEnd: number;
+  mediumEnd: number;
+  rangeLabel: string;
+}
+
+interface TimeSeriesConfig {
+  style: 'timeseries';
+  timeSeriesId: number | null;
+  refreshSeconds: number;
+  label: string;
+}
+
+type KpiConfig = NumberConfig | GaugeConfig | TimeSeriesConfig;
+
 function isKpiColor(v: unknown): v is KpiColor {
   return typeof v === 'string' && (COLORS as readonly string[]).includes(v);
 }
 
+function isKpiStyle(v: unknown): v is KpiStyle {
+  return v === 'gauge' || v === 'number' || v === 'timeseries';
+}
+
+const NUMBER_DEFAULTS = {
+  value: 0,
+  label: '',
+  trend: null as number | null,
+  color: 'neutral' as KpiColor,
+};
+
+const GAUGE_DEFAULTS = {
+  value: 50,
+  label: '',
+  min: 0,
+  max: 100,
+  lowEnd: 33,
+  mediumEnd: 66,
+  rangeLabel: '',
+};
+
 function parseConfig(raw: string): KpiConfig {
+  let parsed: Record<string, unknown> = {};
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return {
-      value: typeof parsed.value === 'number' ? parsed.value : 0,
-      label: typeof parsed.label === 'string' ? parsed.label : '',
-      trend: typeof parsed.trend === 'number' ? parsed.trend : null,
-      color: isKpiColor(parsed.color) ? parsed.color : 'neutral',
-    };
+    parsed = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    return { value: 0, label: '', trend: null, color: 'neutral' };
+    // fallback to number defaults
   }
+  // Legacy: kein style-Feld -> "number" (rueckwaertskompatibel zu #42).
+  const style: KpiStyle = isKpiStyle(parsed.style) ? parsed.style : 'number';
+  if (style === 'gauge') {
+    return {
+      style: 'gauge',
+      value: typeof parsed.value === 'number' ? parsed.value : GAUGE_DEFAULTS.value,
+      label: typeof parsed.label === 'string' ? parsed.label : GAUGE_DEFAULTS.label,
+      min: typeof parsed.min === 'number' ? parsed.min : GAUGE_DEFAULTS.min,
+      max: typeof parsed.max === 'number' ? parsed.max : GAUGE_DEFAULTS.max,
+      lowEnd: typeof parsed.lowEnd === 'number' ? parsed.lowEnd : GAUGE_DEFAULTS.lowEnd,
+      mediumEnd:
+        typeof parsed.mediumEnd === 'number' ? parsed.mediumEnd : GAUGE_DEFAULTS.mediumEnd,
+      rangeLabel:
+        typeof parsed.rangeLabel === 'string' ? parsed.rangeLabel : GAUGE_DEFAULTS.rangeLabel,
+    };
+  }
+  if (style === 'timeseries') {
+    return {
+      style: 'timeseries',
+      timeSeriesId: typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
+      refreshSeconds:
+        typeof parsed.refreshSeconds === 'number'
+          ? clampRefresh(parsed.refreshSeconds)
+          : DEFAULT_REFRESH_SECONDS,
+      label: typeof parsed.label === 'string' ? parsed.label : '',
+    };
+  }
+  return {
+    style: 'number',
+    value: typeof parsed.value === 'number' ? parsed.value : NUMBER_DEFAULTS.value,
+    label: typeof parsed.label === 'string' ? parsed.label : NUMBER_DEFAULTS.label,
+    trend: typeof parsed.trend === 'number' ? parsed.trend : NUMBER_DEFAULTS.trend,
+    color: isKpiColor(parsed.color) ? parsed.color : NUMBER_DEFAULTS.color,
+  };
+}
+
+function clampRefresh(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_REFRESH_SECONDS;
+  return Math.max(MIN_REFRESH_SECONDS, Math.min(MAX_REFRESH_SECONDS, Math.round(n)));
 }
 
 /** MUI palette key for the color accent. `neutral` maps to a grey-ish divider color. */
@@ -62,6 +157,32 @@ function accentBorderColor(color: KpiColor): string {
     default:
       return 'divider';
   }
+}
+
+/**
+ * Polar-zu-kartesisch fuer ein SVG-Halbkreis-Gauge.
+ *
+ * @param cx Mittelpunkt X
+ * @param cy Mittelpunkt Y (Basis-Linie)
+ * @param radius Radius
+ * @param angleDeg 0 = linker Rand, 180 = rechter Rand des Halbkreises
+ */
+function polar(cx: number, cy: number, radius: number, angleDeg: number) {
+  const rad = ((angleDeg - 180) * Math.PI) / 180;
+  return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+}
+
+function arcPath(
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+): string {
+  const start = polar(cx, cy, radius, startAngle);
+  const end = polar(cx, cy, radius, endAngle);
+  const largeArc = endAngle - startAngle <= 180 ? 0 : 1;
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
 interface Props {
@@ -81,33 +202,108 @@ export default function WidgetKpi({
   const config = parseConfig(widget.config);
   const [open, setOpen] = useState(false);
 
-  // Drawer-Drafts als Strings, damit "leeres Feld" sauber abbildbar bleibt
-  // (TextField type=number leert sich beim Tippen sonst seltsam).
-  const [draftValue, setDraftValue] = useState(String(config.value));
+  // Drawer-Drafts pro Sub-Type. Beim Style-Wechsel im Drawer bleiben die alten
+  // Werte des jeweils anderen Style erhalten.
+  const [draftStyle, setDraftStyle] = useState<KpiStyle>(config.style);
   const [draftLabel, setDraftLabel] = useState(config.label);
+
+  // Number-Drafts
+  const numberConfig: NumberConfig =
+    config.style === 'number'
+      ? config
+      : { style: 'number', ...NUMBER_DEFAULTS };
+  const [draftValue, setDraftValue] = useState(String(numberConfig.value));
   const [draftTrend, setDraftTrend] = useState<string>(
-    config.trend == null ? '' : String(config.trend),
+    numberConfig.trend == null ? '' : String(numberConfig.trend),
   );
-  const [draftColor, setDraftColor] = useState<KpiColor>(config.color);
+  const [draftColor, setDraftColor] = useState<KpiColor>(numberConfig.color);
+
+  // Gauge-Drafts
+  const gaugeConfig: GaugeConfig =
+    config.style === 'gauge'
+      ? config
+      : { style: 'gauge', ...GAUGE_DEFAULTS };
+  const [draftGaugeValue, setDraftGaugeValue] = useState(String(gaugeConfig.value));
+  const [draftMin, setDraftMin] = useState(String(gaugeConfig.min));
+  const [draftMax, setDraftMax] = useState(String(gaugeConfig.max));
+  const [draftLowEnd, setDraftLowEnd] = useState(String(gaugeConfig.lowEnd));
+  const [draftMediumEnd, setDraftMediumEnd] = useState(String(gaugeConfig.mediumEnd));
+  const [draftRangeLabel, setDraftRangeLabel] = useState(gaugeConfig.rangeLabel);
+
+  // TimeSeries-Drafts
+  const tsConfig: TimeSeriesConfig =
+    config.style === 'timeseries'
+      ? config
+      : {
+          style: 'timeseries',
+          timeSeriesId: null,
+          refreshSeconds: DEFAULT_REFRESH_SECONDS,
+          label: '',
+        };
+  const [draftSeriesId, setDraftSeriesId] = useState<string>(
+    tsConfig.timeSeriesId == null ? '' : String(tsConfig.timeSeriesId),
+  );
+  const [draftRefresh, setDraftRefresh] = useState<string>(String(tsConfig.refreshSeconds));
+  const [seriesList, setSeriesList] = useState<TimeSeriesSummary[] | null>(null);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    setDraftStyle(config.style);
+    setDraftLabel(config.label);
+    if (config.style === 'number') {
       setDraftValue(String(config.value));
-      setDraftLabel(config.label);
       setDraftTrend(config.trend == null ? '' : String(config.trend));
       setDraftColor(config.color);
+    } else if (config.style === 'gauge') {
+      setDraftGaugeValue(String(config.value));
+      setDraftMin(String(config.min));
+      setDraftMax(String(config.max));
+      setDraftLowEnd(String(config.lowEnd));
+      setDraftMediumEnd(String(config.mediumEnd));
+      setDraftRangeLabel(config.rangeLabel);
+    } else {
+      setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
+      setDraftRefresh(String(config.refreshSeconds));
     }
-  }, [open, config.value, config.label, config.trend, config.color]);
+    if (seriesList === null) {
+      listTimeSeries()
+        .then(setSeriesList)
+        .catch(() => setSeriesList([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function handleApply(): void {
-    const valueNum = Number.parseFloat(draftValue);
-    const trendNum = draftTrend.trim() === '' ? null : Number.parseFloat(draftTrend);
-    const next: KpiConfig = {
-      value: Number.isFinite(valueNum) ? valueNum : 0,
-      label: draftLabel,
-      trend: trendNum != null && Number.isFinite(trendNum) ? trendNum : null,
-      color: draftColor,
-    };
+    let next: KpiConfig;
+    if (draftStyle === 'number') {
+      const valueNum = Number.parseFloat(draftValue);
+      const trendNum = draftTrend.trim() === '' ? null : Number.parseFloat(draftTrend);
+      next = {
+        style: 'number',
+        value: Number.isFinite(valueNum) ? valueNum : 0,
+        label: draftLabel,
+        trend: trendNum != null && Number.isFinite(trendNum) ? trendNum : null,
+        color: draftColor,
+      };
+    } else if (draftStyle === 'gauge') {
+      next = {
+        style: 'gauge',
+        value: parseOrDefault(draftGaugeValue, GAUGE_DEFAULTS.value),
+        label: draftLabel,
+        min: parseOrDefault(draftMin, GAUGE_DEFAULTS.min),
+        max: parseOrDefault(draftMax, GAUGE_DEFAULTS.max),
+        lowEnd: parseOrDefault(draftLowEnd, GAUGE_DEFAULTS.lowEnd),
+        mediumEnd: parseOrDefault(draftMediumEnd, GAUGE_DEFAULTS.mediumEnd),
+        rangeLabel: draftRangeLabel,
+      };
+    } else {
+      next = {
+        style: 'timeseries',
+        timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
+        refreshSeconds: clampRefresh(parseOrDefault(draftRefresh, DEFAULT_REFRESH_SECONDS)),
+        label: draftLabel,
+      };
+    }
     onChange({ ...widget, config: JSON.stringify(next) });
     setOpen(false);
   }
@@ -116,8 +312,6 @@ export default function WidgetKpi({
     setOpen(false);
   }
 
-  const trendPositive = config.trend != null && config.trend >= 0;
-
   return (
     <Paper
       variant="outlined"
@@ -125,8 +319,10 @@ export default function WidgetKpi({
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
-        borderLeftWidth: 4,
-        borderLeftColor: accentBorderColor(config.color),
+        ...(config.style === 'number' && {
+          borderLeftWidth: 4,
+          borderLeftColor: accentBorderColor(config.color),
+        }),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -135,11 +331,7 @@ export default function WidgetKpi({
       }}
     >
       {!readOnly && (
-        <Stack
-          direction="row"
-          spacing={0.5}
-          sx={{ position: 'absolute', top: 4, right: 4 }}
-        >
+        <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: 4, right: 4 }}>
           <IconButton
             size="small"
             aria-label="KPI bearbeiten"
@@ -159,6 +351,188 @@ export default function WidgetKpi({
         </Stack>
       )}
 
+      {config.style === 'number' ? (
+        <NumberView config={config} />
+      ) : config.style === 'gauge' ? (
+        <GaugeView config={config} />
+      ) : (
+        <TimeSeriesView config={config} />
+      )}
+
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={handleCancel}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 400 } } }}
+      >
+        <Toolbar />
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            KPI bearbeiten
+          </Typography>
+          <Stack spacing={2}>
+            <TextField
+              select
+              label="Darstellung"
+              value={draftStyle}
+              onChange={(e) => setDraftStyle(e.target.value as KpiStyle)}
+              fullWidth
+            >
+              {STYLES.map((s) => (
+                <MenuItem key={s.value} value={s.value}>
+                  {s.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Label"
+              value={draftLabel}
+              onChange={(e) => setDraftLabel(e.target.value)}
+              fullWidth
+            />
+            {draftStyle === 'number' && (
+              <>
+                <TextField
+                  label="Wert"
+                  type="number"
+                  value={draftValue}
+                  onChange={(e) => setDraftValue(e.target.value)}
+                  fullWidth
+                  inputProps={{ step: 'any' }}
+                />
+                <TextField
+                  label="Trend in % (leer = kein Trend)"
+                  type="number"
+                  value={draftTrend}
+                  onChange={(e) => setDraftTrend(e.target.value)}
+                  fullWidth
+                  inputProps={{ step: 'any' }}
+                  helperText="Positive Werte zeigen einen grünen Aufwärtspfeil, negative einen roten Abwärtspfeil."
+                />
+                <TextField
+                  select
+                  label="Farb-Akzent"
+                  value={draftColor}
+                  onChange={(e) => setDraftColor(e.target.value as KpiColor)}
+                  fullWidth
+                >
+                  {COLORS.map((c) => (
+                    <MenuItem key={c} value={c}>
+                      {c}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            )}
+            {draftStyle === 'gauge' && (
+              <>
+                <TextField
+                  label="Wert"
+                  type="number"
+                  value={draftGaugeValue}
+                  onChange={(e) => setDraftGaugeValue(e.target.value)}
+                  fullWidth
+                  inputProps={{ step: 'any' }}
+                />
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    label="Min"
+                    type="number"
+                    value={draftMin}
+                    onChange={(e) => setDraftMin(e.target.value)}
+                    fullWidth
+                    inputProps={{ step: 'any' }}
+                  />
+                  <TextField
+                    label="Max"
+                    type="number"
+                    value={draftMax}
+                    onChange={(e) => setDraftMax(e.target.value)}
+                    fullWidth
+                    inputProps={{ step: 'any' }}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    label="Low-End"
+                    type="number"
+                    value={draftLowEnd}
+                    onChange={(e) => setDraftLowEnd(e.target.value)}
+                    fullWidth
+                    inputProps={{ step: 'any' }}
+                    helperText="rot / gelb"
+                  />
+                  <TextField
+                    label="Medium-End"
+                    type="number"
+                    value={draftMediumEnd}
+                    onChange={(e) => setDraftMediumEnd(e.target.value)}
+                    fullWidth
+                    inputProps={{ step: 'any' }}
+                    helperText="gelb / grün"
+                  />
+                </Stack>
+                <TextField
+                  label="Range-Label (optional)"
+                  value={draftRangeLabel}
+                  onChange={(e) => setDraftRangeLabel(e.target.value)}
+                  fullWidth
+                  placeholder="z. B. 70% to 100%"
+                />
+              </>
+            )}
+            {draftStyle === 'timeseries' && (
+              <>
+                <TextField
+                  select
+                  label="Zeitreihe"
+                  value={draftSeriesId}
+                  onChange={(e) => setDraftSeriesId(e.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">
+                    <em>— bitte wählen —</em>
+                  </MenuItem>
+                  {(seriesList ?? []).map((ts) => (
+                    <MenuItem key={ts.id} value={String(ts.id)}>
+                      {ts.name} ({ts.unit})
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Refresh-Intervall (Sekunden)"
+                  type="number"
+                  value={draftRefresh}
+                  onChange={(e) => setDraftRefresh(e.target.value)}
+                  fullWidth
+                  inputProps={{ min: MIN_REFRESH_SECONDS, max: MAX_REFRESH_SECONDS, step: 1 }}
+                  helperText={`${MIN_REFRESH_SECONDS} bis ${MAX_REFRESH_SECONDS} Sekunden`}
+                />
+              </>
+            )}
+            <Divider />
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button onClick={handleCancel}>Abbrechen</Button>
+              <Button variant="contained" onClick={handleApply}>
+                Übernehmen
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </Drawer>
+    </Paper>
+  );
+}
+
+function parseOrDefault(raw: string, fallback: number): number {
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function NumberView({ config }: { config: NumberConfig }): JSX.Element {
+  const trendPositive = config.trend != null && config.trend >= 0;
+  return (
+    <>
       <Typography
         variant="h3"
         component="div"
@@ -167,7 +541,6 @@ export default function WidgetKpi({
       >
         {config.value}
       </Typography>
-
       {config.label && (
         <Typography
           variant="body2"
@@ -177,7 +550,6 @@ export default function WidgetKpi({
           {config.label}
         </Typography>
       )}
-
       {config.trend != null && (
         <Stack
           direction="row"
@@ -199,65 +571,203 @@ export default function WidgetKpi({
           </Typography>
         </Stack>
       )}
+    </>
+  );
+}
 
-      <Drawer
-        anchor="right"
-        open={open}
-        onClose={handleCancel}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 400 } } }}
+function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
+  const theme = useTheme();
+  const cx = 100;
+  const cy = 100;
+  const radius = 80;
+  const strokeWidth = 14;
+
+  const clampedValue = Math.max(config.min, Math.min(config.max, config.value));
+  const span = Math.max(1, config.max - config.min);
+  const valueRatio = (clampedValue - config.min) / span;
+  const needleAngle = valueRatio * 180;
+
+  // Zonen-Grenzwinkel in Grad
+  const lowRatio = Math.max(0, Math.min(1, (config.lowEnd - config.min) / span));
+  const mediumRatio = Math.max(0, Math.min(1, (config.mediumEnd - config.min) / span));
+  const lowAngle = lowRatio * 180;
+  const mediumAngle = mediumRatio * 180;
+
+  const needle = polar(cx, cy, radius - strokeWidth - 4, needleAngle);
+
+  const percentDisplay = `${Math.round(valueRatio * 100)}%`;
+
+  return (
+    <Box
+      sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
+      aria-label="KPI-Gauge"
+    >
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          minHeight: 0,
+        }}
       >
-        <Toolbar />
-        <Box sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            KPI bearbeiten
-          </Typography>
-          <Stack spacing={2}>
-            <TextField
-              label="Label"
-              value={draftLabel}
-              onChange={(e) => setDraftLabel(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Wert"
-              type="number"
-              value={draftValue}
-              onChange={(e) => setDraftValue(e.target.value)}
-              fullWidth
-              inputProps={{ step: 'any' }}
-            />
-            <TextField
-              label="Trend in % (leer = kein Trend)"
-              type="number"
-              value={draftTrend}
-              onChange={(e) => setDraftTrend(e.target.value)}
-              fullWidth
-              inputProps={{ step: 'any' }}
-              helperText="Positive Werte zeigen einen grünen Aufwärtspfeil, negative einen roten Abwärtspfeil."
-            />
-            <TextField
-              select
-              label="Farb-Akzent"
-              value={draftColor}
-              onChange={(e) => setDraftColor(e.target.value as KpiColor)}
-              fullWidth
+        <svg viewBox="0 0 200 120" width="100%" height="100%" role="img" aria-label="Gauge">
+          <path
+            d={arcPath(cx, cy, radius, 0, lowAngle)}
+            stroke={theme.palette.error.main}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeLinecap="butt"
+          />
+          <path
+            d={arcPath(cx, cy, radius, lowAngle, mediumAngle)}
+            stroke={theme.palette.warning.main}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeLinecap="butt"
+          />
+          <path
+            d={arcPath(cx, cy, radius, mediumAngle, 180)}
+            stroke={theme.palette.success.main}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeLinecap="butt"
+          />
+          <line
+            x1={cx}
+            y1={cy}
+            x2={needle.x}
+            y2={needle.y}
+            stroke={theme.palette.text.primary}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+          />
+          <circle cx={cx} cy={cy} r={4} fill={theme.palette.text.primary} />
+          <text
+            x={cx}
+            y={cy - 10}
+            textAnchor="middle"
+            fontSize="22"
+            fontWeight="700"
+            fill={theme.palette.text.primary}
+          >
+            {percentDisplay}
+          </text>
+          {config.rangeLabel && (
+            <text
+              x={cx}
+              y={cy + 14}
+              textAnchor="middle"
+              fontSize="10"
+              fill={theme.palette.text.secondary}
             >
-              {COLORS.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
-                </MenuItem>
-              ))}
-            </TextField>
-            <Divider />
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Button onClick={handleCancel}>Abbrechen</Button>
-              <Button variant="contained" onClick={handleApply}>
-                Übernehmen
-              </Button>
-            </Stack>
-          </Stack>
-        </Box>
-      </Drawer>
-    </Paper>
+              {config.rangeLabel}
+            </text>
+          )}
+        </svg>
+      </Box>
+      {config.label && (
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', mb: 0.5 }}>
+          {config.label}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+type TsState =
+  | { kind: 'loading' }
+  | { kind: 'no-config' }
+  | { kind: 'no-data' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; entry: TsEntry; summary: TimeSeriesSummary };
+
+function TimeSeriesView({ config }: { config: TimeSeriesConfig }): JSX.Element {
+  const [state, setState] = useState<TsState>(
+    config.timeSeriesId == null ? { kind: 'no-config' } : { kind: 'loading' },
+  );
+
+  useEffect(() => {
+    if (config.timeSeriesId == null) {
+      setState({ kind: 'no-config' });
+      return;
+    }
+    const id = config.timeSeriesId;
+    let cancelled = false;
+
+    async function tick(): Promise<void> {
+      try {
+        const [entry, summary] = await Promise.all([getLatestEntry(id), getTimeSeries(id)]);
+        if (!cancelled) setState({ kind: 'ready', entry, summary });
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 404) {
+          setState({ kind: 'no-data' });
+        } else {
+          setState({
+            kind: 'error',
+            message: e instanceof ApiError ? e.message : 'Fehler beim Laden',
+          });
+        }
+      }
+    }
+
+    void tick();
+    const handle = window.setInterval(() => void tick(), config.refreshSeconds * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [config.timeSeriesId, config.refreshSeconds]);
+
+  if (state.kind === 'no-config') {
+    return (
+      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+        Bitte Zeitreihe wählen.
+      </Typography>
+    );
+  }
+  if (state.kind === 'loading') {
+    return (
+      <Typography variant="caption" color="text.secondary" aria-label="KPI-Loading">
+        Lade…
+      </Typography>
+    );
+  }
+  if (state.kind === 'no-data') {
+    return (
+      <Typography variant="caption" color="text.secondary" aria-label="KPI-No-Data">
+        Keine Daten
+      </Typography>
+    );
+  }
+  if (state.kind === 'error') {
+    return (
+      <Typography variant="caption" color="error" aria-label="KPI-Error">
+        {state.message}
+      </Typography>
+    );
+  }
+
+  const label = config.label || state.summary.name;
+  return (
+    <>
+      <Typography
+        variant="h3"
+        component="div"
+        sx={{ fontWeight: 700, lineHeight: 1.1, textAlign: 'center' }}
+        aria-label="KPI-Wert"
+      >
+        {state.entry.value}
+        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+          {state.summary.unit}
+        </Typography>
+      </Typography>
+      {label && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, textAlign: 'center' }}>
+          {label}
+        </Typography>
+      )}
+    </>
   );
 }

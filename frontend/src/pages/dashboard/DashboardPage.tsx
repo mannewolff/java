@@ -44,6 +44,7 @@ import {
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
 import WidgetKpi from './widgets/WidgetKpi';
+import WidgetPlot from './widgets/WidgetPlot';
 import WidgetTextbox from './widgets/WidgetTextbox';
 
 // `Responsive` allein kennt die Container-Breite nicht und berechnet Spalten aus einem Default —
@@ -365,6 +366,15 @@ export default function DashboardPage(): JSX.Element {
       case 'KPI':
         return (
           <WidgetKpi
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
+            readOnly={!editMode}
+          />
+        );
+      case 'PLOT':
+        return (
+          <WidgetPlot
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDeleteRequest(index)}

@@ -17,8 +17,7 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
       String userSub, KanbanColumn columnName);
 
   @Modifying
-  @Query(
-      "update KanbanItemEntity i set i.positionInColumn = :newPosition where i.id = :id")
+  @Query("update KanbanItemEntity i set i.positionInColumn = :newPosition where i.id = :id")
   void updatePosition(@Param("id") long id, @Param("newPosition") int newPosition);
 
   @Modifying
@@ -26,8 +25,7 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
       "delete from KanbanItemEntity i where i.userSub = :userSub "
           + "and i.columnName = org.mwolff.api.kanban.domain.KanbanColumn.DONE "
           + "and i.movedToDoneAt < :threshold")
-  int deleteDoneOlderThan(
-      @Param("userSub") String userSub, @Param("threshold") Instant threshold);
+  int deleteDoneOlderThan(@Param("userSub") String userSub, @Param("threshold") Instant threshold);
 
   @Query(
       "select distinct i.userSub from KanbanItemEntity i "

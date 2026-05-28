@@ -15,6 +15,11 @@
     machen wir bewusst in Konstruktor und Accessor (siehe UploadedImage,
     ToolImageResult, PaletteResult). Für die übrigen Records sind die Referenzen
     Teil des Werts — wir wollen keine zusätzliche Kopier-Schicht.
+
+    Spring-managed Beans (Controller, Service, Adapter, *Job, …) bekommen ihre
+    Dependencies via Konstruktor-Injection — die Referenzen sind Wiring durch
+    Spring, nicht extern mutierbarer Zustand. Daher EI_EXPOSE_REP/REP2 hier
+    pauschal ausgeschlossen.
   -->
   <Match>
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
@@ -27,6 +32,7 @@
       <Class name="~.*Adapter"/>
       <Class name="~.*Service"/>
       <Class name="~.*Controller"/>
+      <Class name="~.*Job"/>
     </Or>
   </Match>
 

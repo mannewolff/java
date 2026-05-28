@@ -39,6 +39,9 @@ public interface KanbanItemPort {
    */
   int deleteDoneOlderThan(String userSub, Instant threshold);
 
-  /** Liefert die distinkten {@code userSub}s, die mindestens ein DONE-Item haben (Cleanup-Iteration). */
+  /**
+   * Liefert die distinkten {@code userSub}s, die mindestens ein DONE-Item haben
+   * (Cleanup-Iteration).
+   */
   List<String> distinctUsersWithDoneItems();
 }

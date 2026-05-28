@@ -58,7 +58,14 @@ class KanbanItemControllerTest {
 
   private static KanbanItem item(long id, KanbanColumn column, int position) {
     return new KanbanItem(
-        id, SUB, "T", "b", column, position, Instant.EPOCH, Instant.EPOCH,
+        id,
+        SUB,
+        "T",
+        "b",
+        column,
+        position,
+        Instant.EPOCH,
+        Instant.EPOCH,
         column == KanbanColumn.DONE ? Instant.EPOCH : null);
   }
 
@@ -191,12 +198,8 @@ class KanbanItemControllerTest {
 
   @Test
   void deleteForeignShouldReturn404() throws Exception {
-    willThrow(new KanbanItemNotFoundException(3L))
-        .given(deleteUseCase)
-        .execute(any(), eq(3L));
+    willThrow(new KanbanItemNotFoundException(3L)).given(deleteUseCase).execute(any(), eq(3L));
 
-    mockMvc
-        .perform(delete("/api/kanban/items/3").with(userJwt()))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(delete("/api/kanban/items/3").with(userJwt())).andExpect(status().isNotFound());
   }
 }

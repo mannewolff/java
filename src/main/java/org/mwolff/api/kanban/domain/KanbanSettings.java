@@ -27,10 +27,7 @@ public record KanbanSettings(String userSub, int doneRetentionDays) {
     }
     if (doneRetentionDays < MIN_RETENTION_DAYS || doneRetentionDays > MAX_RETENTION_DAYS) {
       throw new IllegalArgumentException(
-          "doneRetentionDays must be in "
-              + MIN_RETENTION_DAYS
-              + ".."
-              + MAX_RETENTION_DAYS);
+          "doneRetentionDays must be in " + MIN_RETENTION_DAYS + ".." + MAX_RETENTION_DAYS);
     }
   }
 

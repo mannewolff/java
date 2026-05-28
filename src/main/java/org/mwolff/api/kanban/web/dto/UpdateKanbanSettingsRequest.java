@@ -1,9 +1,9 @@
 package org.mwolff.api.kanban.web.dto;
 
-import org.mwolff.api.kanban.domain.KanbanSettings;
-
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+
+import org.mwolff.api.kanban.domain.KanbanSettings;
 
 /** Body für Settings-Update. */
 public record UpdateKanbanSettingsRequest(

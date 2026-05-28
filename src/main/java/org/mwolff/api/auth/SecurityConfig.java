@@ -37,6 +37,9 @@ public class SecurityConfig {
                     // Kanban-Endpoints — gleicher Auth-Gate wie Dashboards (#99).
                     .requestMatchers("/api/kanban/**")
                     .hasRole("USER")
+                    // TimeSeries-Endpoints — gleicher Auth-Gate wie Dashboards (#90).
+                    .requestMatchers("/api/timeseries/**")
+                    .hasRole("USER")
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
                     .permitAll()

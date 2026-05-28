@@ -37,7 +37,15 @@ class KanbanUseCasesTest {
   private static KanbanItem item(
       long id, String sub, KanbanColumn column, int position, Instant movedToDoneAt) {
     return new KanbanItem(
-        id, sub, "T-" + id, "body-" + id, column, position, Instant.EPOCH, Instant.EPOCH, movedToDoneAt);
+        id,
+        sub,
+        "T-" + id,
+        "body-" + id,
+        column,
+        position,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        movedToDoneAt);
   }
 
   private static KanbanItem item(long id, String sub, KanbanColumn column, int position) {
@@ -55,7 +63,8 @@ class KanbanUseCasesTest {
                 item(2, SUB_OWNER, KanbanColumn.IN_PROGRESS, 0),
                 item(3, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
 
-    final Map<KanbanColumn, List<KanbanItem>> result = new ListItemsUseCase(items).execute(SUB_OWNER);
+    final Map<KanbanColumn, List<KanbanItem>> result =
+        new ListItemsUseCase(items).execute(SUB_OWNER);
 
     assertThat(result).containsOnlyKeys(KanbanColumn.values());
     assertThat(result.get(KanbanColumn.BACKLOG)).hasSize(2);
@@ -72,8 +81,7 @@ class KanbanUseCasesTest {
         .willReturn(List.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-    final KanbanItem created =
-        new CreateItemUseCase(items).execute(SUB_OWNER, "Neu", "body", null);
+    final KanbanItem created = new CreateItemUseCase(items).execute(SUB_OWNER, "Neu", "body", null);
 
     assertThat(created.column()).isEqualTo(KanbanColumn.BACKLOG);
     assertThat(created.position()).isEqualTo(1);
@@ -109,10 +117,7 @@ class KanbanUseCasesTest {
   void updateContentShouldThrowForForeignItem() {
     given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
 
-    assertThatThrownBy(
-            () ->
-                new UpdateItemContentUseCase(items)
-                    .execute(SUB_OTHER, 1L, "x", "y"))
+    assertThatThrownBy(() -> new UpdateItemContentUseCase(items).execute(SUB_OTHER, 1L, "x", "y"))
         .isInstanceOf(KanbanItemNotFoundException.class);
     verify(items, never()).save(any());
   }
@@ -120,8 +125,7 @@ class KanbanUseCasesTest {
   @Test
   void updateContentShouldThrowWhenMissing() {
     given(items.findById(99L)).willReturn(Optional.empty());
-    assertThatThrownBy(
-            () -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 99L, "x", "y"))
+    assertThatThrownBy(() -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 99L, "x", "y"))
         .isInstanceOf(KanbanItemNotFoundException.class);
   }
 
@@ -140,13 +144,13 @@ class KanbanUseCasesTest {
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
     final KanbanItem moved =
-        new MoveItemUseCase(items, clock)
-            .execute(SUB_OWNER, 2L, KanbanColumn.IN_PROGRESS, 0);
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 2L, KanbanColumn.IN_PROGRESS, 0);
 
     assertThat(moved.column()).isEqualTo(KanbanColumn.IN_PROGRESS);
     assertThat(moved.position()).isEqualTo(0);
     // Reindex der Quelle (Items mit position > 1 verschieben sich um 1 runter).
-    // In unserem Mock-Modell ist die Quelle nach "implizitem Remove" als findByUserAndColumn-Antwort
+    // In unserem Mock-Modell ist die Quelle nach "implizitem Remove" als
+    // findByUserAndColumn-Antwort
     // gegeben — wir prüfen, dass c (position=2) re-indiziert wird.
     verify(items).updatePosition(3L, 1);
   }
@@ -226,14 +230,15 @@ class KanbanUseCasesTest {
     final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
     final KanbanItem c = item(3, SUB_OWNER, KanbanColumn.BACKLOG, 2);
     given(items.findById(3L)).willReturn(Optional.of(c));
-    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
-        .willReturn(List.of(a, b, c));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of(a, b, c));
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
     new MoveItemUseCase(items, clock).execute(SUB_OWNER, 3L, KanbanColumn.BACKLOG, 99);
 
     // Keine Reindex-Aufrufe, weil clamped (= 2) == fromPosition (= 2).
-    verify(items, never()).updatePosition(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+    verify(items, never())
+        .updatePosition(
+            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
   }
 
   @Test
@@ -266,8 +271,7 @@ class KanbanUseCasesTest {
     final KanbanItem y = item(11, SUB_OWNER, KanbanColumn.IN_PROGRESS, 1);
     given(items.findById(1L)).willReturn(Optional.of(a));
     given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
-    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.IN_PROGRESS))
-        .willReturn(List.of(x, y));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.IN_PROGRESS)).willReturn(List.of(x, y));
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
     new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.IN_PROGRESS, 0);
@@ -283,7 +287,9 @@ class KanbanUseCasesTest {
 
     new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.BACKLOG, 0);
 
-    verify(items, never()).updatePosition(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+    verify(items, never())
+        .updatePosition(
+            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
     verify(items, never()).save(any());
   }
 
@@ -331,7 +337,8 @@ class KanbanUseCasesTest {
 
   @Test
   void getSettingsReturnsPersistedValueWhenPresent() {
-    given(settings.findByUser(SUB_OWNER)).willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 14)));
+    given(settings.findByUser(SUB_OWNER))
+        .willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 14)));
     assertThat(new GetSettingsUseCase(settings).execute(SUB_OWNER).doneRetentionDays())
         .isEqualTo(14);
   }
@@ -348,7 +355,8 @@ class KanbanUseCasesTest {
   @Test
   void cleanupDeletesForEachUserUsingTheirRetention() {
     given(items.distinctUsersWithDoneItems()).willReturn(List.of(SUB_OWNER, SUB_OTHER));
-    given(settings.findByUser(SUB_OWNER)).willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 10)));
+    given(settings.findByUser(SUB_OWNER))
+        .willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 10)));
     given(settings.findByUser(SUB_OTHER)).willReturn(Optional.empty()); // Default 5
     given(items.deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any()))
         .willReturn(2);

@@ -276,6 +276,13 @@
                                   dort zu 100% gedeckt.
                                 -->
                                 <exclude>org/mwolff/api/kanban/infrastructure/persistence/**</exclude>
+                                <!--
+                                  TimeSeries-Persistence-Layer: gleicher Grund wie Dashboard und
+                                  Kanban. Adapter + Entities werden via JpaTimeSeriesAdapterIT mit
+                                  Testcontainers-MariaDB gepruefst. Fachlogik liegt in den
+                                  Use-Cases (TimeSeriesUseCasesTest).
+                                -->
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>

@@ -21,7 +21,8 @@ public class KanbanSettingsController {
   private final GetSettingsUseCase getUseCase;
   private final UpdateSettingsUseCase updateUseCase;
 
-  public KanbanSettingsController(GetSettingsUseCase getUseCase, UpdateSettingsUseCase updateUseCase) {
+  public KanbanSettingsController(
+      GetSettingsUseCase getUseCase, UpdateSettingsUseCase updateUseCase) {
     this.getUseCase = getUseCase;
     this.updateUseCase = updateUseCase;
   }

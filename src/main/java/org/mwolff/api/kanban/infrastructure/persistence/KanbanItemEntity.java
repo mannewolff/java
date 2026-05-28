@@ -2,8 +2,6 @@ package org.mwolff.api.kanban.infrastructure.persistence;
 
 import java.time.Instant;
 
-import org.mwolff.api.kanban.domain.KanbanColumn;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +12,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+
+import org.mwolff.api.kanban.domain.KanbanColumn;
 
 /** JPA-Entity zur {@code kanban_item}-Tabelle. */
 @Entity

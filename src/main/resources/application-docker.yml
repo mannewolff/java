@@ -1,3 +1,17 @@
 spring:
   datasource:
     url: jdbc:mariadb://${DB_HOST:mariadb}:${DB_PORT:3306}/${DB_NAME:api}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Im lokalen Docker-Compose-Setup signiert Keycloak die Tokens mit dem
+          # Host-erreichbaren Issuer (http://localhost:8081/realms/toolbox-dev),
+          # weil das Frontend (Browser) Keycloak nur darüber kennt. Vom api-Container
+          # aus ist `localhost:8081` aber nichts — der Container muss Keycloak über
+          # den Service-Namen `keycloak:8080` erreichen. Lösung:
+          #   - `issuer-uri` validiert den `iss`-Claim im Token (muss exakt matchen).
+          #   - `jwk-set-uri` setzt den JWKS-Endpunkt direkt, damit Spring nicht
+          #     versucht, das Well-Known-Discovery über `issuer-uri` zu laden.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/toolbox-dev}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/toolbox-dev/protocol/openid-connect/certs}

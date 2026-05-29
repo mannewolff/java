@@ -41,6 +41,7 @@ import {
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
 import KanbanColumnView from './KanbanColumn';
+import KanbanDetailModal from './KanbanDetailModal';
 import KanbanEditDrawer from './KanbanEditDrawer';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
@@ -80,6 +81,7 @@ export default function KanbanPage(): JSX.Element {
   const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
   const [pendingDelete, setPendingDelete] = useState<KanbanItem | null>(null);
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -132,6 +134,18 @@ export default function KanbanPage(): JSX.Element {
 
   function startEdit(item: KanbanItem): void {
     setEditTarget({ item, defaultColumn: item.column });
+  }
+
+  async function handleSubmitDetail(title: string, body: string): Promise<void> {
+    if (!detailItem) return;
+    try {
+      await updateKanbanItem(detailItem.id, title, body);
+      notify.success('Item gespeichert.');
+      setDetailItem(null);
+      await reload();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
   }
 
   async function handleSubmitEdit(title: string, body: string): Promise<void> {
@@ -296,6 +310,7 @@ export default function KanbanPage(): JSX.Element {
                 items={state.board[col]}
                 retentionDays={retentionDays}
                 onCreate={startCreate}
+                onOpenDetail={setDetailItem}
                 onEdit={startEdit}
                 onDelete={setPendingDelete}
               />
@@ -312,6 +327,16 @@ export default function KanbanPage(): JSX.Element {
         onClose={() => setEditTarget(null)}
         onSubmit={handleSubmitEdit}
       />
+
+      {detailItem != null && (
+        <KanbanDetailModal
+          open
+          item={detailItem}
+          retentionDays={retentionDays}
+          onClose={() => setDetailItem(null)}
+          onSubmit={handleSubmitDetail}
+        />
+      )}
 
       <KanbanSettingsDrawer
         open={settingsOpen}

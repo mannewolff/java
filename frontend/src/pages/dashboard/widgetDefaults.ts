@@ -41,8 +41,8 @@ export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
   TEXTBOX: JSON.stringify({ markdown: '# Neue Textbox\n\nText hier eingeben.' }),
   PLOT: JSON.stringify({
     timeSeriesId: null,
-    metric: 'avg',
-    defaultGranularity: 'DAILY',
+    defaultGranularity: null,
+    overlays: [],
   }),
 };
 

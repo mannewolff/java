@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -43,8 +43,13 @@ function renderShell(initialEntry = '/dashboards/default') {
 }
 
 describe('AppShell navigation', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   afterEach(() => {
     cleanup();
+    localStorage.clear();
   });
 
   it('renders the two top-level entries without expanding any group', () => {
@@ -141,5 +146,69 @@ describe('AppShell navigation', () => {
     expect(list).not.toBeNull();
     // Within the list there is also Einstellungen at the top level.
     expect(within(list as HTMLElement).getByText('Einstellungen')).toBeInTheDocument();
+  });
+});
+
+describe('AppShell collapsed sidebar', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('shows labels when not collapsed', () => {
+    renderShell('/dashboards/default');
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Einstellungen')).toBeInTheDocument();
+  });
+
+  it('hides labels and shows only icons when collapsed via toggle', async () => {
+    renderShell('/dashboards/default');
+    const user = userEvent.setup();
+
+    // Sidebar einklappen
+    const toggleBtn = screen.getByRole('button', { name: 'Menü einklappen' });
+    await user.click(toggleBtn);
+
+    // Labels nicht mehr sichtbar
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Einstellungen')).not.toBeInTheDocument();
+
+    // Toggle-Button zeigt jetzt "ausklappen"
+    expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
+  });
+
+  it('persists collapsed state to localStorage', async () => {
+    renderShell('/dashboards/default');
+    const user = userEvent.setup();
+
+    expect(localStorage.getItem('sidebar-collapsed')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Menü einklappen' }));
+    expect(localStorage.getItem('sidebar-collapsed')).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Menü ausklappen' }));
+    expect(localStorage.getItem('sidebar-collapsed')).toBe('false');
+  });
+
+  it('restores collapsed state from localStorage on mount', () => {
+    localStorage.setItem('sidebar-collapsed', 'true');
+    renderShell('/dashboards/default');
+
+    // Im collapsed Zustand sind Labels nicht sichtbar
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
+  });
+
+  it('shows icon aria-labels as tooltips in collapsed mode', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true');
+    renderShell('/dashboards/default');
+
+    // Icon-Buttons haben aria-label mit dem Menüpunkt-Namen
+    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Einstellungen' })).toBeInTheDocument();
   });
 });

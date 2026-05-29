@@ -46,6 +46,7 @@ import {
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
 import { useKioskMode } from './KioskModeContext';
+import WidgetDivider from './widgets/WidgetDivider';
 import WidgetKanbanList from './widgets/WidgetKanbanList';
 import WidgetKpi from './widgets/WidgetKpi';
 import WidgetPlot from './widgets/WidgetPlot';
@@ -408,6 +409,15 @@ export default function DashboardPage(): JSX.Element {
       case 'KANBAN_LIST':
         return (
           <WidgetKanbanList
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
+            readOnly={!editMode}
+          />
+        );
+      case 'DIVIDER':
+        return (
+          <WidgetDivider
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDeleteRequest(index)}

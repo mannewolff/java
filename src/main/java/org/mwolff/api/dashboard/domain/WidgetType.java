@@ -8,5 +8,6 @@ public enum WidgetType {
   TEXTBOX,
   KPI,
   PLOT,
-  KANBAN_LIST
+  KANBAN_LIST,
+  DIVIDER
 }

@@ -42,37 +42,102 @@ mvn verify
 
 ### Lokal mit Docker starten
 
+#### Voraussetzungen
+
+- Docker Engine 25+ / Docker Desktop
+- Freie Ports: `8080` (API + Frontend), `8081` (Keycloak)
+- Bash für die Setup-Scripts unter `scripts/`
+
+#### Schritt 1: Setup
+
 ```bash
-cp .env.example .env       # ggf. Passwörter anpassen
-docker compose up --build
+./scripts/local-dev-setup.sh
 ```
 
-Anschließend laufen vier Services:
+Das Script erledigt zwei Sachen:
+
+1. Kopiert `.env.example` nach `.env`, falls noch nicht da.
+2. Schreibt `frontend/.env.production.local` mit den **lokalen** Keycloak-Werten (`http://localhost:8081`, Realm `toolbox-dev`).
+
+> **Warum dieser Override?** Vite-Frontend wird im Docker-Multi-Stage-Build via `npm run build` gebaut → das ist `mode=production` → Vite lädt `frontend/.env.production` (Production-Keycloak unter `toolboxauth.mwolff.org`). Lokal funktioniert das nicht, weil der Production-Realm `localhost:8080` nicht als Redirect-URI kennt. `frontend/.env.production.local` hat in Vites Auflösungs-Reihenfolge **höhere** Priorität als `.env.production` und überschreibt die Keys nur lokal — die Datei steht in `.gitignore` und kommt nie ins Repo.
+
+Anschließend **Passwörter in `.env` anpassen** (mindestens `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD`).
+
+#### Schritt 2: Stack starten
+
+```bash
+docker compose up --build -d
+docker compose ps    # warten bis alle vier Services "healthy" sind
+```
+
+Der erste Start dauert ~2 Minuten — Keycloak importiert beim ersten Hochfahren den Realm. Bei laufendem `mariadb-data`-Volume aus früheren Sessions startet alles in ~20 s.
 
 | Service | URL |
 |---|---|
 | API + Frontend (Spring Boot, ausgeliefertes React-Bundle) | http://localhost:8080 |
 | Keycloak (Identity, Realm `toolbox-dev`) | http://localhost:8081 |
-| MariaDB | localhost:3306 (innerhalb des Netzwerks `mariadb:3306`) |
-| python-tools (FastAPI) | innerhalb des Netzwerks `python-tools:8000` |
+| MariaDB | nur intern, `mariadb:3306` |
+| python-tools (FastAPI) | nur intern, `python-tools:8000` |
 
-Health-Check und Login:
+#### Schritt 3: Erst-Login
+
+1. Im Browser `http://localhost:8080` aufrufen → Redirect zu `http://localhost:8081/realms/toolbox-dev/...`.
+2. **"Register"** → neuen Account anlegen. Der landet in der Rolle `PENDING` und hat noch keinen Zugriff auf die Toolbox.
+3. Als Keycloak-Admin den User promoten:
+   - `http://localhost:8081/admin/` → Login mit `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` aus der `.env`.
+   - Realm-Selector oben links auf **`toolbox-dev`** umschalten.
+   - `Users` → den neuen User wählen → `Role mapping` → `Assign role` → `USER` zuweisen, `PENDING` entfernen.
+4. Im Toolbox-Tab einmal ausloggen + neu einloggen — `http://localhost:8080` zeigt jetzt das Dashboard.
+
+#### Stack stoppen
 
 ```bash
-curl -s http://localhost:8080/actuator/health
-# Browser: http://localhost:8080 → Login-Redirect zu Keycloak → Self-Register
-# Anschließend muss der Admin im Realm den User von PENDING auf USER promoten.
-# Details: infra/keycloak/README.md
+docker compose down        # Container weg, DB-Volume bleibt
+docker compose down -v     # auch DB-Volume löschen → Erst-Login wieder nötig
 ```
+
+#### Auf Production-Build umschalten (selten gebraucht)
+
+Falls du lokal den Production-Build testen willst (Frontend zeigt dann auf `toolboxauth.mwolff.org`, was lokal kein gültiger Redirect ist und mit "Invalid parameter" abbricht):
+
+```bash
+./scripts/local-dev-teardown.sh    # entfernt frontend/.env.production.local
+docker buildx prune -af
+docker compose build --no-cache --pull api
+docker compose stop api && docker compose rm -f api
+docker compose up -d --no-deps api
+```
+
+`./scripts/local-dev-setup.sh` erneut ausführen, um auf den lokalen Auth-Pfad zurückzukommen.
+
+#### Troubleshooting
+
+**`localhost:8080` zeigt "Invalid parameter: redirect_uri" und URL zeigt auf `toolboxauth.mwolff.org`**
+
+`frontend/.env.production.local` wurde vom Vite-Build nicht eingebrannt. Reproducibility-Check:
+
+```bash
+docker build --no-cache --target frontend-build -t test-fb .
+docker run --rm test-fb sh -c \
+  'grep -oE "toolboxauth\.[a-z]+\.org|localhost:8081" dist/assets/index-*.js | sort -u'
+```
+
+- Output `localhost:8081` → Bundle ist OK, der laufende Container hat aber das alte Image. Mit `docker compose stop api && docker compose rm -f api && docker compose up -d --no-deps api` rekreierten.
+- Output `toolboxauth.mwolff.org` → Vite hat die `.env.production.local` nicht gelesen. Datei wirklich im richtigen Pfad? `ls -la frontend/.env.production.local`, dann `./scripts/local-dev-setup.sh` neu starten und BuildKit-Cache leeren: `docker buildx prune -af`.
+
+**Spring-Boot crasht mit "Connection refused localhost:3306"**
+
+Container versucht DB unter `localhost` statt unter Service-Name `mariadb` zu erreichen → `DB_HOST` aus `.env` ist nicht im Container angekommen. `docker inspect "$(docker compose ps -q api)" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep DB_` — wenn `DB_HOST=mariadb` fehlt, ist die `.env` nicht im selben Verzeichnis wie `docker-compose.yml`.
+
+**Keycloak hängt mit "Table doesn't exist"**
+
+Volume aus früherem Lauf — Init-Scripts in `infra/mariadb/init/` laufen nur beim allerersten Start. Entweder Keycloak-Schema von Hand anlegen (siehe `infra/keycloak/README.md`) oder `docker compose down -v && docker compose up --build` (DB-Inhalt geht weg).
+
+**Port 8080 / 8081 belegt**
+
+`lsof -iTCP -sTCP:LISTEN -P -n | grep -E ':(8080|8081)'` zeigt den Bewohner. Alternative Ports brauchen Anpassungen in `docker-compose.override.yml`, `frontend/.env.production.local` (Keycloak-URL!) und `SecurityConfig.java` (CORS-Whitelist).
 
 Konkrete Tool-Endpunkte und Beispielaufrufe finden sich im Abschnitt [Tools](#tools).
-
-Stack stoppen:
-
-```bash
-docker compose down        # Container weg, Volume bleibt
-docker compose down -v     # auch DB-Volume löschen
-```
 
 ## REST-API
 

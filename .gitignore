@@ -40,6 +40,10 @@ target/
 # Environment
 .env
 .env.local
+# Vite-Konvention: *.local-Overrides in jedem Mode niemals committen
+# (z. B. frontend/.env.production.local — wird von scripts/local-dev-setup.sh
+# erzeugt und überschreibt die versionierten Prod-Werte für lokale Tests).
+**/.env.*.local
 
 # Server-spezifische Compose-Overrides (siehe docker-compose.prod.yml.example).
 # Werden auf dem Zielserver erzeugt und enthalten u.U. host-spezifische Werte.

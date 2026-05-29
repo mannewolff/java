@@ -21,6 +21,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import DesktopMacIcon from '@mui/icons-material/DesktopMac';
 import EditIcon from '@mui/icons-material/Edit';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SaveIcon from '@mui/icons-material/Save';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
@@ -43,6 +45,7 @@ import {
 } from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
+import { useKioskMode } from './KioskModeContext';
 import WidgetKpi from './widgets/WidgetKpi';
 import WidgetPlot from './widgets/WidgetPlot';
 import WidgetTextbox from './widgets/WidgetTextbox';
@@ -105,6 +108,7 @@ export default function DashboardPage(): JSX.Element {
   const viewportWidth = useViewportWidth();
   const isDesktop = viewportWidth >= DESKTOP_MIN_WIDTH;
   const { editMode, setEditMode, draggingType, setDraggingType } = useEditMode();
+  const { kioskMode, setKioskMode } = useKioskMode();
   const notify = useNotify();
 
   const [detail, setDetail] = useState<DashboardDetail | null>(null);
@@ -162,6 +166,25 @@ export default function DashboardPage(): JSX.Element {
     // setEditMode bewusst nicht in deps — sonst Endlos-Trigger über Provider-Re-Renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail]);
+
+  // ESC beendet den Kiosk-Modus.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && kioskMode) {
+        setKioskMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [kioskMode, setKioskMode]);
+
+  // Kiosk-Modus beim Verlassen des Dashboards zurücksetzen.
+  useEffect(() => {
+    return () => {
+      setKioskMode(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardId]);
 
   // Beim Wechsel der Dashboard-ID den Edit-Modus zurücksetzen.
   useEffect(() => {
@@ -457,7 +480,12 @@ export default function DashboardPage(): JSX.Element {
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 2, display: kioskMode ? 'none' : 'flex' }}
+      >
         <Stack direction="row" alignItems="center" spacing={1}>
           <Button
             startIcon={<ArrowBackIcon />}
@@ -517,14 +545,25 @@ export default function DashboardPage(): JSX.Element {
         </Stack>
         <Stack direction="row" alignItems="center" spacing={2}>
           {!editMode && (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => setEditMode(true)}
-            >
-              Bearbeiten
-            </Button>
+            <>
+              <Button
+                size="small"
+                variant={kioskMode ? 'contained' : 'outlined'}
+                startIcon={kioskMode ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                onClick={() => setKioskMode(!kioskMode)}
+                aria-pressed={kioskMode}
+              >
+                Kiosk
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => setEditMode(true)}
+              >
+                Bearbeiten
+              </Button>
+            </>
           )}
           {editMode && (
             <Stack direction="row" spacing={1}>

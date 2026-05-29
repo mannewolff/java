@@ -23,6 +23,7 @@ import { navItems } from './navItems';
 import type { NavGroup, NavLink, NavNode } from './navItems';
 import { useAuth } from '../auth/useAuth';
 import { useEditMode } from '../pages/dashboard/EditModeContext';
+import { useKioskMode } from '../pages/dashboard/KioskModeContext';
 import WidgetPalette from '../pages/dashboard/WidgetPalette';
 import type { WidgetType } from '../api/dashboard';
 
@@ -41,6 +42,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const { username, initial, signOut } = useAuth();
   const { editMode, setEditMode, setDraggingType } = useEditMode();
+  const { kioskMode } = useKioskMode();
 
   // Auf einer Dashboard-Detail-Route? `useMatch` matched genau `/dashboards/:id`
   // (nicht `/dashboards` selbst, nicht `/dashboards/default`).
@@ -194,8 +196,9 @@ export default function AppShell() {
       <Drawer
         variant="permanent"
         sx={{
-          width: DRAWER_WIDTH,
+          width: kioskMode ? 0 : DRAWER_WIDTH,
           flexShrink: 0,
+          display: kioskMode ? 'none' : 'block',
           [`& .MuiDrawer-paper`]: {
             width: DRAWER_WIDTH,
             boxSizing: 'border-box',

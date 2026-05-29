@@ -46,6 +46,7 @@ import {
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
 import { useKioskMode } from './KioskModeContext';
+import WidgetKanbanList from './widgets/WidgetKanbanList';
 import WidgetKpi from './widgets/WidgetKpi';
 import WidgetPlot from './widgets/WidgetPlot';
 import WidgetTextbox from './widgets/WidgetTextbox';
@@ -398,6 +399,15 @@ export default function DashboardPage(): JSX.Element {
       case 'PLOT':
         return (
           <WidgetPlot
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
+            readOnly={!editMode}
+          />
+        );
+      case 'KANBAN_LIST':
+        return (
+          <WidgetKanbanList
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDeleteRequest(index)}

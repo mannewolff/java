@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.kanban.application.CreateItemUseCase;
 import org.mwolff.api.kanban.application.DeleteItemUseCase;
 import org.mwolff.api.kanban.application.ListItemsUseCase;

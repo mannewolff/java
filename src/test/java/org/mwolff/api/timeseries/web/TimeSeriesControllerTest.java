@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.timeseries.application.AddEntryUseCase;
 import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
 import org.mwolff.api.timeseries.application.BulkAddEntriesUseCase;

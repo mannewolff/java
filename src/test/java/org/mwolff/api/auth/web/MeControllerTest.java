@@ -1,4 +1,4 @@
-package org.mwolff.api.auth;
+package org.mwolff.api.auth.web;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;

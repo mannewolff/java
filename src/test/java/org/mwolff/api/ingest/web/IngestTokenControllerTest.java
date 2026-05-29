@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.ingest.application.CreateIngestTokenUseCase;
 import org.mwolff.api.ingest.application.CreateIngestTokenUseCase.CreatedIngestToken;
 import org.mwolff.api.ingest.application.ListIngestTokensUseCase;

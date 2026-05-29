@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.kanban.application.GetSettingsUseCase;
 import org.mwolff.api.kanban.application.UpdateSettingsUseCase;
 import org.mwolff.api.kanban.domain.KanbanSettings;

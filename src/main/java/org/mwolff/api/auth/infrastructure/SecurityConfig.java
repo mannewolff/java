@@ -1,4 +1,4 @@
-package org.mwolff.api.auth;
+package org.mwolff.api.auth.infrastructure;
 
 import java.util.List;
 
@@ -14,6 +14,12 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+/**
+ * Security-Wiring der Auth-Komponente. Liegt in {@code infrastructure}, weil hier die JWT-/CORS-
+ * Adapter konfiguriert werden und mit {@link JwtAuthoritiesConverter} ein reiner Mapping-Adapter
+ * (Keycloak-Claims → Spring-Authorities) verdrahtet wird — keine REST-Transportlogik. Der einzige
+ * Web-Adapter der Komponente, {@code MeController}, lebt getrennt in {@code auth.web}.
+ */
 @Configuration
 public class SecurityConfig {
 

@@ -31,6 +31,8 @@ Plan-Mode wird über `ExitPlanMode` verlassen — das Plan-Approval ist die Vora
 
 Plan wird in **kleinteilige** GitHub-Issues überführt — eines pro logischer Einheit. Jedes Issue ist selbst-erklärend (Kontext, Aufgabe, Akzeptanzkriterium, Abhängigkeiten) und steht ohne Chat-Verlauf für sich.
 
+Neue Issues werden über die Templates in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) angelegt — `implementation.md` (Backend/Java), `frontend-implementation.md` (React) und `documentation.md` (reine Doku). Die Implementierungs-Templates enthalten die verbindliche Definition-of-Done-Checkliste, damit Architektur-, Test- und Security-Pflichten schon beim Schneiden erzwungen werden.
+
 Issue-Format → siehe [unten](#-issue-dokumentation-format).
 
 ### 4. „GO" (User)

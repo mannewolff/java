@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,8 +15,17 @@ import {
 } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 
-import type { KanbanItem } from '../../api/kanban';
+import {
+  addKanbanComment,
+  deleteKanbanComment,
+  listKanbanComments,
+  updateKanbanComment,
+} from '../../api/kanban';
+import type { KanbanComment, KanbanItem } from '../../api/kanban';
+import { useAuth } from '../../auth/useAuth';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
+import KanbanCommentForm from './KanbanCommentForm';
+import KanbanCommentList from './KanbanCommentList';
 
 interface KanbanDetailModalProps {
   open: boolean;
@@ -40,9 +51,15 @@ export default function KanbanDetailModal({
   onClose,
   onSubmit,
 }: KanbanDetailModalProps): JSX.Element {
+  const { username } = useAuth();
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
   const [saving, setSaving] = useState(false);
+
+  const [comments, setComments] = useState<KanbanComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   // Beim Oeffnen den Draft aus dem Item uebernehmen — verhindert, dass ein verworfener Draft
   // beim naechsten Oeffnen nachklingt.
@@ -52,6 +69,69 @@ export default function KanbanDetailModal({
       setBody(item.body);
     }
   }, [open, item.title, item.body]);
+
+  const refreshComments = useCallback(async (): Promise<void> => {
+    setComments(await listKanbanComments(item.id));
+  }, [item.id]);
+
+  // Kommentare beim Oeffnen laden. Ein cancelled-Flag verhindert State-Updates, falls das Modal
+  // vor Abschluss des Requests wieder geschlossen (bzw. die Komponente neu gerendert) wird.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoadingComments(true);
+    setCommentError(null);
+    listKanbanComments(item.id)
+      .then((loaded) => {
+        if (!cancelled) setComments(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setCommentError('Kommentare konnten nicht geladen werden.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingComments(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, item.id]);
+
+  const handleAddComment = async (text: string): Promise<boolean> => {
+    setCommentBusy(true);
+    setCommentError(null);
+    try {
+      await addKanbanComment(item.id, text);
+      await refreshComments();
+      return true;
+    } catch {
+      setCommentError('Kommentar konnte nicht gespeichert werden.');
+      return false;
+    } finally {
+      setCommentBusy(false);
+    }
+  };
+
+  const handleUpdateComment = async (id: number, text: string): Promise<boolean> => {
+    setCommentError(null);
+    try {
+      await updateKanbanComment(item.id, id, text);
+      await refreshComments();
+      return true;
+    } catch {
+      setCommentError('Kommentar konnte nicht aktualisiert werden.');
+      return false;
+    }
+  };
+
+  const handleDeleteComment = async (id: number): Promise<void> => {
+    setCommentError(null);
+    try {
+      await deleteKanbanComment(item.id, id);
+      await refreshComments();
+    } catch {
+      setCommentError('Kommentar konnte nicht gelöscht werden.');
+    }
+  };
 
   const canSubmit = title.trim().length > 0;
   const showDoneHint = item.column === 'DONE' && item.movedToDoneAt != null;
@@ -112,6 +192,26 @@ export default function KanbanDetailModal({
               {cleanupCountdownLabel(daysRemaining)}
             </Typography>
           )}
+
+          <Divider />
+
+          <Stack spacing={1.5}>
+            <Typography variant="subtitle1">Kommentare</Typography>
+            {commentError && <Alert severity="error">{commentError}</Alert>}
+            {loadingComments ? (
+              <Stack alignItems="center" sx={{ py: 2 }}>
+                <CircularProgress size={24} aria-label="Kommentare werden geladen" />
+              </Stack>
+            ) : (
+              <KanbanCommentList
+                comments={comments}
+                currentUsername={username}
+                onUpdate={handleUpdateComment}
+                onDelete={handleDeleteComment}
+              />
+            )}
+            <KanbanCommentForm onAdd={handleAddComment} busy={commentBusy} />
+          </Stack>
         </Stack>
       </DialogContent>
       <Divider />

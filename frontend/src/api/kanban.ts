@@ -27,6 +27,16 @@ export interface KanbanSettings {
   doneRetentionDays: number;
 }
 
+export interface KanbanComment {
+  id: number;
+  itemId: number;
+  /** Anzeigename des Verfassers (preferred_username). */
+  author: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const PATH = '/kanban';
 
 export function listKanbanItems(): Promise<KanbanBoard> {
@@ -69,4 +79,33 @@ export function updateKanbanSettings(
   doneRetentionDays: number,
 ): Promise<KanbanSettings> {
   return api.put<KanbanSettings>(`${PATH}/settings`, { doneRetentionDays });
+}
+
+export function listKanbanComments(itemId: number): Promise<KanbanComment[]> {
+  return api.get<KanbanComment[]>(`${PATH}/items/${itemId}/comments`);
+}
+
+export function addKanbanComment(
+  itemId: number,
+  body: string,
+): Promise<KanbanComment> {
+  return api.post<KanbanComment>(`${PATH}/items/${itemId}/comments`, { body });
+}
+
+export function updateKanbanComment(
+  itemId: number,
+  commentId: number,
+  body: string,
+): Promise<KanbanComment> {
+  return api.put<KanbanComment>(
+    `${PATH}/items/${itemId}/comments/${commentId}`,
+    { body },
+  );
+}
+
+export function deleteKanbanComment(
+  itemId: number,
+  commentId: number,
+): Promise<void> {
+  return api.del(`${PATH}/items/${itemId}/comments/${commentId}`);
 }

@@ -70,7 +70,7 @@ describe('WidgetTextbox', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        config: JSON.stringify({ markdown: 'Neuer Inhalt' }),
+        config: JSON.stringify({ markdown: 'Neuer Inhalt', showBorder: false }),
       }),
     );
   });
@@ -184,6 +184,74 @@ describe('WidgetTextbox', () => {
     } else {
       delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
     }
+  });
+
+  // ----- Darstellung / Lese-Modus (#122) ---------------------------------
+
+  it('Lese-Modus ohne showBorder: Paper ist nicht outlined', () => {
+    const { container } = render(
+      <WidgetTextbox widget={makeWidget('Text')} onChange={vi.fn()} onDelete={vi.fn()} readOnly />,
+    );
+
+    const paper = container.querySelector('.MuiPaper-root');
+    expect(paper).not.toBeNull();
+    expect(paper).not.toHaveClass('MuiPaper-outlined');
+  });
+
+  it('Lese-Modus mit showBorder: Paper ist outlined', () => {
+    const { container } = render(
+      <WidgetTextbox
+        widget={makeWidget('Text', {
+          config: JSON.stringify({ markdown: 'Text', showBorder: true }),
+        })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+        readOnly
+      />,
+    );
+
+    expect(container.querySelector('.MuiPaper-root')).toHaveClass('MuiPaper-outlined');
+  });
+
+  it('Lese-Modus mit backgroundColor: setzt bgcolor des Papers', () => {
+    const { container } = render(
+      <WidgetTextbox
+        widget={makeWidget('Text', {
+          config: JSON.stringify({ markdown: 'Text', backgroundColor: 'rgb(20, 30, 40)' }),
+        })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+        readOnly
+      />,
+    );
+
+    expect(container.querySelector('.MuiPaper-root')).toHaveStyle({
+      backgroundColor: 'rgb(20, 30, 40)',
+    });
+  });
+
+  it('Edit-Modus: Paper bleibt outlined', () => {
+    const { container } = render(
+      <WidgetTextbox widget={makeWidget('Text')} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+
+    expect(container.querySelector('.MuiPaper-root')).toHaveClass('MuiPaper-outlined');
+  });
+
+  it('Drawer: speichert showBorder und backgroundColor in der Config', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<WidgetTextbox widget={makeWidget('Text')} onChange={onChange} onDelete={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Textbox bearbeiten' }));
+    await user.click(screen.getByLabelText('Rahmen anzeigen'));
+    await user.type(screen.getByLabelText('Hintergrundfarbe (leer = transparent)'), '#123456');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { showBorder: boolean; backgroundColor: string };
+    expect(parsed.showBorder).toBe(true);
+    expect(parsed.backgroundColor).toBe('#123456');
   });
 
   it('fängt invalide Config-JSON ab und rendert ohne Crash', () => {

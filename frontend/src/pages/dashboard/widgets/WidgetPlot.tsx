@@ -6,10 +6,12 @@ import {
   CircularProgress,
   Divider,
   Drawer,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -37,6 +39,7 @@ import {
   type TimeSeriesSummary,
 } from '../../../api/timeseries';
 import { ApiError } from '../../../api/client';
+import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 type Metric = 'avg' | 'min' | 'max' | 'last';
 
@@ -58,6 +61,8 @@ interface PlotConfig {
   timeSeriesId: number | null;
   metric: Metric;
   defaultGranularity: Granularity;
+  showBorder: boolean;
+  backgroundColor?: string;
 }
 
 function isMetric(v: unknown): v is Metric {
@@ -77,9 +82,10 @@ function parseConfig(raw: string): PlotConfig {
       defaultGranularity: isGranularity(parsed.defaultGranularity)
         ? parsed.defaultGranularity
         : 'DAILY',
+      ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { timeSeriesId: null, metric: 'avg', defaultGranularity: 'DAILY' };
+    return { timeSeriesId: null, metric: 'avg', defaultGranularity: 'DAILY', showBorder: false };
   }
 }
 
@@ -124,6 +130,7 @@ export default function WidgetPlot({
   readOnly = false,
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
+  const surface = widgetSurface(readOnly, config);
   const [granularity, setGranularity] = useState<Granularity>(config.defaultGranularity);
   const [buckets, setBuckets] = useState<AggregateBucket[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -137,6 +144,8 @@ export default function WidgetPlot({
   const [draftGranularity, setDraftGranularity] = useState<Granularity>(
     config.defaultGranularity,
   );
+  const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
+  const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
   useEffect(() => {
     setGranularity(config.defaultGranularity);
@@ -168,18 +177,32 @@ export default function WidgetPlot({
     setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
     setDraftMetric(config.metric);
     setDraftGranularity(config.defaultGranularity);
+    setDraftShowBorder(config.showBorder);
+    setDraftBackgroundColor(config.backgroundColor ?? '');
     if (seriesList === null) {
       listTimeSeries()
         .then(setSeriesList)
         .catch(() => setSeriesList([]));
     }
-  }, [open, config.timeSeriesId, config.metric, config.defaultGranularity, seriesList]);
+  }, [
+    open,
+    config.timeSeriesId,
+    config.metric,
+    config.defaultGranularity,
+    config.showBorder,
+    config.backgroundColor,
+    seriesList,
+  ]);
 
   function handleApply(): void {
     const next: PlotConfig = {
       timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
       metric: draftMetric,
       defaultGranularity: draftGranularity,
+      showBorder: draftShowBorder,
+      ...(draftBackgroundColor.trim() !== ''
+        ? { backgroundColor: draftBackgroundColor.trim() }
+        : {}),
     };
     onChange({ ...widget, config: JSON.stringify(next) });
     setOpen(false);
@@ -196,7 +219,11 @@ export default function WidgetPlot({
   const noConfiguredSeries = config.timeSeriesId == null;
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Paper
+      variant={surface.variant}
+      elevation={surface.elevation}
+      sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', ...surface.sx }}
+    >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="subtitle2" noWrap>
           Plot
@@ -307,6 +334,22 @@ export default function WidgetPlot({
                 </MenuItem>
               ))}
             </TextField>
+            <Divider textAlign="left">Darstellung</Divider>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={draftShowBorder}
+                  onChange={(e) => setDraftShowBorder(e.target.checked)}
+                />
+              }
+              label="Rahmen anzeigen"
+            />
+            <TextField
+              label="Hintergrundfarbe (leer = transparent)"
+              value={draftBackgroundColor}
+              onChange={(e) => setDraftBackgroundColor(e.target.value)}
+              placeholder="z. B. #1e1e1e oder rgba(255,255,255,0.05)"
+            />
           </Stack>
           <Divider />
           <Stack direction="row" spacing={1} sx={{ p: 2, justifyContent: 'flex-end' }}>

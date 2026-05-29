@@ -5,10 +5,12 @@ import {
   Button,
   Divider,
   Drawer,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Toolbar,
   Typography,
@@ -28,6 +30,7 @@ import {
   type TimeSeriesSummary,
 } from '../../../api/timeseries';
 import { ApiError } from '../../../api/client';
+import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 type KpiColor = 'neutral' | 'success' | 'warning' | 'error';
 type KpiStyle = 'number' | 'gauge' | 'timeseries';
@@ -74,7 +77,13 @@ interface TimeSeriesConfig {
   label: string;
 }
 
-type KpiConfig = NumberConfig | GaugeConfig | TimeSeriesConfig;
+/** Lese-Modus-Darstellung — gilt fuer alle KPI-Sub-Typen. */
+interface DisplayConfig {
+  showBorder: boolean;
+  backgroundColor?: string;
+}
+
+type KpiConfig = (NumberConfig | GaugeConfig | TimeSeriesConfig) & DisplayConfig;
 
 function isKpiColor(v: unknown): v is KpiColor {
   return typeof v === 'string' && (COLORS as readonly string[]).includes(v);
@@ -108,6 +117,7 @@ function parseConfig(raw: string): KpiConfig {
   } catch {
     // fallback to number defaults
   }
+  const display = parseSurfaceConfig(parsed);
   // Legacy: kein style-Feld -> "number" (rueckwaertskompatibel zu #42).
   const style: KpiStyle = isKpiStyle(parsed.style) ? parsed.style : 'number';
   if (style === 'gauge') {
@@ -128,6 +138,7 @@ function parseConfig(raw: string): KpiConfig {
         typeof parsed.refreshSeconds === 'number'
           ? clampRefresh(parsed.refreshSeconds)
           : 60,
+      ...display,
     };
   }
   if (style === 'timeseries') {
@@ -139,6 +150,7 @@ function parseConfig(raw: string): KpiConfig {
           ? clampRefresh(parsed.refreshSeconds)
           : DEFAULT_REFRESH_SECONDS,
       label: typeof parsed.label === 'string' ? parsed.label : '',
+      ...display,
     };
   }
   return {
@@ -147,6 +159,7 @@ function parseConfig(raw: string): KpiConfig {
     label: typeof parsed.label === 'string' ? parsed.label : NUMBER_DEFAULTS.label,
     trend: typeof parsed.trend === 'number' ? parsed.trend : NUMBER_DEFAULTS.trend,
     color: isKpiColor(parsed.color) ? parsed.color : NUMBER_DEFAULTS.color,
+    ...display,
   };
 }
 
@@ -211,12 +224,15 @@ export default function WidgetKpi({
   readOnly = false,
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
+  const surface = widgetSurface(readOnly, config);
   const [open, setOpen] = useState(false);
 
   // Drawer-Drafts pro Sub-Type. Beim Style-Wechsel im Drawer bleiben die alten
   // Werte des jeweils anderen Style erhalten.
   const [draftStyle, setDraftStyle] = useState<KpiStyle>(config.style);
   const [draftLabel, setDraftLabel] = useState(config.label);
+  const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
+  const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
   // Number-Drafts
   const numberConfig: NumberConfig =
@@ -267,6 +283,8 @@ export default function WidgetKpi({
     if (!open) return;
     setDraftStyle(config.style);
     setDraftLabel(config.label);
+    setDraftShowBorder(config.showBorder);
+    setDraftBackgroundColor(config.backgroundColor ?? '');
     if (config.style === 'number') {
       setDraftValue(String(config.value));
       setDraftTrend(config.trend == null ? '' : String(config.trend));
@@ -293,6 +311,12 @@ export default function WidgetKpi({
   }, [open]);
 
   function handleApply(): void {
+    const display: DisplayConfig = {
+      showBorder: draftShowBorder,
+      ...(draftBackgroundColor.trim() !== ''
+        ? { backgroundColor: draftBackgroundColor.trim() }
+        : {}),
+    };
     let next: KpiConfig;
     if (draftStyle === 'number') {
       const valueNum = Number.parseFloat(draftValue);
@@ -303,6 +327,7 @@ export default function WidgetKpi({
         label: draftLabel,
         trend: trendNum != null && Number.isFinite(trendNum) ? trendNum : null,
         color: draftColor,
+        ...display,
       };
     } else if (draftStyle === 'gauge') {
       next = {
@@ -316,6 +341,7 @@ export default function WidgetKpi({
         rangeLabel: draftRangeLabel,
         timeSeriesId: draftGaugeSeriesId === '' ? null : Number.parseInt(draftGaugeSeriesId, 10),
         refreshSeconds: clampRefresh(parseOrDefault(draftGaugeRefresh, 60)),
+        ...display,
       };
     } else {
       next = {
@@ -323,6 +349,7 @@ export default function WidgetKpi({
         timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
         refreshSeconds: clampRefresh(parseOrDefault(draftRefresh, DEFAULT_REFRESH_SECONDS)),
         label: draftLabel,
+        ...display,
       };
     }
     onChange({ ...widget, config: JSON.stringify(next) });
@@ -335,15 +362,20 @@ export default function WidgetKpi({
 
   return (
     <Paper
-      variant="outlined"
+      variant={surface.variant}
+      elevation={surface.elevation}
       sx={{
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
-        ...(config.style === 'number' && {
-          borderLeftWidth: 4,
-          borderLeftColor: accentBorderColor(config.color),
-        }),
+        ...surface.sx,
+        // Farb-Akzent-Linksrand nur im Edit-Modus oder wenn im Lese-Modus ein Rahmen aktiv ist.
+        ...(config.style === 'number' &&
+          (!readOnly || config.showBorder) && {
+            borderLeftStyle: 'solid',
+            borderLeftWidth: 4,
+            borderLeftColor: accentBorderColor(config.color),
+          }),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -558,6 +590,23 @@ export default function WidgetKpi({
                 />
               </>
             )}
+            <Divider textAlign="left">Darstellung</Divider>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={draftShowBorder}
+                  onChange={(e) => setDraftShowBorder(e.target.checked)}
+                />
+              }
+              label="Rahmen anzeigen"
+            />
+            <TextField
+              label="Hintergrundfarbe (leer = transparent)"
+              value={draftBackgroundColor}
+              onChange={(e) => setDraftBackgroundColor(e.target.value)}
+              fullWidth
+              placeholder="z. B. #1e1e1e oder rgba(255,255,255,0.05)"
+            />
             <Divider />
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button onClick={handleCancel}>Abbrechen</Button>

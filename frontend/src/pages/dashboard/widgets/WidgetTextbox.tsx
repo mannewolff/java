@@ -5,9 +5,11 @@ import {
   Button,
   Divider,
   Drawer,
+  FormControlLabel,
   IconButton,
   Paper,
   Stack,
+  Switch,
   TextField,
   Toolbar,
   Typography,
@@ -17,21 +19,24 @@ import EditIcon from '@mui/icons-material/Edit';
 import ReactMarkdown from 'react-markdown';
 
 import type { WidgetDto } from '../../../api/dashboard';
+import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 interface TextboxConfig {
   markdown: string;
+  showBorder: boolean;
+  backgroundColor?: string;
 }
 
 function parseConfig(raw: string): TextboxConfig {
   try {
-    const parsed = JSON.parse(raw) as { markdown?: unknown };
-    if (typeof parsed.markdown === 'string') {
-      return { markdown: parsed.markdown };
-    }
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      markdown: typeof parsed.markdown === 'string' ? parsed.markdown : '',
+      ...parseSurfaceConfig(parsed),
+    };
   } catch {
-    /* fall through to default */
+    return { markdown: '', showBorder: false };
   }
-  return { markdown: '' };
 }
 
 interface Props {
@@ -65,15 +70,22 @@ export default function WidgetTextbox({
   onContentHeight,
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
+  const surface = widgetSurface(readOnly, config);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(config.markdown);
+  const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
+  const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
   const paperRef = useRef<HTMLDivElement | null>(null);
 
   // Beim Öffnen den Draft auf den aktuellen Stand setzen — auch wenn der
   // Drawer schon einmal mit Abbrechen verworfen wurde.
   useEffect(() => {
-    if (open) setDraft(config.markdown);
-  }, [open, config.markdown]);
+    if (open) {
+      setDraft(config.markdown);
+      setDraftShowBorder(config.showBorder);
+      setDraftBackgroundColor(config.backgroundColor ?? '');
+    }
+  }, [open, config.markdown, config.showBorder, config.backgroundColor]);
 
   // Read-Modus: ResizeObserver am Paper meldet `scrollHeight` an die DashboardPage.
   // Greift, wenn der Browser horizontal schrumpft und der Markdown-Wrap mehr Zeilen
@@ -91,7 +103,14 @@ export default function WidgetTextbox({
   }, [readOnly, onContentHeight, config.markdown]);
 
   function handleApply(): void {
-    onChange({ ...widget, config: JSON.stringify({ markdown: draft }) });
+    const next: TextboxConfig = {
+      markdown: draft,
+      showBorder: draftShowBorder,
+      ...(draftBackgroundColor.trim() !== ''
+        ? { backgroundColor: draftBackgroundColor.trim() }
+        : {}),
+    };
+    onChange({ ...widget, config: JSON.stringify(next) });
     setOpen(false);
   }
 
@@ -103,8 +122,9 @@ export default function WidgetTextbox({
   return (
     <Paper
       ref={paperRef}
-      variant="outlined"
-      sx={{ p: 2, height: '100%', position: 'relative', overflow: 'auto' }}
+      variant={surface.variant}
+      elevation={surface.elevation}
+      sx={{ p: 2, height: '100%', position: 'relative', overflow: 'auto', ...surface.sx }}
     >
       {!readOnly && (
         <Stack
@@ -169,6 +189,23 @@ export default function WidgetTextbox({
                 <ReactMarkdown>{draft}</ReactMarkdown>
               </Paper>
             </Box>
+            <Divider textAlign="left">Darstellung</Divider>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={draftShowBorder}
+                  onChange={(e) => setDraftShowBorder(e.target.checked)}
+                />
+              }
+              label="Rahmen anzeigen"
+            />
+            <TextField
+              label="Hintergrundfarbe (leer = transparent)"
+              value={draftBackgroundColor}
+              onChange={(e) => setDraftBackgroundColor(e.target.value)}
+              fullWidth
+              placeholder="z. B. #1e1e1e oder rgba(255,255,255,0.05)"
+            />
             <Divider />
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button onClick={handleCancel}>Abbrechen</Button>

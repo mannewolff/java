@@ -2,17 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import WidgetPlot from './WidgetPlot';
+import WidgetPlot, { overlayValue } from './WidgetPlot';
 import type { WidgetDto } from '../../../api/dashboard';
 
 vi.mock('../../../api/timeseries', () => ({
   aggregateTimeSeries: vi.fn(),
+  listEntries: vi.fn(),
   listTimeSeries: vi.fn(),
 }));
 
-import { aggregateTimeSeries, listTimeSeries } from '../../../api/timeseries';
+import { aggregateTimeSeries, listEntries, listTimeSeries } from '../../../api/timeseries';
 
 const aggregate = aggregateTimeSeries as ReturnType<typeof vi.fn>;
+const entries = listEntries as ReturnType<typeof vi.fn>;
 const list = listTimeSeries as ReturnType<typeof vi.fn>;
 
 // recharts auf jsdom: ResponsiveContainer braucht explizite Groesse, sonst rendert es nichts.
@@ -42,6 +44,7 @@ function widget(config: object): WidgetDto {
 describe('WidgetPlot', () => {
   beforeEach(() => {
     aggregate.mockReset();
+    entries.mockReset();
     list.mockReset();
   });
 
@@ -186,5 +189,122 @@ describe('WidgetPlot', () => {
 
     expect(screen.queryByRole('button', { name: 'Plot bearbeiten' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Plot löschen' })).not.toBeInTheDocument();
+  });
+
+  // ----- Rohwerte-Modus + Overlays (#124) --------------------------------
+
+  it('Rohwerte-Modus (defaultGranularity null): lädt Einträge statt Aggregat, keine Tabs', async () => {
+    entries.mockResolvedValueOnce([
+      { id: 1, timestamp: '2026-05-27T08:00:00Z', value: 10 },
+      { id: 2, timestamp: '2026-05-27T09:00:00Z', value: 20 },
+    ]);
+
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: null, overlays: [] })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(entries).toHaveBeenCalledWith(42));
+    expect(aggregate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('tab', { name: 'Täglich' })).not.toBeInTheDocument();
+  });
+
+  it('fehlendes defaultGranularity-Feld → Rohwerte-Modus (Abwärtskompatibilität)', async () => {
+    entries.mockResolvedValueOnce([]);
+
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 7 })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(entries).toHaveBeenCalledWith(7));
+    expect(aggregate).not.toHaveBeenCalled();
+  });
+
+  it('Drawer: Overlay-Checkboxen nur bei gesetzter Granularität sichtbar', async () => {
+    entries.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: null, overlays: [] })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await screen.findByText('Plot bearbeiten');
+
+    expect(screen.queryByRole('checkbox', { name: 'Mittelwert' })).not.toBeInTheDocument();
+  });
+
+  it('Drawer: konfigurierte Overlays sind vorausgewählt (aggregierter Modus)', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({
+          timeSeriesId: 42,
+          defaultGranularity: 'WEEKLY',
+          overlays: ['median', 'max'],
+        })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+
+    expect(await screen.findByRole('checkbox', { name: 'Median' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Maximum' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Mittelwert' })).not.toBeChecked();
+  });
+
+  it('Drawer: Overlay-Auswahl wird in der Config gespeichert', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY', overlays: [] })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Mittelwert' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { defaultGranularity: string; overlays: string[] };
+    expect(parsed.defaultGranularity).toBe('DAILY');
+    expect(parsed.overlays).toEqual(['mean']);
+  });
+});
+
+describe('overlayValue', () => {
+  it('berechnet Mittelwert, Median, Minimum und Maximum', () => {
+    const values = [10, 20, 30, 100];
+    expect(overlayValue('mean', values)).toBe(40);
+    expect(overlayValue('median', values)).toBe(25);
+    expect(overlayValue('min', values)).toBe(10);
+    expect(overlayValue('max', values)).toBe(100);
+  });
+
+  it('Median bei ungerader Anzahl ist der mittlere Wert (sortiert)', () => {
+    expect(overlayValue('median', [5, 1, 3])).toBe(3);
   });
 });

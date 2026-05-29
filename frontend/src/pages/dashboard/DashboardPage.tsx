@@ -21,6 +21,9 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import DesktopMacIcon from '@mui/icons-material/DesktopMac';
 import EditIcon from '@mui/icons-material/Edit';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import PaletteIcon from '@mui/icons-material/Palette';
 import SaveIcon from '@mui/icons-material/Save';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
@@ -28,6 +31,7 @@ import type { Layout } from 'react-grid-layout';
 import {
   getDashboard,
   renameDashboard,
+  setDashboardBackgroundColor,
   updateDashboard,
   type DashboardDetail,
   type WidgetDto,
@@ -43,6 +47,9 @@ import {
 } from './widgetDefaults';
 import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
+import { useKioskMode } from './KioskModeContext';
+import WidgetDivider from './widgets/WidgetDivider';
+import WidgetKanbanList from './widgets/WidgetKanbanList';
 import WidgetKpi from './widgets/WidgetKpi';
 import WidgetPlot from './widgets/WidgetPlot';
 import WidgetTextbox from './widgets/WidgetTextbox';
@@ -105,6 +112,7 @@ export default function DashboardPage(): JSX.Element {
   const viewportWidth = useViewportWidth();
   const isDesktop = viewportWidth >= DESKTOP_MIN_WIDTH;
   const { editMode, setEditMode, draggingType, setDraggingType } = useEditMode();
+  const { kioskMode, setKioskMode } = useKioskMode();
   const notify = useNotify();
 
   const [detail, setDetail] = useState<DashboardDetail | null>(null);
@@ -114,6 +122,9 @@ export default function DashboardPage(): JSX.Element {
   const [renaming, setRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [colorDialogOpen, setColorDialogOpen] = useState(false);
+  const [colorDraft, setColorDraft] = useState('');
+  const [colorError, setColorError] = useState<string | null>(null);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   // Read-Modus-only: visueller Override für die Widget-Höhe, wenn das gerenderte
   // Markdown bei schmaler Spaltenbreite mehr Zeilen wrappt als das Grid-Slot hoch ist.
@@ -162,6 +173,25 @@ export default function DashboardPage(): JSX.Element {
     // setEditMode bewusst nicht in deps — sonst Endlos-Trigger über Provider-Re-Renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail]);
+
+  // ESC beendet den Kiosk-Modus.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && kioskMode) {
+        setKioskMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [kioskMode, setKioskMode]);
+
+  // Kiosk-Modus beim Verlassen des Dashboards zurücksetzen.
+  useEffect(() => {
+    return () => {
+      setKioskMode(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardId]);
 
   // Beim Wechsel der Dashboard-ID den Edit-Modus zurücksetzen.
   useEffect(() => {
@@ -282,6 +312,39 @@ export default function DashboardPage(): JSX.Element {
     }
   }
 
+  /** Hintergrundfarbe des Dashboards bearbeiten (eigener Endpoint, kein Layout-Save). */
+  function startBackgroundEdit(): void {
+    if (!detail) return;
+    setColorDraft(detail.backgroundColor ?? '');
+    setColorError(null);
+    setColorDialogOpen(true);
+  }
+
+  function cancelBackgroundEdit(): void {
+    setColorDialogOpen(false);
+    setColorError(null);
+  }
+
+  async function commitBackgroundColor(): Promise<void> {
+    if (!detail) return;
+    // Leer = Theme-Default. Backend normalisiert blank ebenfalls auf null.
+    const trimmed = colorDraft.trim();
+    const value = trimmed.length === 0 ? null : trimmed;
+    try {
+      await setDashboardBackgroundColor(detail.id, value);
+      setDetail({ ...detail, backgroundColor: value });
+      setDraft((prev) => (prev ? { ...prev, backgroundColor: value } : prev));
+      setColorDialogOpen(false);
+      notify.success('Hintergrundfarbe gespeichert.');
+    } catch (e) {
+      setColorError(
+        e instanceof ApiError
+          ? e.message
+          : 'Speichern fehlgeschlagen, bitte später erneut versuchen.',
+      );
+    }
+  }
+
   /**
    * Drop aus der Widget-Palette aufs Canvas. react-grid-layout liefert das `item`
    * mit den berechneten Grid-Koordinaten (x/y) basierend auf der Maus-Position.
@@ -381,6 +444,24 @@ export default function DashboardPage(): JSX.Element {
             readOnly={!editMode}
           />
         );
+      case 'KANBAN_LIST':
+        return (
+          <WidgetKanbanList
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
+            readOnly={!editMode}
+          />
+        );
+      case 'DIVIDER':
+        return (
+          <WidgetDivider
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
+            readOnly={!editMode}
+          />
+        );
       default:
         return (
           <Paper variant="outlined" sx={{ p: 2, height: '100%', overflow: 'hidden' }}>
@@ -455,9 +536,18 @@ export default function DashboardPage(): JSX.Element {
   // leere Drop-Fläche, aber so klein dass es bei vollen Dashboards nicht stört.
   const gridMinHeight = editMode ? 480 : undefined;
 
+  // Dashboard-Hintergrundfarbe; leer/null fällt auf den Theme-Default zurück.
+  // minHeight füllt den Inhaltsbereich, damit die Farbe im Kiosk-Modus voll trägt.
+  const appliedBackground = detail.backgroundColor ?? 'background.default';
+
   return (
-    <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+    <Box sx={{ bgcolor: appliedBackground, minHeight: '100%' }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 2, display: kioskMode ? 'none' : 'flex' }}
+      >
         <Stack direction="row" alignItems="center" spacing={1}>
           <Button
             startIcon={<ArrowBackIcon />}
@@ -476,6 +566,13 @@ export default function DashboardPage(): JSX.Element {
                 onClick={startRename}
               >
                 <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                aria-label="Hintergrundfarbe ändern"
+                onClick={startBackgroundEdit}
+              >
+                <PaletteIcon fontSize="small" />
               </IconButton>
             </Stack>
           )}
@@ -517,14 +614,25 @@ export default function DashboardPage(): JSX.Element {
         </Stack>
         <Stack direction="row" alignItems="center" spacing={2}>
           {!editMode && (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => setEditMode(true)}
-            >
-              Bearbeiten
-            </Button>
+            <>
+              <Button
+                size="small"
+                variant={kioskMode ? 'contained' : 'outlined'}
+                startIcon={kioskMode ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                onClick={() => setKioskMode(!kioskMode)}
+                aria-pressed={kioskMode}
+              >
+                Kiosk
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => setEditMode(true)}
+              >
+                Bearbeiten
+              </Button>
+            </>
           )}
           {editMode && (
             <Stack direction="row" spacing={1}>
@@ -635,6 +743,58 @@ export default function DashboardPage(): JSX.Element {
           <Button onClick={cancelWidgetDelete}>Abbrechen</Button>
           <Button color="error" variant="contained" onClick={confirmWidgetDelete}>
             Löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={colorDialogOpen}
+        onClose={cancelBackgroundEdit}
+        aria-labelledby="dashboard-background-title"
+      >
+        <DialogTitle id="dashboard-background-title">Hintergrundfarbe</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            CSS-Farbwert (z. B. <code>#1a1a2e</code>, <code>rebeccapurple</code> oder ein
+            Verlauf). Leer lassen für den Theme-Standard.
+          </DialogContentText>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <TextField
+              value={colorDraft}
+              onChange={(e) => {
+                setColorDraft(e.target.value);
+                if (colorError) setColorError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void commitBackgroundColor();
+              }}
+              size="small"
+              autoFocus
+              fullWidth
+              label="Hintergrundfarbe"
+              placeholder="#1a1a2e"
+              error={colorError != null}
+              helperText={colorError}
+              inputProps={{ 'aria-label': 'Hintergrundfarbe (CSS)', maxLength: 64 }}
+            />
+            <Box
+              aria-label="Farbvorschau"
+              sx={{
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                background: colorDraft.trim() || 'transparent',
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelBackgroundEdit}>Abbrechen</Button>
+          <Button variant="contained" onClick={() => void commitBackgroundColor()}>
+            Speichern
           </Button>
         </DialogActions>
       </Dialog>

@@ -10,6 +10,7 @@ import org.mwolff.api.dashboard.application.GetDashboardUseCase;
 import org.mwolff.api.dashboard.application.ListDashboardsUseCase;
 import org.mwolff.api.dashboard.application.MarkAsDefaultUseCase;
 import org.mwolff.api.dashboard.application.RenameDashboardUseCase;
+import org.mwolff.api.dashboard.application.SetBackgroundColorUseCase;
 import org.mwolff.api.dashboard.application.UpdateLayoutUseCase;
 import org.mwolff.api.dashboard.domain.Dashboard;
 import org.mwolff.api.dashboard.domain.Widget;
@@ -17,6 +18,7 @@ import org.mwolff.api.dashboard.web.dto.CreateDashboardRequest;
 import org.mwolff.api.dashboard.web.dto.DashboardDetailResponse;
 import org.mwolff.api.dashboard.web.dto.DashboardSummaryResponse;
 import org.mwolff.api.dashboard.web.dto.RenameDashboardRequest;
+import org.mwolff.api.dashboard.web.dto.SetBackgroundColorRequest;
 import org.mwolff.api.dashboard.web.dto.UpdateLayoutRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +47,7 @@ public class DashboardController {
   private final UpdateLayoutUseCase updateLayoutUseCase;
   private final MarkAsDefaultUseCase markDefaultUseCase;
   private final RenameDashboardUseCase renameUseCase;
+  private final SetBackgroundColorUseCase setBackgroundColorUseCase;
   private final DeleteDashboardUseCase deleteUseCase;
 
   public DashboardController(
@@ -54,6 +57,7 @@ public class DashboardController {
       UpdateLayoutUseCase updateLayoutUseCase,
       MarkAsDefaultUseCase markDefaultUseCase,
       RenameDashboardUseCase renameUseCase,
+      SetBackgroundColorUseCase setBackgroundColorUseCase,
       DeleteDashboardUseCase deleteUseCase) {
     this.listUseCase = listUseCase;
     this.createUseCase = createUseCase;
@@ -61,6 +65,7 @@ public class DashboardController {
     this.updateLayoutUseCase = updateLayoutUseCase;
     this.markDefaultUseCase = markDefaultUseCase;
     this.renameUseCase = renameUseCase;
+    this.setBackgroundColorUseCase = setBackgroundColorUseCase;
     this.deleteUseCase = deleteUseCase;
   }
 
@@ -110,6 +115,16 @@ public class DashboardController {
       @Valid @RequestBody RenameDashboardRequest body) {
     return DashboardSummaryResponse.from(
         renameUseCase.execute(auth.getToken().getSubject(), id, body.name()));
+  }
+
+  @PutMapping("/{id}/background")
+  public DashboardSummaryResponse setBackgroundColor(
+      JwtAuthenticationToken auth,
+      @PathVariable long id,
+      @Valid @RequestBody SetBackgroundColorRequest body) {
+    return DashboardSummaryResponse.from(
+        setBackgroundColorUseCase.execute(
+            auth.getToken().getSubject(), id, body.backgroundColor()));
   }
 
   @DeleteMapping("/{id}")

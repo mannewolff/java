@@ -1,6 +1,6 @@
 import { api } from './client';
 
-export type WidgetType = 'TEXTBOX' | 'KPI' | 'PLOT';
+export type WidgetType = 'TEXTBOX' | 'KPI' | 'PLOT' | 'KANBAN_LIST' | 'DIVIDER';
 
 /** Wire-Format eines Widgets — passt zu `WidgetDto` im Spring-Backend. */
 export interface WidgetDto {
@@ -23,6 +23,8 @@ export interface DashboardSummary {
 }
 
 export interface DashboardDetail extends DashboardSummary {
+  /** CSS-Farbwert für den Dashboard-Hintergrund; `null` = Theme-Default. */
+  backgroundColor?: string | null;
   widgets: WidgetDto[];
 }
 
@@ -50,6 +52,13 @@ export function setDefaultDashboard(id: number): Promise<DashboardSummary> {
 
 export function renameDashboard(id: number, name: string): Promise<DashboardSummary> {
   return api.put<DashboardSummary>(`${PATH}/${id}/name`, { name });
+}
+
+export function setDashboardBackgroundColor(
+  id: number,
+  backgroundColor: string | null,
+): Promise<DashboardSummary> {
+  return api.put<DashboardSummary>(`${PATH}/${id}/background`, { backgroundColor });
 }
 
 export function deleteDashboard(id: number): Promise<void> {

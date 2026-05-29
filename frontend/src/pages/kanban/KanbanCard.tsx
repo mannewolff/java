@@ -20,6 +20,8 @@ import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown'
 interface KanbanCardProps {
   item: KanbanItem;
   retentionDays: number;
+  /** Triggered when the user clicks the card title — öffnet das Detail-Modal. */
+  onOpenDetail: (item: KanbanItem) => void;
   /** Triggered when the user picks "Bearbeiten" from the card menu. */
   onEdit: (item: KanbanItem) => void;
   /** Triggered when the user picks "Löschen". UI fragt eigene Confirm im Eltern-State. */
@@ -38,6 +40,7 @@ interface KanbanCardProps {
 export default function KanbanCard({
   item,
   retentionDays,
+  onOpenDetail,
   onEdit,
   onDelete,
 }: KanbanCardProps): JSX.Element {
@@ -79,6 +82,19 @@ export default function KanbanCard({
         <Tooltip title={item.title} enterDelay={500}>
           <Typography
             variant="subtitle2"
+            role="button"
+            tabIndex={0}
+            aria-label={`Detail öffnen: ${item.title}`}
+            // onPointerDown stoppt die Propagation an den dnd-kit-Sensor, damit ein Klick auf
+            // den Titel das Detail-Modal oeffnet statt einen Drag zu starten.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onOpenDetail(item)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenDetail(item);
+              }
+            }}
             sx={{
               flex: 1,
               minWidth: 0,
@@ -86,6 +102,7 @@ export default function KanbanCard({
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               fontWeight: 600,
+              cursor: 'pointer',
             }}
           >
             {item.title}

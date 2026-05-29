@@ -7,6 +7,8 @@ export interface AuthState {
   email: string | undefined;
   // Initialen fuer Avatar-Anzeige; '?' wenn weder Username noch Email vorhanden.
   initial: string;
+  // Aktueller OIDC-Access-Token (Bearer); undefined wenn nicht eingeloggt.
+  accessToken: string | undefined;
   error: Error | undefined;
   signIn: () => void;
   signOut: () => void;
@@ -33,6 +35,7 @@ export function useAuth(): AuthState {
     username,
     email,
     initial,
+    accessToken: oidc.user?.access_token,
     error: oidc.error,
     signIn: () => {
       void oidc.signinRedirect();

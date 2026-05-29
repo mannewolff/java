@@ -32,7 +32,7 @@ class DashboardUseCasesTest {
   private static final String SUB_OTHER = "user-2";
 
   private static Dashboard dashboard(long id, String userSub, boolean isDefault) {
-    return new Dashboard(id, userSub, "Main", isDefault, Instant.EPOCH, Instant.EPOCH);
+    return new Dashboard(id, userSub, "Main", isDefault, null, Instant.EPOCH, Instant.EPOCH);
   }
 
   // ----- list ---------------------------------------------------------------
@@ -201,6 +201,40 @@ class DashboardUseCasesTest {
         .isInstanceOf(DashboardNotFoundException.class);
   }
 
+  // ----- setBackgroundColor -------------------------------------------------
+
+  @Test
+  void setBackgroundColorShouldUpdateAndPersist() {
+    given(dashboards.findById(1L)).willReturn(Optional.of(dashboard(1L, SUB_OWNER, true)));
+    given(dashboards.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+    final Dashboard result =
+        new SetBackgroundColorUseCase(dashboards).execute(SUB_OWNER, 1L, "#1a1a2e");
+
+    assertThat(result.backgroundColor()).isEqualTo("#1a1a2e");
+    assertThat(result.id()).isEqualTo(1L);
+    verify(dashboards).save(any());
+  }
+
+  @Test
+  void setBackgroundColorShouldThrowForForeignDashboard() {
+    given(dashboards.findById(1L)).willReturn(Optional.of(dashboard(1L, SUB_OWNER, true)));
+
+    assertThatThrownBy(
+            () -> new SetBackgroundColorUseCase(dashboards).execute(SUB_OTHER, 1L, "#fff"))
+        .isInstanceOf(DashboardNotFoundException.class);
+    verify(dashboards, never()).save(any());
+  }
+
+  @Test
+  void setBackgroundColorShouldThrowWhenDashboardMissing() {
+    given(dashboards.findById(99L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () -> new SetBackgroundColorUseCase(dashboards).execute(SUB_OWNER, 99L, "#fff"))
+        .isInstanceOf(DashboardNotFoundException.class);
+  }
+
   // ----- delete -------------------------------------------------------------
 
   @Test
@@ -278,6 +312,13 @@ class DashboardUseCasesTest {
   }
 
   private static Dashboard withId(Dashboard d, long id) {
-    return new Dashboard(id, d.userSub(), d.name(), d.isDefault(), Instant.EPOCH, Instant.EPOCH);
+    return new Dashboard(
+        id,
+        d.userSub(),
+        d.name(),
+        d.isDefault(),
+        d.backgroundColor(),
+        Instant.EPOCH,
+        Instant.EPOCH);
   }
 }

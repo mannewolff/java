@@ -24,6 +24,8 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number
   KPI: { width: 2, height: 2 },
   TEXTBOX: { width: 4, height: 3 },
   PLOT: { width: 6, height: 4 },
+  KANBAN_LIST: { width: 3, height: 4 },
+  DIVIDER: { width: 6, height: 1 },
 };
 
 /** Initial-Config je Widget-Typ — passend zu den Widget-Komponenten in widgets/. */
@@ -41,9 +43,11 @@ export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
   TEXTBOX: JSON.stringify({ markdown: '# Neue Textbox\n\nText hier eingeben.' }),
   PLOT: JSON.stringify({
     timeSeriesId: null,
-    metric: 'avg',
-    defaultGranularity: 'DAILY',
+    defaultGranularity: null,
+    overlays: [],
   }),
+  KANBAN_LIST: JSON.stringify({ column: 'BACKLOG', limit: 5 }),
+  DIVIDER: JSON.stringify({ orientation: 'horizontal', color: '', thickness: 2 }),
 };
 
 /** Erzeugt ein neues Widget mit Default-Größe und -Config an Position (0, 0). */

@@ -3,13 +3,17 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
   Drawer,
+  FormControlLabel,
+  FormGroup,
   IconButton,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -22,6 +26,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -31,21 +36,15 @@ import {
 import type { WidgetDto } from '../../../api/dashboard';
 import {
   aggregateTimeSeries,
+  listEntries,
   listTimeSeries,
-  type AggregateBucket,
   type Granularity,
   type TimeSeriesSummary,
 } from '../../../api/timeseries';
 import { ApiError } from '../../../api/client';
+import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
-type Metric = 'avg' | 'min' | 'max' | 'last';
-
-const METRICS: ReadonlyArray<{ value: Metric; label: string }> = [
-  { value: 'avg', label: 'Mittelwert' },
-  { value: 'min', label: 'Minimum' },
-  { value: 'max', label: 'Maximum' },
-  { value: 'last', label: 'Letzter Wert' },
-];
+export type PlotOverlay = 'mean' | 'median' | 'min' | 'max';
 
 const GRANULARITIES: ReadonlyArray<{ value: Granularity; label: string }> = [
   { value: 'DAILY', label: 'Täglich' },
@@ -54,18 +53,44 @@ const GRANULARITIES: ReadonlyArray<{ value: Granularity; label: string }> = [
   { value: 'YEARLY', label: 'Jährlich' },
 ];
 
+const OVERLAY_META: Record<PlotOverlay, { label: string; prefix: string; color: string }> = {
+  mean: { label: 'Mittelwert', prefix: 'Ø', color: '#d32f2f' },
+  median: { label: 'Median', prefix: 'Md', color: '#7b1fa2' },
+  min: { label: 'Minimum', prefix: 'Min', color: '#2e7d32' },
+  max: { label: 'Maximum', prefix: 'Max', color: '#ed6c02' },
+};
+
+const OVERLAY_ORDER: readonly PlotOverlay[] = ['mean', 'median', 'min', 'max'];
+
 interface PlotConfig {
   timeSeriesId: number | null;
-  metric: Metric;
-  defaultGranularity: Granularity;
+  /** `null` = Rohwerte-Modus (neuer Default), sonst aggregierter Modus mit Tabs. */
+  defaultGranularity: Granularity | null;
+  overlays: PlotOverlay[];
+  showBorder: boolean;
+  backgroundColor?: string;
 }
 
-function isMetric(v: unknown): v is Metric {
-  return v === 'avg' || v === 'min' || v === 'max' || v === 'last';
+interface ChartPoint {
+  label: string;
+  value: number;
 }
 
 function isGranularity(v: unknown): v is Granularity {
   return v === 'DAILY' || v === 'WEEKLY' || v === 'MONTHLY' || v === 'YEARLY';
+}
+
+function parseGranularity(value: unknown): Granularity | null {
+  if (isGranularity(value)) return value;
+  // Feld fehlt komplett oder explizit null → Rohwerte-Modus.
+  if (value === undefined || value === null) return null;
+  // Feld gesetzt, aber kein gültiger Wert → alter Default als Fallback.
+  return 'DAILY';
+}
+
+function parseOverlays(value: unknown): PlotOverlay[] {
+  if (!Array.isArray(value)) return [];
+  return OVERLAY_ORDER.filter((o) => value.includes(o));
 }
 
 function parseConfig(raw: string): PlotConfig {
@@ -73,13 +98,12 @@ function parseConfig(raw: string): PlotConfig {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
       timeSeriesId: typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
-      metric: isMetric(parsed.metric) ? parsed.metric : 'avg',
-      defaultGranularity: isGranularity(parsed.defaultGranularity)
-        ? parsed.defaultGranularity
-        : 'DAILY',
+      defaultGranularity: parseGranularity(parsed.defaultGranularity),
+      overlays: parseOverlays(parsed.overlays),
+      ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { timeSeriesId: null, metric: 'avg', defaultGranularity: 'DAILY' };
+    return { timeSeriesId: null, defaultGranularity: null, overlays: [], showBorder: false };
   }
 }
 
@@ -98,6 +122,12 @@ function formatBucketLabel(iso: string, granularity: Granularity): string {
   }
 }
 
+function formatEntryLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString();
+}
+
 function weekNumber(d: Date): number {
   const target = new Date(d.valueOf());
   const dayNr = (d.getUTCDay() + 6) % 7;
@@ -108,6 +138,29 @@ function weekNumber(d: Date): number {
     target.setUTCMonth(0, 1 + ((4 - target.getUTCDay() + 7) % 7));
   }
   return 1 + Math.ceil((firstThursday - target.valueOf()) / 604_800_000);
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+export function overlayValue(overlay: PlotOverlay, values: number[]): number {
+  switch (overlay) {
+    case 'mean':
+      return values.reduce((sum, v) => sum + v, 0) / values.length;
+    case 'median':
+      return median(values);
+    case 'min':
+      return Math.min(...values);
+    case 'max':
+      return Math.max(...values);
+  }
+}
+
+function formatOverlayNumber(value: number): string {
+  return value.toLocaleString('de-DE', { maximumFractionDigits: 1 });
 }
 
 interface Props {
@@ -124,8 +177,13 @@ export default function WidgetPlot({
   readOnly = false,
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
-  const [granularity, setGranularity] = useState<Granularity>(config.defaultGranularity);
-  const [buckets, setBuckets] = useState<AggregateBucket[] | null>(null);
+  const surface = widgetSurface(readOnly, config);
+  const isRawMode = config.defaultGranularity === null;
+
+  const [granularity, setGranularity] = useState<Granularity>(
+    config.defaultGranularity ?? 'DAILY',
+  );
+  const [points, setPoints] = useState<ChartPoint[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
@@ -133,70 +191,105 @@ export default function WidgetPlot({
   const [draftSeriesId, setDraftSeriesId] = useState<string>(
     config.timeSeriesId == null ? '' : String(config.timeSeriesId),
   );
-  const [draftMetric, setDraftMetric] = useState<Metric>(config.metric);
-  const [draftGranularity, setDraftGranularity] = useState<Granularity>(
-    config.defaultGranularity,
+  const [draftGranularity, setDraftGranularity] = useState<string>(
+    config.defaultGranularity ?? '',
   );
+  const [draftOverlays, setDraftOverlays] = useState<PlotOverlay[]>(config.overlays);
+  const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
+  const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
   useEffect(() => {
-    setGranularity(config.defaultGranularity);
+    if (config.defaultGranularity != null) setGranularity(config.defaultGranularity);
   }, [config.defaultGranularity]);
 
   useEffect(() => {
     if (config.timeSeriesId == null) {
-      setBuckets([]);
+      setPoints([]);
       return;
     }
+    const id = config.timeSeriesId;
     let cancelled = false;
     setLoadError(null);
-    aggregateTimeSeries(config.timeSeriesId, granularity)
+    setPoints(null);
+    const request = isRawMode
+      ? listEntries(id).then((entries) =>
+          entries.map((e) => ({ label: formatEntryLabel(e.timestamp), value: e.value })),
+        )
+      : aggregateTimeSeries(id, granularity).then((buckets) =>
+          buckets.map((b) => ({ label: formatBucketLabel(b.bucketStart, granularity), value: b.avg })),
+        );
+    request
       .then((data) => {
-        if (!cancelled) setBuckets(data);
+        if (!cancelled) setPoints(data);
       })
       .catch((e) => {
         if (cancelled) return;
         setLoadError(e instanceof ApiError ? e.message : 'Laden fehlgeschlagen');
-        setBuckets([]);
+        setPoints([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [config.timeSeriesId, granularity]);
+  }, [config.timeSeriesId, isRawMode, granularity]);
 
   useEffect(() => {
     if (!open) return;
     setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
-    setDraftMetric(config.metric);
-    setDraftGranularity(config.defaultGranularity);
+    setDraftGranularity(config.defaultGranularity ?? '');
+    setDraftOverlays(config.overlays);
+    setDraftShowBorder(config.showBorder);
+    setDraftBackgroundColor(config.backgroundColor ?? '');
     if (seriesList === null) {
       listTimeSeries()
         .then(setSeriesList)
         .catch(() => setSeriesList([]));
     }
-  }, [open, config.timeSeriesId, config.metric, config.defaultGranularity, seriesList]);
+    // `widget.config` ist die stabile String-Quelle aller config.*-Felder; die
+    // geparsten Werte (u. a. das overlays-Array) sind pro Render neue Referenzen.
+  }, [open, widget.config, seriesList]);
+
+  function toggleOverlay(overlay: PlotOverlay): void {
+    setDraftOverlays((prev) =>
+      prev.includes(overlay) ? prev.filter((o) => o !== overlay) : [...prev, overlay],
+    );
+  }
 
   function handleApply(): void {
+    const nextGranularity: Granularity | null =
+      draftGranularity === '' ? null : (draftGranularity as Granularity);
     const next: PlotConfig = {
       timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
-      metric: draftMetric,
-      defaultGranularity: draftGranularity,
+      defaultGranularity: nextGranularity,
+      overlays: nextGranularity === null ? [] : draftOverlays,
+      showBorder: draftShowBorder,
+      ...(draftBackgroundColor.trim() !== ''
+        ? { backgroundColor: draftBackgroundColor.trim() }
+        : {}),
     };
     onChange({ ...widget, config: JSON.stringify(next) });
     setOpen(false);
   }
 
-  const chartData = useMemo(() => {
-    if (!buckets) return [];
-    return buckets.map((b) => ({
-      label: formatBucketLabel(b.bucketStart, granularity),
-      value: b[config.metric],
+  const chartData = points ?? [];
+
+  const overlayLines = useMemo(() => {
+    if (isRawMode || chartData.length === 0 || config.overlays.length === 0) return [];
+    const values = chartData.map((p) => p.value);
+    return config.overlays.map((overlay) => ({
+      overlay,
+      y: overlayValue(overlay, values),
+      ...OVERLAY_META[overlay],
     }));
-  }, [buckets, granularity, config.metric]);
+  }, [isRawMode, chartData, config.overlays]);
 
   const noConfiguredSeries = config.timeSeriesId == null;
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Paper
+      variant={surface.variant}
+      elevation={surface.elevation}
+      sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', ...surface.sx }}
+    >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="subtitle2" noWrap>
           Plot
@@ -213,17 +306,19 @@ export default function WidgetPlot({
         )}
       </Stack>
 
-      <Tabs
-        value={granularity}
-        onChange={(_, v) => setGranularity(v as Granularity)}
-        variant="scrollable"
-        scrollButtons={false}
-        sx={{ minHeight: 32, '& .MuiTab-root': { minHeight: 32, py: 0.5 } }}
-      >
-        {GRANULARITIES.map((g) => (
-          <Tab key={g.value} value={g.value} label={g.label} />
-        ))}
-      </Tabs>
+      {!isRawMode && (
+        <Tabs
+          value={granularity}
+          onChange={(_, v) => setGranularity(v as Granularity)}
+          variant="scrollable"
+          scrollButtons={false}
+          sx={{ minHeight: 32, '& .MuiTab-root': { minHeight: 32, py: 0.5 } }}
+        >
+          {GRANULARITIES.map((g) => (
+            <Tab key={g.value} value={g.value} label={g.label} />
+          ))}
+        </Tabs>
+      )}
 
       <Box sx={{ flex: 1, minHeight: 120, mt: 1 }} aria-label="Plot-Bereich">
         {noConfiguredSeries ? (
@@ -232,11 +327,11 @@ export default function WidgetPlot({
           </Alert>
         ) : loadError ? (
           <Alert severity="error">{loadError}</Alert>
-        ) : buckets === null ? (
+        ) : points === null ? (
           <Stack alignItems="center" justifyContent="center" sx={{ height: '100%' }}>
             <CircularProgress size={24} />
           </Stack>
-        ) : buckets.length === 0 ? (
+        ) : points.length === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ height: '100%' }}>
             <Typography variant="body2" color="text.secondary">
               Keine Daten im Zeitfenster.
@@ -249,6 +344,20 @@ export default function WidgetPlot({
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
+              {overlayLines.map((ol) => (
+                <ReferenceLine
+                  key={ol.overlay}
+                  y={ol.y}
+                  stroke={ol.color}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `${ol.prefix} ${formatOverlayNumber(ol.y)}`,
+                    position: 'right',
+                    fontSize: 10,
+                    fill: ol.color,
+                  }}
+                />
+              ))}
               <Line
                 type="monotone"
                 dataKey="value"
@@ -267,7 +376,7 @@ export default function WidgetPlot({
             <Typography variant="h6">Plot bearbeiten</Typography>
           </Toolbar>
           <Divider />
-          <Stack spacing={2} sx={{ p: 2, flex: 1 }}>
+          <Stack spacing={2} sx={{ p: 2, flex: 1, overflow: 'auto' }}>
             <TextField
               label="Zeitreihe"
               select
@@ -284,29 +393,58 @@ export default function WidgetPlot({
               ))}
             </TextField>
             <TextField
-              label="Metrik"
-              select
-              value={draftMetric}
-              onChange={(e) => setDraftMetric(e.target.value as Metric)}
-            >
-              {METRICS.map((m) => (
-                <MenuItem key={m.value} value={m.value}>
-                  {m.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Standard-Granularität"
+              label="Granularität"
               select
               value={draftGranularity}
-              onChange={(e) => setDraftGranularity(e.target.value as Granularity)}
+              onChange={(e) => setDraftGranularity(e.target.value)}
+              helperText="Ohne Granularität werden alle Rohwerte als Linie gezeigt."
             >
+              <MenuItem value="">
+                <em>(keine — Rohwerte)</em>
+              </MenuItem>
               {GRANULARITIES.map((g) => (
                 <MenuItem key={g.value} value={g.value}>
                   {g.label}
                 </MenuItem>
               ))}
             </TextField>
+            {draftGranularity !== '' && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Overlay-Linien
+                </Typography>
+                <FormGroup>
+                  {OVERLAY_ORDER.map((overlay) => (
+                    <FormControlLabel
+                      key={overlay}
+                      control={
+                        <Checkbox
+                          checked={draftOverlays.includes(overlay)}
+                          onChange={() => toggleOverlay(overlay)}
+                        />
+                      }
+                      label={OVERLAY_META[overlay].label}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            )}
+            <Divider textAlign="left">Darstellung</Divider>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={draftShowBorder}
+                  onChange={(e) => setDraftShowBorder(e.target.checked)}
+                />
+              }
+              label="Rahmen anzeigen"
+            />
+            <TextField
+              label="Hintergrundfarbe (leer = transparent)"
+              value={draftBackgroundColor}
+              onChange={(e) => setDraftBackgroundColor(e.target.value)}
+              placeholder="z. B. #1e1e1e oder rgba(255,255,255,0.05)"
+            />
           </Stack>
           <Divider />
           <Stack direction="row" spacing={1} sx={{ p: 2, justifyContent: 'flex-end' }}>

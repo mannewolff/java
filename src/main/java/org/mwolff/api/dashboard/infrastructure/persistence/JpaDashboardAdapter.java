@@ -65,6 +65,7 @@ class JpaDashboardAdapter implements DashboardPort, WidgetPort {
       entity.setName(dashboard.name());
       entity.setDefault(dashboard.isDefault());
     }
+    entity.setBackgroundColor(dashboard.backgroundColor());
     return toDomain(dashboardRepo.save(entity));
   }
 
@@ -120,6 +121,7 @@ class JpaDashboardAdapter implements DashboardPort, WidgetPort {
         entity.getUserSub(),
         entity.getName(),
         entity.isDefault(),
+        entity.getBackgroundColor(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
   }

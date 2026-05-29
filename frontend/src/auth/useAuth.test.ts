@@ -50,6 +50,7 @@ describe('useAuth', () => {
     expect(result.current.username).toBe('alice');
     expect(result.current.email).toBe('alice@example.com');
     expect(result.current.initial).toBe('A');
+    expect(result.current.accessToken).toBe('tok');
   });
 
   it('falls back to email when preferred_username is missing', () => {

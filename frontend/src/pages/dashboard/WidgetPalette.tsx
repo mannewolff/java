@@ -4,6 +4,8 @@ import type { ComponentType } from 'react';
 import TextSnippetIcon from '@mui/icons-material/TextSnippet';
 import InsightsIcon from '@mui/icons-material/Insights';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 
 import type { WidgetType } from '../../api/dashboard';
 
@@ -21,6 +23,8 @@ const PALETTE_ENTRIES: ReadonlyArray<PaletteEntry> = [
   { type: 'TEXTBOX', label: 'Textbox', icon: TextSnippetIcon },
   { type: 'KPI', label: 'KPI', icon: InsightsIcon },
   { type: 'PLOT', label: 'Plot', icon: ShowChartIcon },
+  { type: 'KANBAN_LIST', label: 'Kanban-Liste', icon: ViewListIcon },
+  { type: 'DIVIDER', label: 'Trennlinie', icon: HorizontalRuleIcon },
 ];
 
 interface Props {

@@ -160,6 +160,96 @@ describe('WidgetKpi', () => {
     expect(screen.queryByLabelText('KPI-Trend')).not.toBeInTheDocument();
   });
 
+  // ----- Darstellung / Lese-Modus (#122) ---------------------------------
+
+  describe('Darstellung (#122)', () => {
+    function numberWidget(extra: Record<string, unknown> = {}): WidgetDto {
+      return {
+        id: 1,
+        type: 'KPI',
+        posX: 0,
+        posY: 0,
+        width: 2,
+        height: 2,
+        config: JSON.stringify({
+          style: 'number',
+          value: 42,
+          label: 'L',
+          trend: null,
+          color: 'success',
+          ...extra,
+        }),
+      };
+    }
+
+    it('Lese-Modus ohne showBorder: nicht outlined', () => {
+      const { container } = render(
+        <WidgetKpi widget={numberWidget()} onChange={vi.fn()} onDelete={vi.fn()} readOnly />,
+      );
+
+      const paper = container.querySelector('.MuiPaper-root');
+      expect(paper).not.toHaveClass('MuiPaper-outlined');
+    });
+
+    it('Lese-Modus mit showBorder: outlined + 4px Akzent-Linksrand', () => {
+      const { container } = render(
+        <WidgetKpi
+          widget={numberWidget({ showBorder: true })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+          readOnly
+        />,
+      );
+
+      const paper = container.querySelector('.MuiPaper-root');
+      expect(paper).toHaveClass('MuiPaper-outlined');
+      expect(paper).toHaveStyle({ borderLeftWidth: '4px' });
+    });
+
+    it('Lese-Modus mit backgroundColor: setzt bgcolor des Papers', () => {
+      const { container } = render(
+        <WidgetKpi
+          widget={numberWidget({ backgroundColor: 'rgb(10, 20, 30)' })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+          readOnly
+        />,
+      );
+
+      expect(container.querySelector('.MuiPaper-root')).toHaveStyle({
+        backgroundColor: 'rgb(10, 20, 30)',
+      });
+    });
+
+    it('Edit-Modus: Paper bleibt outlined mit Akzent', () => {
+      const { container } = render(
+        <WidgetKpi widget={numberWidget()} onChange={vi.fn()} onDelete={vi.fn()} />,
+      );
+
+      const paper = container.querySelector('.MuiPaper-root');
+      expect(paper).toHaveClass('MuiPaper-outlined');
+      expect(paper).toHaveStyle({ borderLeftWidth: '4px' });
+    });
+
+    it('Drawer: speichert showBorder und backgroundColor', async () => {
+      const onChange = vi.fn();
+      const user = userEvent.setup();
+      render(<WidgetKpi widget={numberWidget()} onChange={onChange} onDelete={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+      await user.click(screen.getByLabelText('Rahmen anzeigen'));
+      await user.type(screen.getByLabelText('Hintergrundfarbe (leer = transparent)'), '#222');
+      await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+      const parsed = JSON.parse(onChange.mock.calls[0][0].config) as {
+        showBorder: boolean;
+        backgroundColor: string;
+      };
+      expect(parsed.showBorder).toBe(true);
+      expect(parsed.backgroundColor).toBe('#222');
+    });
+  });
+
   // ----- Gauge-Sub-Type (#82) --------------------------------------------
 
   function gaugeWidget(over: Partial<{
@@ -413,6 +503,75 @@ describe('WidgetKpi', () => {
 
       await waitFor(() =>
         expect(screen.getByLabelText(/Refresh-Intervall/)).toBeInTheDocument(),
+      );
+    });
+  });
+
+  // ----- Gauge + Zeitreihe (#123) ----------------------------------------
+
+  describe('Gauge mit dynamischem Zeitreihenwert', () => {
+    function gaugeWithTs(timeSeriesId: number, refreshSeconds = 60): WidgetDto {
+      return {
+        id: 1,
+        type: 'KPI',
+        posX: 0,
+        posY: 0,
+        width: 2,
+        height: 2,
+        config: JSON.stringify({
+          style: 'gauge',
+          value: 50,
+          label: '',
+          min: 0,
+          max: 100,
+          lowEnd: 33,
+          mediumEnd: 66,
+          rangeLabel: '',
+          timeSeriesId,
+          refreshSeconds,
+        }),
+      };
+    }
+
+    it('zeigt Ladeindikator beim ersten Fetch', () => {
+      // getLatestEntry haengt unbegrenzt
+      latest.mockReturnValue(new Promise(() => undefined));
+      render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
+      expect(screen.getByLabelText('KPI-Gauge-Loading')).toBeInTheDocument();
+    });
+
+    it('zeigt den geladenen Wert als Gauge-Prozentanzeige', async () => {
+      latest.mockResolvedValue({ id: 1, timestamp: '2026-01-01T00:00:00Z', value: 75 });
+      render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText('75%')).toBeInTheDocument());
+      expect(screen.getByLabelText('KPI-Gauge')).toBeInTheDocument();
+    });
+
+    it('zeigt Fehlermeldung bei API-Fehler', async () => {
+      latest.mockRejectedValue(new ApiError(500, 'Server-Fehler', null));
+      render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
+      await waitFor(() =>
+        expect(screen.getByLabelText('KPI-Gauge-Error')).toBeInTheDocument(),
+      );
+    });
+
+    it('Drawer: Zeitreihe-Dropdown erscheint im Gauge-Modus', async () => {
+      listTs.mockResolvedValue([{ id: 7, name: 'Temperatur', unit: '°C' }]);
+      const user = userEvent.setup();
+      render(
+        <WidgetKpi
+          widget={gaugeWithTs(7)}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      // Drawer ist nicht in readOnly — aber gaugeWithTs ohne readOnly=false ist default
+      // Wir öffnen ihn über den Edit-Button
+      await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText(/Zeitreihe \(optional/),
+        ).toBeInTheDocument(),
       );
     });
   });

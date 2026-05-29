@@ -7,5 +7,7 @@ package org.mwolff.api.dashboard.domain;
 public enum WidgetType {
   TEXTBOX,
   KPI,
-  PLOT
+  PLOT,
+  KANBAN_LIST,
+  DIVIDER
 }

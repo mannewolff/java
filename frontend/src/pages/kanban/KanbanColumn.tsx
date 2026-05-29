@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   items: KanbanItem[];
   retentionDays: number;
   onCreate: (column: KanbanColumnId) => void;
+  onOpenDetail: (item: KanbanItem) => void;
   onEdit: (item: KanbanItem) => void;
   onDelete: (item: KanbanItem) => void;
 }
@@ -26,6 +27,7 @@ export default function KanbanColumnView({
   items,
   retentionDays,
   onCreate,
+  onOpenDetail,
   onEdit,
   onDelete,
 }: KanbanColumnProps): JSX.Element {
@@ -89,6 +91,7 @@ export default function KanbanColumnView({
               key={item.id}
               item={item}
               retentionDays={retentionDays}
+              onOpenDetail={onOpenDetail}
               onEdit={onEdit}
               onDelete={onDelete}
             />

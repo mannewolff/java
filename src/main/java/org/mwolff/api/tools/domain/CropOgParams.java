@@ -10,8 +10,9 @@ public record CropOgParams(double yOffset, double xOffset, int quality, int widt
     if (xOffset < 0.0 || xOffset > 1.0) {
       throw new IllegalArgumentException("xOffset must be between 0.0 and 1.0");
     }
-    if (quality < 1 || quality > 100) {
-      throw new IllegalArgumentException("quality must be between 1 and 100");
+    // Fachliche Invariante (#134): deckungsgleich mit dem Web-Vertrag in CropOgController.
+    if (quality < 50 || quality > 95) {
+      throw new IllegalArgumentException("quality must be between 50 and 95");
     }
     if (width < 1) {
       throw new IllegalArgumentException("width must be >= 1");

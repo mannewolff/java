@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ParamsTest {
 
@@ -40,15 +42,36 @@ class ParamsTest {
   void resizeParamsShouldRejectBlankOutputFormat() {
     assertThatThrownBy(() -> new ResizeParams(800, 600, "  ", 80))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("blank");
+        .hasMessageContaining("outputFormat");
+  }
+
+  @Test
+  void resizeParamsShouldRejectUnknownOutputFormat() {
+    assertThatThrownBy(() -> new ResizeParams(800, 600, "gif", 80))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("outputFormat");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"auto", "png", "jpeg", "webp"})
+  void resizeParamsShouldAcceptEveryAllowedOutputFormat(final String format) {
+    assertThat(new ResizeParams(800, 600, format, 80).outputFormat()).isEqualTo(format);
   }
 
   @Test
   void resizeParamsShouldRejectQualityOutOfRange() {
-    assertThatThrownBy(() -> new ResizeParams(800, 600, "jpeg", 0))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new ResizeParams(800, 600, "jpeg", 101))
-        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new ResizeParams(800, 600, "jpeg", 49))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("quality");
+    assertThatThrownBy(() -> new ResizeParams(800, 600, "jpeg", 96))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("quality");
+  }
+
+  @Test
+  void resizeParamsShouldAcceptQualityBoundaries() {
+    assertThat(new ResizeParams(800, 600, "jpeg", 50).quality()).isEqualTo(50);
+    assertThat(new ResizeParams(800, 600, "jpeg", 95).quality()).isEqualTo(95);
   }
 
   @Test
@@ -69,9 +92,22 @@ class ParamsTest {
 
   @Test
   void cropOgParamsShouldRejectQualityAboveMaximum() {
-    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 101, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 96, 1200, 630))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("quality");
+  }
+
+  @Test
+  void cropOgParamsShouldRejectQualityBelowMinimum() {
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 49, 1200, 630))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("quality");
+  }
+
+  @Test
+  void cropOgParamsShouldAcceptQualityBoundaries() {
+    assertThat(new CropOgParams(0.5, 0.5, 50, 1200, 630).quality()).isEqualTo(50);
+    assertThat(new CropOgParams(0.5, 0.5, 95, 1200, 630).quality()).isEqualTo(95);
   }
 
   @Test
@@ -109,6 +145,26 @@ class ParamsTest {
     assertThatThrownBy(() -> new PaletteParams(0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("count");
+  }
+
+  @Test
+  void paletteParamsShouldRejectCountBelowMinimum() {
+    assertThatThrownBy(() -> new PaletteParams(1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("count");
+  }
+
+  @Test
+  void paletteParamsShouldRejectCountAboveMaximum() {
+    assertThatThrownBy(() -> new PaletteParams(11))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("count");
+  }
+
+  @Test
+  void paletteParamsShouldAcceptCountBoundaries() {
+    assertThat(new PaletteParams(2).count()).isEqualTo(2);
+    assertThat(new PaletteParams(10).count()).isEqualTo(10);
   }
 
   @Test

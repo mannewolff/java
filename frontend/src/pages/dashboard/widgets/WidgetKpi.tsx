@@ -61,6 +61,10 @@ interface GaugeConfig {
   lowEnd: number;
   mediumEnd: number;
   rangeLabel: string;
+  /** Optional: aktuellen Wert aus dieser Zeitreihe laden. null/undefined = statischer Modus. */
+  timeSeriesId?: number | null;
+  /** Refresh-Intervall in Sekunden wenn timeSeriesId gesetzt. Default: 60. */
+  refreshSeconds?: number;
 }
 
 interface TimeSeriesConfig {
@@ -118,6 +122,12 @@ function parseConfig(raw: string): KpiConfig {
         typeof parsed.mediumEnd === 'number' ? parsed.mediumEnd : GAUGE_DEFAULTS.mediumEnd,
       rangeLabel:
         typeof parsed.rangeLabel === 'string' ? parsed.rangeLabel : GAUGE_DEFAULTS.rangeLabel,
+      timeSeriesId:
+        typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
+      refreshSeconds:
+        typeof parsed.refreshSeconds === 'number'
+          ? clampRefresh(parsed.refreshSeconds)
+          : 60,
     };
   }
   if (style === 'timeseries') {
@@ -230,6 +240,12 @@ export default function WidgetKpi({
   const [draftLowEnd, setDraftLowEnd] = useState(String(gaugeConfig.lowEnd));
   const [draftMediumEnd, setDraftMediumEnd] = useState(String(gaugeConfig.mediumEnd));
   const [draftRangeLabel, setDraftRangeLabel] = useState(gaugeConfig.rangeLabel);
+  const [draftGaugeSeriesId, setDraftGaugeSeriesId] = useState<string>(
+    gaugeConfig.timeSeriesId == null ? '' : String(gaugeConfig.timeSeriesId),
+  );
+  const [draftGaugeRefresh, setDraftGaugeRefresh] = useState<string>(
+    String(gaugeConfig.refreshSeconds ?? 60),
+  );
 
   // TimeSeries-Drafts
   const tsConfig: TimeSeriesConfig =
@@ -262,6 +278,8 @@ export default function WidgetKpi({
       setDraftLowEnd(String(config.lowEnd));
       setDraftMediumEnd(String(config.mediumEnd));
       setDraftRangeLabel(config.rangeLabel);
+      setDraftGaugeSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
+      setDraftGaugeRefresh(String(config.refreshSeconds ?? 60));
     } else {
       setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
       setDraftRefresh(String(config.refreshSeconds));
@@ -296,6 +314,8 @@ export default function WidgetKpi({
         lowEnd: parseOrDefault(draftLowEnd, GAUGE_DEFAULTS.lowEnd),
         mediumEnd: parseOrDefault(draftMediumEnd, GAUGE_DEFAULTS.mediumEnd),
         rangeLabel: draftRangeLabel,
+        timeSeriesId: draftGaugeSeriesId === '' ? null : Number.parseInt(draftGaugeSeriesId, 10),
+        refreshSeconds: clampRefresh(parseOrDefault(draftGaugeRefresh, 60)),
       };
     } else {
       next = {
@@ -480,6 +500,33 @@ export default function WidgetKpi({
                   fullWidth
                   placeholder="z. B. 70% to 100%"
                 />
+                <TextField
+                  select
+                  label="Zeitreihe (optional — überschreibt statischen Wert)"
+                  value={draftGaugeSeriesId}
+                  onChange={(e) => setDraftGaugeSeriesId(e.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">
+                    <em>— statischer Wert —</em>
+                  </MenuItem>
+                  {(seriesList ?? []).map((ts) => (
+                    <MenuItem key={ts.id} value={String(ts.id)}>
+                      {ts.name} ({ts.unit})
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {draftGaugeSeriesId !== '' && (
+                  <TextField
+                    label="Refresh-Intervall (Sekunden)"
+                    type="number"
+                    value={draftGaugeRefresh}
+                    onChange={(e) => setDraftGaugeRefresh(e.target.value)}
+                    fullWidth
+                    inputProps={{ min: MIN_REFRESH_SECONDS, max: MAX_REFRESH_SECONDS, step: 1 }}
+                    helperText={`${MIN_REFRESH_SECONDS} bis ${MAX_REFRESH_SECONDS} Sekunden`}
+                  />
+                )}
               </>
             )}
             {draftStyle === 'timeseries' && (
@@ -577,13 +624,58 @@ function NumberView({ config }: { config: NumberConfig }): JSX.Element {
 }
 
 function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
+  // Dynamischer Modus: Wert aus Zeitreihe laden.
+  const [dynamicValue, setDynamicValue] = useState<number | null>(null);
+  const [tsLoading, setTsLoading] = useState(false);
+  const [tsError, setTsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (config.timeSeriesId == null) {
+      setDynamicValue(null);
+      setTsError(null);
+      return;
+    }
+    const id = config.timeSeriesId;
+    const refreshMs = (config.refreshSeconds ?? 60) * 1000;
+    let cancelled = false;
+
+    async function tick(): Promise<void> {
+      setTsLoading(true);
+      try {
+        const entry = await getLatestEntry(id);
+        if (!cancelled) {
+          setDynamicValue(entry.value);
+          setTsError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setTsError(e instanceof ApiError ? e.message : 'Fehler beim Laden');
+        }
+      } finally {
+        if (!cancelled) setTsLoading(false);
+      }
+    }
+
+    void tick();
+    const handle = window.setInterval(() => void tick(), refreshMs);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [config.timeSeriesId, config.refreshSeconds]);
+
   const theme = useTheme();
   const cx = 100;
   const cy = 100;
   const radius = 80;
   const strokeWidth = 14;
 
-  const clampedValue = Math.max(config.min, Math.min(config.max, config.value));
+  // Effektiver Wert: dynamisch wenn Zeitreihe konfiguriert, sonst statisch.
+  const effectiveValue = config.timeSeriesId != null && dynamicValue != null
+    ? dynamicValue
+    : config.value;
+
+  const clampedValue = Math.max(config.min, Math.min(config.max, effectiveValue));
   const span = Math.max(1, config.max - config.min);
   const valueRatio = (clampedValue - config.min) / span;
   const needleAngle = valueRatio * 180;
@@ -597,6 +689,22 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
   const needle = polar(cx, cy, radius - strokeWidth - 4, needleAngle);
 
   const percentDisplay = `${Math.round(valueRatio * 100)}%`;
+
+  if (config.timeSeriesId != null && tsLoading && dynamicValue === null) {
+    return (
+      <Typography variant="caption" color="text.secondary" aria-label="KPI-Gauge-Loading">
+        Lade…
+      </Typography>
+    );
+  }
+
+  if (tsError != null) {
+    return (
+      <Typography variant="caption" color="error" aria-label="KPI-Gauge-Error">
+        {tsError}
+      </Typography>
+    );
+  }
 
   return (
     <Box

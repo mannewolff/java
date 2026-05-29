@@ -416,4 +416,73 @@ describe('WidgetKpi', () => {
       );
     });
   });
+
+  // ----- Gauge + Zeitreihe (#123) ----------------------------------------
+
+  describe('Gauge mit dynamischem Zeitreihenwert', () => {
+    function gaugeWithTs(timeSeriesId: number, refreshSeconds = 60): WidgetDto {
+      return {
+        id: 1,
+        type: 'KPI',
+        posX: 0,
+        posY: 0,
+        width: 2,
+        height: 2,
+        config: JSON.stringify({
+          style: 'gauge',
+          value: 50,
+          label: '',
+          min: 0,
+          max: 100,
+          lowEnd: 33,
+          mediumEnd: 66,
+          rangeLabel: '',
+          timeSeriesId,
+          refreshSeconds,
+        }),
+      };
+    }
+
+    it('zeigt Ladeindikator beim ersten Fetch', () => {
+      // getLatestEntry haengt unbegrenzt
+      latest.mockReturnValue(new Promise(() => undefined));
+      render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
+      expect(screen.getByLabelText('KPI-Gauge-Loading')).toBeInTheDocument();
+    });
+
+    it('zeigt den geladenen Wert als Gauge-Prozentanzeige', async () => {
+      latest.mockResolvedValue({ id: 1, timestamp: '2026-01-01T00:00:00Z', value: 75 });
+      render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText('75%')).toBeInTheDocument());
+      expect(screen.getByLabelText('KPI-Gauge')).toBeInTheDocument();
+    });
+
+    it('zeigt Fehlermeldung bei API-Fehler', async () => {
+      latest.mockRejectedValue(new ApiError(500, 'Server-Fehler'));
+      render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
+      await waitFor(() =>
+        expect(screen.getByLabelText('KPI-Gauge-Error')).toBeInTheDocument(),
+      );
+    });
+
+    it('Drawer: Zeitreihe-Dropdown erscheint im Gauge-Modus', async () => {
+      listTs.mockResolvedValue([{ id: 7, name: 'Temperatur', unit: '°C' }]);
+      const user = userEvent.setup();
+      render(
+        <WidgetKpi
+          widget={gaugeWithTs(7)}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      // Drawer ist nicht in readOnly — aber gaugeWithTs ohne readOnly=false ist default
+      // Wir öffnen ihn über den Edit-Button
+      await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText(/Zeitreihe \(optional/),
+        ).toBeInTheDocument(),
+      );
+    });
+  });
 });

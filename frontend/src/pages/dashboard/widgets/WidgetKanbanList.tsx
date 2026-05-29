@@ -6,11 +6,13 @@ import {
   CircularProgress,
   Divider,
   Drawer,
+  FormControlLabel,
   IconButton,
   Link,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Toolbar,
   Typography,
@@ -30,6 +32,7 @@ import {
 import { ApiError } from '../../../api/client';
 import KanbanDetailModal from '../../kanban/KanbanDetailModal';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
+import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 const COLUMN_LABELS: Record<KanbanColumn, string> = {
   BACKLOG: 'Backlog',
@@ -46,6 +49,8 @@ const FALLBACK_RETENTION_DAYS = 5;
 interface KanbanWidgetConfig {
   column: KanbanColumn;
   limit: number;
+  showBorder: boolean;
+  backgroundColor?: string;
 }
 
 function isColumn(v: unknown): v is KanbanColumn {
@@ -64,9 +69,10 @@ function parseConfig(raw: string): KanbanWidgetConfig {
     return {
       column: isColumn(parsed.column) ? parsed.column : 'BACKLOG',
       limit: clampLimit(parsed.limit),
+      ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { column: 'BACKLOG', limit: DEFAULT_LIMIT };
+    return { column: 'BACKLOG', limit: DEFAULT_LIMIT, showBorder: false };
   }
 }
 
@@ -90,6 +96,7 @@ export default function WidgetKanbanList({
   readOnly = false,
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
+  const surface = widgetSurface(readOnly, config);
   const [items, setItems] = useState<KanbanItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retentionDays, setRetentionDays] = useState(FALLBACK_RETENTION_DAYS);
@@ -98,6 +105,8 @@ export default function WidgetKanbanList({
   const [open, setOpen] = useState(false);
   const [draftColumn, setDraftColumn] = useState<KanbanColumn>(config.column);
   const [draftLimit, setDraftLimit] = useState(String(config.limit));
+  const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
+  const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
   const reload = useCallback(async (): Promise<void> => {
     setLoadError(null);
@@ -125,13 +134,19 @@ export default function WidgetKanbanList({
     if (open) {
       setDraftColumn(config.column);
       setDraftLimit(String(config.limit));
+      setDraftShowBorder(config.showBorder);
+      setDraftBackgroundColor(config.backgroundColor ?? '');
     }
-  }, [open, config.column, config.limit]);
+  }, [open, config.column, config.limit, config.showBorder, config.backgroundColor]);
 
   function handleApply(): void {
     const next: KanbanWidgetConfig = {
       column: draftColumn,
       limit: clampLimit(draftLimit),
+      showBorder: draftShowBorder,
+      ...(draftBackgroundColor.trim() !== ''
+        ? { backgroundColor: draftBackgroundColor.trim() }
+        : {}),
     };
     onChange({ ...widget, config: JSON.stringify(next) });
     setOpen(false);
@@ -146,8 +161,16 @@ export default function WidgetKanbanList({
 
   return (
     <Paper
-      variant="outlined"
-      sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      variant={surface.variant}
+      elevation={surface.elevation}
+      sx={{
+        p: 1.5,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        ...surface.sx,
+      }}
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
         <Typography variant="subtitle2" noWrap>
@@ -249,6 +272,23 @@ export default function WidgetKanbanList({
               onChange={(e) => setDraftLimit(e.target.value)}
               inputProps={{ min: MIN_LIMIT, max: MAX_LIMIT, 'aria-label': 'Anzahl' }}
               fullWidth
+            />
+            <Divider textAlign="left">Darstellung</Divider>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={draftShowBorder}
+                  onChange={(e) => setDraftShowBorder(e.target.checked)}
+                />
+              }
+              label="Rahmen anzeigen"
+            />
+            <TextField
+              label="Hintergrundfarbe (leer = transparent)"
+              value={draftBackgroundColor}
+              onChange={(e) => setDraftBackgroundColor(e.target.value)}
+              fullWidth
+              placeholder="z. B. #1e1e1e oder rgba(255,255,255,0.05)"
             />
             <Divider />
             <Stack direction="row" spacing={1} justifyContent="flex-end">

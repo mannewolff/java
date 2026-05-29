@@ -212,6 +212,24 @@ describe('WidgetKanbanList', () => {
     expect(parsed.limit).toBe(20);
   });
 
+  it('speichert Rahmen und Hintergrundfarbe aus dem Darstellung-Abschnitt', async () => {
+    listItems.mockResolvedValue(emptyBoard());
+    const onChange = vi.fn();
+
+    const user = userEvent.setup();
+    render(<WidgetKanbanList widget={widget({ column: 'BACKLOG', limit: 5 })} onChange={onChange} onDelete={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Kanban-Liste bearbeiten' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Rahmen anzeigen' }));
+    await user.type(screen.getByLabelText('Hintergrundfarbe (leer = transparent)'), '#1e1e1e');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { showBorder: boolean; backgroundColor?: string };
+    expect(parsed.showBorder).toBe(true);
+    expect(parsed.backgroundColor).toBe('#1e1e1e');
+  });
+
   it('rendert mit Default-Spalte bei invalider Config ohne Crash', async () => {
     listItems.mockResolvedValue(emptyBoard());
     const w: WidgetDto = {

@@ -11,6 +11,7 @@ import RemoveBackgroundPage from './pages/tools/RemoveBackgroundPage';
 import OgImagePage from './pages/tools/OgImagePage';
 import ResizePage from './pages/tools/ResizePage';
 import SvgToPngPage from './pages/tools/SvgToPngPage';
+import ColorPickerPage from './pages/tools/ColorPickerPage';
 import PasswordPage from './pages/tools/PasswordPage';
 import KanbanPage from './pages/kanban/KanbanPage';
 import TimeSeriesListPage from './pages/timeseries/TimeSeriesListPage';
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/tools/og-image" element={<OgImagePage />} />
         <Route path="/tools/resize" element={<ResizePage />} />
         <Route path="/tools/svg-to-png" element={<SvgToPngPage />} />
+        <Route path="/tools/color-picker" element={<ColorPickerPage />} />
         <Route path="/tools/password" element={<PasswordPage />} />
         <Route path="/kanban" element={<KanbanPage />} />
         <Route path="/timeseries" element={<TimeSeriesListPage />} />

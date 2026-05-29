@@ -31,6 +31,7 @@ function renderShell(initialEntry = '/dashboards/default') {
               <Route path="/dashboards/default" element={<div>Dashboard-Inhalt</div>} />
               <Route path="/settings" element={<div>Settings-Inhalt</div>} />
               <Route path="/tools/svg-to-png" element={<div>SVG to PNG</div>} />
+              <Route path="/tools/color-picker" element={<div>Color Picker</div>} />
               <Route path="/tools/password" element={<div>Password</div>} />
             </Route>
           </Routes>
@@ -71,9 +72,10 @@ describe('AppShell navigation', () => {
     // given the app starts on /tools/svg-to-png
     renderShell('/tools/svg-to-png');
 
-    // then the Bildverarbeitung group is expanded and its child is visible
+    // then the Bildverarbeitung group is expanded and both children are visible
     expect(screen.getByText('Bildverarbeitung')).toBeInTheDocument();
     expect(screen.getByText('SVG zu PNG')).toBeInTheDocument();
+    expect(screen.getByText('Farbpipette')).toBeInTheDocument();
 
     // and the other group stays collapsed
     expect(screen.queryByText('Passwortgenerator')).not.toBeInTheDocument();

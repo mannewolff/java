@@ -4,6 +4,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TransformIcon from '@mui/icons-material/Transform';
+import ColorizeIcon from '@mui/icons-material/Colorize';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ImageIcon from '@mui/icons-material/Image';
 import BuildIcon from '@mui/icons-material/Build';
@@ -43,6 +44,7 @@ export const navItems: NavNode[] = [
       // Die übrigen Bildtools (Hintergrund entfernen, Beitragsbild, Bild verkleinern)
       // sind aus dem Menü in die Einstellungen umgezogen (#131) — Routen bleiben aktiv.
       { kind: 'link', label: 'SVG zu PNG', path: '/tools/svg-to-png', icon: TransformIcon },
+      { kind: 'link', label: 'Farbpipette', path: '/tools/color-picker', icon: ColorizeIcon },
     ],
   },
   {

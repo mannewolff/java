@@ -5,6 +5,7 @@ import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
 import org.mwolff.api.tools.domain.UploadValidatorPort;
 import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,7 +23,7 @@ public class SvgToPngUseCase {
   }
 
   public ToolImageResult execute(UploadedImage image, SvgToPngParams params) {
-    validator.validateSvg(image);
-    return tools.convertSvgToPng(image, params);
+    final ValidatedImage validated = validator.validateSvg(image);
+    return tools.convertSvgToPng(validated, params);
   }
 }

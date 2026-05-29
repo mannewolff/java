@@ -6,6 +6,7 @@ import org.apache.tika.Tika;
 import org.mwolff.api.tools.domain.InvalidUploadException;
 import org.mwolff.api.tools.domain.UploadValidatorPort;
 import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,7 +29,7 @@ public class TikaUploadValidator implements UploadValidatorPort {
   private final Tika tika = new Tika();
 
   @Override
-  public void validateImage(UploadedImage image) {
+  public ValidatedImage validateImage(UploadedImage image) {
     enforceSize(image);
     // Tika.detect(byte[], String) liest Magic-Bytes direkt aus dem Array — keine IO,
     // also auch kein READ_FAILED-Pfad mehr (im UploadedImageMapper wird beim Lesen aus
@@ -38,16 +39,18 @@ public class TikaUploadValidator implements UploadValidatorPort {
       throw new InvalidUploadException(
           "UNSUPPORTED_FORMAT", "Unsupported file type. Allowed: PNG, JPEG, WebP.");
     }
+    return new ValidatedImage(image.bytes(), detected, image.originalFilename());
   }
 
   @Override
-  public void validateSvg(UploadedImage image) {
+  public ValidatedImage validateSvg(UploadedImage image) {
     enforceSize(image);
     final String detected = tika.detect(image.bytes(), image.originalFilename());
     if (!SVG_MIME_TYPE.equals(detected)) {
       throw new InvalidUploadException(
           "UNSUPPORTED_FORMAT", "Unsupported file type. Expected SVG (image/svg+xml).");
     }
+    return new ValidatedImage(image.bytes(), detected, image.originalFilename());
   }
 
   private static void enforceSize(UploadedImage image) {

@@ -22,6 +22,7 @@ import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
 import org.mwolff.api.tools.domain.UploadValidatorPort;
 import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 
 class UseCasesTest {
 
@@ -29,18 +30,20 @@ class UseCasesTest {
   private final PythonToolsPort tools = mock(PythonToolsPort.class);
 
   private final UploadedImage image = new UploadedImage(new byte[] {1}, "image/png", "x.png");
+  private final ValidatedImage validated = new ValidatedImage(new byte[] {1}, "image/png", "x.png");
   private final ToolImageResult okImage = new ToolImageResult(new byte[] {9}, "image/jpeg");
 
   @Test
   void resizeShouldValidateAndDelegate() {
     final ResizeParams params = new ResizeParams(800, 600, "jpeg", 80);
-    given(tools.resize(image, params)).willReturn(okImage);
+    given(validator.validateImage(image)).willReturn(validated);
+    given(tools.resize(validated, params)).willReturn(okImage);
 
     final ToolImageResult result = new ResizeImageUseCase(validator, tools).execute(image, params);
 
     assertThat(result).isSameAs(okImage);
     verify(validator).validateImage(image);
-    verify(tools).resize(image, params);
+    verify(tools).resize(validated, params);
   }
 
   @Test
@@ -58,12 +61,14 @@ class UseCasesTest {
   @Test
   void cropOgShouldValidateAndDelegate() {
     final CropOgParams params = new CropOgParams(0.5, 0.5, 88, 1200, 630);
-    given(tools.cropOg(image, params)).willReturn(okImage);
+    given(validator.validateImage(image)).willReturn(validated);
+    given(tools.cropOg(validated, params)).willReturn(okImage);
 
     final ToolImageResult result = new CropOgImageUseCase(validator, tools).execute(image, params);
 
     assertThat(result).isSameAs(okImage);
     verify(validator).validateImage(image);
+    verify(tools).cropOg(validated, params);
   }
 
   @Test
@@ -80,12 +85,14 @@ class UseCasesTest {
 
   @Test
   void removeBackgroundShouldValidateAndDelegate() {
-    given(tools.removeBackground(image)).willReturn(okImage);
+    given(validator.validateImage(image)).willReturn(validated);
+    given(tools.removeBackground(validated)).willReturn(okImage);
 
     final ToolImageResult result = new RemoveBackgroundUseCase(validator, tools).execute(image);
 
     assertThat(result).isSameAs(okImage);
     verify(validator).validateImage(image);
+    verify(tools).removeBackground(validated);
   }
 
   @Test
@@ -103,12 +110,14 @@ class UseCasesTest {
   void extractPaletteShouldValidateAndDelegate() {
     final PaletteParams params = new PaletteParams(6);
     final PaletteResult palette = new PaletteResult(List.of("#aaa", "#bbb"));
-    given(tools.extractPalette(image, params)).willReturn(palette);
+    given(validator.validateImage(image)).willReturn(validated);
+    given(tools.extractPalette(validated, params)).willReturn(palette);
 
     final PaletteResult result = new ExtractPaletteUseCase(validator, tools).execute(image, params);
 
     assertThat(result).isSameAs(palette);
     verify(validator).validateImage(image);
+    verify(tools).extractPalette(validated, params);
   }
 
   @Test
@@ -126,14 +135,18 @@ class UseCasesTest {
   @Test
   void svgToPngShouldValidateAsSvgAndDelegate() {
     final UploadedImage svg = new UploadedImage(new byte[] {1}, "image/svg+xml", "logo.svg");
+    final ValidatedImage validatedSvg =
+        new ValidatedImage(new byte[] {1}, "image/svg+xml", "logo.svg");
     final SvgToPngParams params = new SvgToPngParams(128, 128, "transparent");
     final ToolImageResult expected = new ToolImageResult(new byte[] {9}, "image/png");
-    given(tools.convertSvgToPng(svg, params)).willReturn(expected);
+    given(validator.validateSvg(svg)).willReturn(validatedSvg);
+    given(tools.convertSvgToPng(validatedSvg, params)).willReturn(expected);
 
     final ToolImageResult result = new SvgToPngUseCase(validator, tools).execute(svg, params);
 
     assertThat(result).isSameAs(expected);
     verify(validator).validateSvg(svg);
+    verify(tools).convertSvgToPng(validatedSvg, params);
   }
 
   @Test

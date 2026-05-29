@@ -4,16 +4,20 @@ package org.mwolff.api.tools.domain;
  * Out-Port zum python-tools-Microservice. Wird im Infrastructure-Layer via {@code RestClient}
  * implementiert. Die Application-Schicht spricht ausschließlich gegen dieses Interface, damit
  * Transportdetails (HTTP, Multipart, Timeouts) nicht in die fachliche Logik leaken.
+ *
+ * <p>Der Port nimmt ausschließlich {@link ValidatedImage} entgegen — also Bilder, deren MIME-Type
+ * bereits per Byte-Signatur erkannt wurde. Dadurch trägt der Adapter den vertrauenswürdigen Typ in
+ * den Multipart-Body und niemals den unkontrollierten Client-Wert (#135).
  */
 public interface PythonToolsPort {
 
-  ToolImageResult resize(UploadedImage image, ResizeParams params);
+  ToolImageResult resize(ValidatedImage image, ResizeParams params);
 
-  ToolImageResult cropOg(UploadedImage image, CropOgParams params);
+  ToolImageResult cropOg(ValidatedImage image, CropOgParams params);
 
-  ToolImageResult removeBackground(UploadedImage image);
+  ToolImageResult removeBackground(ValidatedImage image);
 
-  PaletteResult extractPalette(UploadedImage image, PaletteParams params);
+  PaletteResult extractPalette(ValidatedImage image, PaletteParams params);
 
-  ToolImageResult convertSvgToPng(UploadedImage image, SvgToPngParams params);
+  ToolImageResult convertSvgToPng(ValidatedImage image, SvgToPngParams params);
 }

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.tools.domain.InvalidUploadException;
 import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 
 class TikaUploadValidatorTest {
 
@@ -20,17 +21,25 @@ class TikaUploadValidatorTest {
   private final TikaUploadValidator validator = new TikaUploadValidator();
 
   @Test
-  void shouldAcceptRealPngEvenWhenContentTypeIsLying() {
+  void shouldAcceptRealPngAndReturnDetectedTypeEvenWhenContentTypeIsLying() {
+    // #135: der Client meldet "text/plain", die Bytes sind aber echtes PNG. Der Validator
+    // muss den per Magic-Bytes erkannten Typ zurückgeben, nicht den (gelogenen) Client-Wert.
     final UploadedImage image = new UploadedImage(PNG_HEADER, "text/plain", "image.png");
 
-    validator.validateImage(image);
+    final ValidatedImage validated = validator.validateImage(image);
+
+    assertThat(validated.contentType()).isEqualTo("image/png");
+    assertThat(validated.originalFilename()).isEqualTo("image.png");
+    assertThat(validated.bytes()).isEqualTo(PNG_HEADER);
   }
 
   @Test
   void shouldAcceptRealJpeg() {
     final UploadedImage image = new UploadedImage(JPEG_HEADER, "image/jpeg", "photo.jpg");
 
-    validator.validateImage(image);
+    final ValidatedImage validated = validator.validateImage(image);
+
+    assertThat(validated.contentType()).isEqualTo("image/jpeg");
   }
 
   @Test
@@ -60,7 +69,10 @@ class TikaUploadValidatorTest {
   void shouldAcceptWithoutOriginalFilename() {
     final UploadedImage image = new UploadedImage(PNG_HEADER, "image/png", null);
 
-    validator.validateImage(image);
+    final ValidatedImage validated = validator.validateImage(image);
+
+    assertThat(validated.contentType()).isEqualTo("image/png");
+    assertThat(validated.originalFilename()).isNull();
   }
 
   @Test
@@ -89,10 +101,13 @@ class TikaUploadValidatorTest {
           .getBytes();
 
   @Test
-  void shouldAcceptRealSvg() {
+  void shouldAcceptRealSvgAndReturnDetectedType() {
     final UploadedImage svg = new UploadedImage(SVG_BYTES, "image/svg+xml", "logo.svg");
 
-    validator.validateSvg(svg);
+    final ValidatedImage validated = validator.validateSvg(svg);
+
+    assertThat(validated.contentType()).isEqualTo("image/svg+xml");
+    assertThat(validated.originalFilename()).isEqualTo("logo.svg");
   }
 
   @Test

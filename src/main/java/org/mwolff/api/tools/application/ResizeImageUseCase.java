@@ -5,6 +5,7 @@ import org.mwolff.api.tools.domain.ResizeParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
 import org.mwolff.api.tools.domain.UploadValidatorPort;
 import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,7 +26,7 @@ public class ResizeImageUseCase {
   }
 
   public ToolImageResult execute(UploadedImage image, ResizeParams params) {
-    validator.validateImage(image);
-    return tools.resize(image, params);
+    final ValidatedImage validated = validator.validateImage(image);
+    return tools.resize(validated, params);
   }
 }

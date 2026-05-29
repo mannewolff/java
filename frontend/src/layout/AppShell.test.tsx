@@ -30,9 +30,7 @@ function renderShell(initialEntry = '/dashboards/default') {
             <Route element={<AppShell />}>
               <Route path="/dashboards/default" element={<div>Dashboard-Inhalt</div>} />
               <Route path="/settings" element={<div>Settings-Inhalt</div>} />
-              <Route path="/tools/remove-background" element={<div>Remove BG</div>} />
-              <Route path="/tools/og-image" element={<div>OG Image</div>} />
-              <Route path="/tools/resize" element={<div>Resize</div>} />
+              <Route path="/tools/svg-to-png" element={<div>SVG to PNG</div>} />
               <Route path="/tools/password" element={<div>Password</div>} />
             </Route>
           </Routes>
@@ -64,20 +62,18 @@ describe('AppShell navigation', () => {
     expect(screen.getByText('Bildverarbeitung')).toBeInTheDocument();
     expect(screen.getByText('Nützliche Tools')).toBeInTheDocument();
 
-    // and the children of an unrelated group stay hidden
-    expect(screen.queryByText('Hintergrund entfernen')).not.toBeInTheDocument();
-    expect(screen.queryByText('Beitragsbild')).not.toBeInTheDocument();
+    // and the children of the collapsed groups stay hidden
+    expect(screen.queryByText('SVG zu PNG')).not.toBeInTheDocument();
     expect(screen.queryByText('Passwortgenerator')).not.toBeInTheDocument();
   });
 
   it('auto-opens the group that contains the active route', () => {
-    // given the app starts on /tools/resize
-    renderShell('/tools/resize');
+    // given the app starts on /tools/svg-to-png
+    renderShell('/tools/svg-to-png');
 
-    // then the Bildverarbeitung group is expanded and its children are visible
+    // then the Bildverarbeitung group is expanded and its child is visible
     expect(screen.getByText('Bildverarbeitung')).toBeInTheDocument();
-    expect(screen.getByText('Bild verkleinern')).toBeInTheDocument();
-    expect(screen.getByText('Hintergrund entfernen')).toBeInTheDocument();
+    expect(screen.getByText('SVG zu PNG')).toBeInTheDocument();
 
     // and the other group stays collapsed
     expect(screen.queryByText('Passwortgenerator')).not.toBeInTheDocument();
@@ -100,16 +96,16 @@ describe('AppShell navigation', () => {
   });
 
   it('collapses an already open group on a second header click', async () => {
-    // given a shell on /tools/resize (Bildverarbeitung auto-expanded)
-    renderShell('/tools/resize');
+    // given a shell on /tools/svg-to-png (Bildverarbeitung auto-expanded)
+    renderShell('/tools/svg-to-png');
     const user = userEvent.setup();
-    expect(screen.getByText('Bild verkleinern')).toBeInTheDocument();
+    expect(screen.getByText('SVG zu PNG')).toBeInTheDocument();
 
     // when the user clicks the header again
     await user.click(screen.getByText('Bildverarbeitung'));
 
     // then the children disappear
-    expect(screen.queryByText('Bild verkleinern')).not.toBeInTheDocument();
+    expect(screen.queryByText('SVG zu PNG')).not.toBeInTheDocument();
   });
 
   it('links the Passwortgenerator entry to /tools/password even though the page does not exist yet', async () => {
@@ -126,16 +122,16 @@ describe('AppShell navigation', () => {
   });
 
   it('marks the active child link as aria-selected', () => {
-    // given the shell starts on /tools/og-image
-    renderShell('/tools/og-image');
+    // given the shell starts on /tools/svg-to-png
+    renderShell('/tools/svg-to-png');
 
-    // then the Beitragsbild entry has aria-selected=true
-    const link = screen.getByText('Beitragsbild').closest('[role="button"]');
+    // then the SVG zu PNG entry has aria-selected=true
+    const link = screen.getByText('SVG zu PNG').closest('[role="button"]');
     expect(link).not.toBeNull();
     expect(link?.getAttribute('aria-selected')).toBe('true');
 
-    // and a sibling entry does not
-    const sibling = screen.getByText('Bild verkleinern').closest('[role="button"]');
+    // and an inactive entry does not
+    const sibling = screen.getByText('Dashboard').closest('[role="button"]');
     expect(sibling?.getAttribute('aria-selected')).toBe('false');
   });
 

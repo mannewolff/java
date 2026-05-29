@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CONFIG_DRAWER_WIDTH } from '../dashboard/widgets/drawerConstants';
 import {
   Box,
   Button,
@@ -58,7 +59,7 @@ export default function KanbanEditDrawer({
       anchor="right"
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { width: { xs: '100%', sm: 520 } } }}
+      PaperProps={{ sx: { width: CONFIG_DRAWER_WIDTH } }}
     >
       <Toolbar />
       <Box sx={{ p: 3 }}>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
 import {
   Box,
   Button,
@@ -363,7 +364,7 @@ export default function WidgetKpi({
         anchor="right"
         open={open}
         onClose={handleCancel}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 400 } } }}
+        PaperProps={{ sx: { width: CONFIG_DRAWER_WIDTH } }}
       >
         <Toolbar />
         <Box sx={{ p: 3 }}>

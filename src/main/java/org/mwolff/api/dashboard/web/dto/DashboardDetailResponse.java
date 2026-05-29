@@ -10,6 +10,7 @@ public record DashboardDetailResponse(
     long id,
     String name,
     boolean isDefault,
+    String backgroundColor,
     Instant createdAt,
     Instant updatedAt,
     List<WidgetDto> widgets) {
@@ -19,6 +20,7 @@ public record DashboardDetailResponse(
         result.dashboard().id(),
         result.dashboard().name(),
         result.dashboard().isDefault(),
+        result.dashboard().backgroundColor(),
         result.dashboard().createdAt(),
         result.dashboard().updatedAt(),
         result.widgets().stream().map(WidgetDto::from).toList());

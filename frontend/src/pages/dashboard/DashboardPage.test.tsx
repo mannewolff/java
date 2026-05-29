@@ -13,13 +13,20 @@ vi.mock('../../api/dashboard', () => ({
   getDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   renameDashboard: vi.fn(),
+  setDashboardBackgroundColor: vi.fn(),
 }));
 
-import { getDashboard, renameDashboard, updateDashboard } from '../../api/dashboard';
+import {
+  getDashboard,
+  renameDashboard,
+  setDashboardBackgroundColor,
+  updateDashboard,
+} from '../../api/dashboard';
 
 const get = getDashboard as ReturnType<typeof vi.fn>;
 const update = updateDashboard as ReturnType<typeof vi.fn>;
 const rename = renameDashboard as ReturnType<typeof vi.fn>;
+const setBg = setDashboardBackgroundColor as ReturnType<typeof vi.fn>;
 
 function setViewport(width: number): void {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
@@ -52,6 +59,7 @@ describe('DashboardPage', () => {
     get.mockReset();
     update.mockReset();
     rename.mockReset();
+    setBg.mockReset();
     setViewport(1280); // Desktop
   });
 
@@ -393,6 +401,96 @@ describe('DashboardPage', () => {
     // Widget verschwindet aus dem Render — der Delete-Button ist nicht mehr da.
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Textbox löschen' })).not.toBeInTheDocument(),
+    );
+  });
+
+  // ---- Hintergrundfarbe (#129) ----
+
+  function withWidget(backgroundColor: string | null) {
+    return {
+      id: 1,
+      name: 'Main',
+      isDefault: true,
+      backgroundColor,
+      createdAt: ts(),
+      updatedAt: ts(),
+      widgets: [
+        {
+          id: 7,
+          type: 'TEXTBOX' as const,
+          posX: 0,
+          posY: 0,
+          width: 4,
+          height: 3,
+          config: JSON.stringify({ markdown: '# Hello' }),
+        },
+      ],
+    };
+  }
+
+  it('speichert eine Hintergrundfarbe über den Farbdialog', async () => {
+    const initial = withWidget(null);
+    get.mockResolvedValueOnce(initial);
+    setBg.mockResolvedValueOnce({ ...initial });
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByText('Main')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Hintergrundfarbe ändern' }));
+    const input = screen.getByLabelText('Hintergrundfarbe (CSS)');
+    await user.type(input, '#1a1a2e');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(setBg).toHaveBeenCalledWith(1, '#1a1a2e'));
+  });
+
+  it('leert die Hintergrundfarbe auf null beim Speichern eines leeren Feldes', async () => {
+    const initial = withWidget('#123456');
+    get.mockResolvedValueOnce(initial);
+    setBg.mockResolvedValueOnce({ ...initial });
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByText('Main')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Hintergrundfarbe ändern' }));
+    const input = screen.getByLabelText('Hintergrundfarbe (CSS)') as HTMLInputElement;
+    // Vorbelegt mit der bestehenden Farbe.
+    expect(input.value).toBe('#123456');
+    await user.clear(input);
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(setBg).toHaveBeenCalledWith(1, null));
+  });
+
+  it('zeigt eine Inline-Fehlermeldung wenn das Speichern der Farbe fehlschlägt', async () => {
+    const initial = withWidget(null);
+    get.mockResolvedValueOnce(initial);
+    setBg.mockRejectedValueOnce(new Error('boom'));
+
+    await act(async () => {
+      render_();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByText('Main')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Hintergrundfarbe ändern' }));
+    await user.type(screen.getByLabelText('Hintergrundfarbe (CSS)'), '#fff');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Speichern fehlgeschlagen/)).toBeInTheDocument(),
     );
   });
 });

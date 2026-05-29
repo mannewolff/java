@@ -24,6 +24,7 @@ import org.mwolff.api.dashboard.application.GetDashboardUseCase.DashboardWithWid
 import org.mwolff.api.dashboard.application.ListDashboardsUseCase;
 import org.mwolff.api.dashboard.application.MarkAsDefaultUseCase;
 import org.mwolff.api.dashboard.application.RenameDashboardUseCase;
+import org.mwolff.api.dashboard.application.SetBackgroundColorUseCase;
 import org.mwolff.api.dashboard.application.UpdateLayoutUseCase;
 import org.mwolff.api.dashboard.domain.Dashboard;
 import org.mwolff.api.dashboard.domain.DashboardNotFoundException;
@@ -56,6 +57,7 @@ class DashboardControllerTest {
   @MockitoBean private UpdateLayoutUseCase updateLayoutUseCase;
   @MockitoBean private MarkAsDefaultUseCase markDefaultUseCase;
   @MockitoBean private RenameDashboardUseCase renameUseCase;
+  @MockitoBean private SetBackgroundColorUseCase setBackgroundColorUseCase;
   @MockitoBean private DeleteDashboardUseCase deleteUseCase;
 
   // SecurityConfig will autowire einen JwtDecoder — fuer Slice-Tests reicht ein Mock.
@@ -64,7 +66,7 @@ class DashboardControllerTest {
   private static final String SUB = "user-1";
 
   private static Dashboard dashboard(long id, boolean isDefault) {
-    return new Dashboard(id, SUB, "Main", isDefault, Instant.EPOCH, Instant.EPOCH);
+    return new Dashboard(id, SUB, "Main", isDefault, null, Instant.EPOCH, Instant.EPOCH);
   }
 
   // ----- GET /api/dashboards -----------------------------------------------
@@ -160,6 +162,18 @@ class DashboardControllerTest {
   }
 
   @Test
+  void getShouldExposeBackgroundColor() throws Exception {
+    final Dashboard colored =
+        new Dashboard(1L, SUB, "Main", true, "#1a1a2e", Instant.EPOCH, Instant.EPOCH);
+    given(getUseCase.execute(SUB, 1L)).willReturn(new DashboardWithWidgets(colored, List.of()));
+
+    mockMvc
+        .perform(get("/api/dashboards/1").with(userJwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.backgroundColor").value("#1a1a2e"));
+  }
+
+  @Test
   void getShouldReturn404ForForeignOrMissingDashboard() throws Exception {
     willThrow(new DashboardNotFoundException(99L)).given(getUseCase).execute(eq(SUB), eq(99L));
 
@@ -251,7 +265,13 @@ class DashboardControllerTest {
     given(renameUseCase.execute(SUB, 5L, "Neuer Name"))
         .willReturn(
             new Dashboard(
-                5L, SUB, "Neuer Name", false, java.time.Instant.EPOCH, java.time.Instant.EPOCH));
+                5L,
+                SUB,
+                "Neuer Name",
+                false,
+                null,
+                java.time.Instant.EPOCH,
+                java.time.Instant.EPOCH));
 
     mockMvc
         .perform(
@@ -297,6 +317,64 @@ class DashboardControllerTest {
                 .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"x\"}"))
+        .andExpect(status().isNotFound());
+  }
+
+  // ----- PUT /api/dashboards/{id}/background -------------------------------
+
+  @Test
+  void setBackgroundColorShouldReturnUpdatedSummary() throws Exception {
+    given(setBackgroundColorUseCase.execute(SUB, 5L, "#1a1a2e"))
+        .willReturn(new Dashboard(5L, SUB, "Main", false, "#1a1a2e", Instant.EPOCH, Instant.EPOCH));
+
+    mockMvc
+        .perform(
+            put("/api/dashboards/5/background")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"backgroundColor\":\"#1a1a2e\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(5));
+  }
+
+  @Test
+  void setBackgroundColorShouldAcceptNullToClear() throws Exception {
+    given(setBackgroundColorUseCase.execute(SUB, 5L, null))
+        .willReturn(new Dashboard(5L, SUB, "Main", false, null, Instant.EPOCH, Instant.EPOCH));
+
+    mockMvc
+        .perform(
+            put("/api/dashboards/5/background")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"backgroundColor\":null}"))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void setBackgroundColorShouldReturn400WhenTooLong() throws Exception {
+    final String tooLong = "x".repeat(65);
+    mockMvc
+        .perform(
+            put("/api/dashboards/5/background")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"backgroundColor\":\"" + tooLong + "\"}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void setBackgroundColorShouldReturn404WhenForeign() throws Exception {
+    willThrow(new DashboardNotFoundException(7L))
+        .given(setBackgroundColorUseCase)
+        .execute(SUB, 7L, "#fff");
+
+    mockMvc
+        .perform(
+            put("/api/dashboards/7/background")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"backgroundColor\":\"#fff\"}"))
         .andExpect(status().isNotFound());
   }
 

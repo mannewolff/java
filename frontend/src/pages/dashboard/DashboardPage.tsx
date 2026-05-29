@@ -23,6 +23,7 @@ import DesktopMacIcon from '@mui/icons-material/DesktopMac';
 import EditIcon from '@mui/icons-material/Edit';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import PaletteIcon from '@mui/icons-material/Palette';
 import SaveIcon from '@mui/icons-material/Save';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
@@ -30,6 +31,7 @@ import type { Layout } from 'react-grid-layout';
 import {
   getDashboard,
   renameDashboard,
+  setDashboardBackgroundColor,
   updateDashboard,
   type DashboardDetail,
   type WidgetDto,
@@ -120,6 +122,9 @@ export default function DashboardPage(): JSX.Element {
   const [renaming, setRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [colorDialogOpen, setColorDialogOpen] = useState(false);
+  const [colorDraft, setColorDraft] = useState('');
+  const [colorError, setColorError] = useState<string | null>(null);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   // Read-Modus-only: visueller Override für die Widget-Höhe, wenn das gerenderte
   // Markdown bei schmaler Spaltenbreite mehr Zeilen wrappt als das Grid-Slot hoch ist.
@@ -303,6 +308,39 @@ export default function DashboardPage(): JSX.Element {
         e instanceof ApiError
           ? e.message
           : 'Umbenennen fehlgeschlagen, bitte später erneut versuchen.',
+      );
+    }
+  }
+
+  /** Hintergrundfarbe des Dashboards bearbeiten (eigener Endpoint, kein Layout-Save). */
+  function startBackgroundEdit(): void {
+    if (!detail) return;
+    setColorDraft(detail.backgroundColor ?? '');
+    setColorError(null);
+    setColorDialogOpen(true);
+  }
+
+  function cancelBackgroundEdit(): void {
+    setColorDialogOpen(false);
+    setColorError(null);
+  }
+
+  async function commitBackgroundColor(): Promise<void> {
+    if (!detail) return;
+    // Leer = Theme-Default. Backend normalisiert blank ebenfalls auf null.
+    const trimmed = colorDraft.trim();
+    const value = trimmed.length === 0 ? null : trimmed;
+    try {
+      await setDashboardBackgroundColor(detail.id, value);
+      setDetail({ ...detail, backgroundColor: value });
+      setDraft((prev) => (prev ? { ...prev, backgroundColor: value } : prev));
+      setColorDialogOpen(false);
+      notify.success('Hintergrundfarbe gespeichert.');
+    } catch (e) {
+      setColorError(
+        e instanceof ApiError
+          ? e.message
+          : 'Speichern fehlgeschlagen, bitte später erneut versuchen.',
       );
     }
   }
@@ -498,8 +536,12 @@ export default function DashboardPage(): JSX.Element {
   // leere Drop-Fläche, aber so klein dass es bei vollen Dashboards nicht stört.
   const gridMinHeight = editMode ? 480 : undefined;
 
+  // Dashboard-Hintergrundfarbe; leer/null fällt auf den Theme-Default zurück.
+  // minHeight füllt den Inhaltsbereich, damit die Farbe im Kiosk-Modus voll trägt.
+  const appliedBackground = detail.backgroundColor ?? 'background.default';
+
   return (
-    <Box>
+    <Box sx={{ bgcolor: appliedBackground, minHeight: '100%' }}>
       <Stack
         direction="row"
         alignItems="center"
@@ -524,6 +566,13 @@ export default function DashboardPage(): JSX.Element {
                 onClick={startRename}
               >
                 <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                aria-label="Hintergrundfarbe ändern"
+                onClick={startBackgroundEdit}
+              >
+                <PaletteIcon fontSize="small" />
               </IconButton>
             </Stack>
           )}
@@ -694,6 +743,58 @@ export default function DashboardPage(): JSX.Element {
           <Button onClick={cancelWidgetDelete}>Abbrechen</Button>
           <Button color="error" variant="contained" onClick={confirmWidgetDelete}>
             Löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={colorDialogOpen}
+        onClose={cancelBackgroundEdit}
+        aria-labelledby="dashboard-background-title"
+      >
+        <DialogTitle id="dashboard-background-title">Hintergrundfarbe</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            CSS-Farbwert (z. B. <code>#1a1a2e</code>, <code>rebeccapurple</code> oder ein
+            Verlauf). Leer lassen für den Theme-Standard.
+          </DialogContentText>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <TextField
+              value={colorDraft}
+              onChange={(e) => {
+                setColorDraft(e.target.value);
+                if (colorError) setColorError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void commitBackgroundColor();
+              }}
+              size="small"
+              autoFocus
+              fullWidth
+              label="Hintergrundfarbe"
+              placeholder="#1a1a2e"
+              error={colorError != null}
+              helperText={colorError}
+              inputProps={{ 'aria-label': 'Hintergrundfarbe (CSS)', maxLength: 64 }}
+            />
+            <Box
+              aria-label="Farbvorschau"
+              sx={{
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                background: colorDraft.trim() || 'transparent',
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelBackgroundEdit}>Abbrechen</Button>
+          <Button variant="contained" onClick={() => void commitBackgroundColor()}>
+            Speichern
           </Button>
         </DialogActions>
       </Dialog>

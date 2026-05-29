@@ -26,6 +26,9 @@ class DashboardEntity {
   @Column(nullable = false, length = 100)
   private String name;
 
+  @Column(name = "background_color", length = 64)
+  private String backgroundColor;
+
   @Column(name = "is_default", nullable = false)
   private boolean isDefault;
 
@@ -72,6 +75,14 @@ class DashboardEntity {
 
   void setName(String name) {
     this.name = name;
+  }
+
+  String getBackgroundColor() {
+    return backgroundColor;
+  }
+
+  void setBackgroundColor(String backgroundColor) {
+    this.backgroundColor = backgroundColor;
   }
 
   boolean isDefault() {

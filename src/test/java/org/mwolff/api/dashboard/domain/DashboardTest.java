@@ -85,4 +85,50 @@ class DashboardTest {
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> original.withName(""))
         .isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void newInstanceShouldHaveNullBackgroundColor() {
+    assertThat(Dashboard.newInstance("sub-1", "Main", false).backgroundColor()).isNull();
+  }
+
+  @Test
+  void shouldNormalizeBlankBackgroundColorToNull() {
+    final Dashboard d = Dashboard.newInstance("sub-1", "Main", false).withBackgroundColor("   ");
+    assertThat(d.backgroundColor()).isNull();
+  }
+
+  @Test
+  void shouldRejectBackgroundColorLongerThan64Chars() {
+    final String tooLong = "#".repeat(65);
+    final Dashboard base = Dashboard.newInstance("sub-1", "Main", false);
+    assertThatThrownBy(() -> base.withBackgroundColor(tooLong))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("64");
+  }
+
+  @Test
+  void shouldAcceptBackgroundColorWithExactly64Chars() {
+    final String exactly = "x".repeat(64);
+    final Dashboard d = Dashboard.newInstance("sub-1", "Main", false).withBackgroundColor(exactly);
+    assertThat(d.backgroundColor()).hasSize(64);
+  }
+
+  @Test
+  void withBackgroundColorShouldChangeColorAndPreserveOtherFields() {
+    final Dashboard original = Dashboard.newInstance("sub-1", "Main", true);
+    final Dashboard updated = original.withBackgroundColor("#1a1a2e");
+    assertThat(updated.backgroundColor()).isEqualTo("#1a1a2e");
+    assertThat(original.backgroundColor()).isNull();
+    assertThat(updated.userSub()).isEqualTo(original.userSub());
+    assertThat(updated.name()).isEqualTo(original.name());
+    assertThat(updated.isDefault()).isEqualTo(original.isDefault());
+  }
+
+  @Test
+  void withNameAndWithDefaultShouldPreserveBackgroundColor() {
+    final Dashboard colored =
+        Dashboard.newInstance("sub-1", "Main", false).withBackgroundColor("#222");
+    assertThat(colored.withName("Neu").backgroundColor()).isEqualTo("#222");
+    assertThat(colored.withDefault(true).backgroundColor()).isEqualTo("#222");
+  }
 }

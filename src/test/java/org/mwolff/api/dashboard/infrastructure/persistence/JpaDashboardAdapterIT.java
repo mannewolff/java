@@ -154,4 +154,14 @@ class JpaDashboardAdapterIT extends AbstractIntegrationTest {
     assertThat(adapter.findById(original.id()))
         .hasValueSatisfying(d -> assertThat(d.name()).isEqualTo("Mein Dashboard"));
   }
+
+  @Test
+  void shouldPersistAndReloadBackgroundColor() {
+    final Dashboard original = adapter.save(Dashboard.newInstance(USER_A, "farbig", true));
+    final Dashboard colored = adapter.save(original.withBackgroundColor("#1a1a2e"));
+
+    assertThat(colored.backgroundColor()).isEqualTo("#1a1a2e");
+    assertThat(adapter.findById(original.id()))
+        .hasValueSatisfying(d -> assertThat(d.backgroundColor()).isEqualTo("#1a1a2e"));
+  }
 }

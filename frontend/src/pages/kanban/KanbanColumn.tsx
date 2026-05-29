@@ -14,13 +14,11 @@ interface KanbanColumnProps {
   onCreate: (column: KanbanColumnId) => void;
   onOpenDetail: (item: KanbanItem) => void;
   onEdit: (item: KanbanItem) => void;
-  onDelete: (item: KanbanItem) => void;
+  onArchive: (item: KanbanItem) => void;
+  onRestore: (item: KanbanItem) => void;
+  onForceDelete: (item: KanbanItem) => void;
 }
 
-/**
- * Eine Kanban-Spalte mit Header (Label + Count-Badge + "+"-Schnellanlage), SortableContext fuer
- * dnd-kit und einer Drop-Zone fuer leere Spalten.
- */
 export default function KanbanColumnView({
   column,
   label,
@@ -29,7 +27,9 @@ export default function KanbanColumnView({
   onCreate,
   onOpenDetail,
   onEdit,
-  onDelete,
+  onArchive,
+  onRestore,
+  onForceDelete,
 }: KanbanColumnProps): JSX.Element {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column}`,
@@ -75,7 +75,6 @@ export default function KanbanColumnView({
           borderRadius: 1,
           transition: 'background-color 150ms',
           bgcolor: isOver ? 'action.hover' : 'transparent',
-          // Sichtbares Drop-Target wenn die Spalte leer ist.
           border: items.length === 0 ? '2px dashed' : 'none',
           borderColor: isOver ? 'primary.main' : 'divider',
           p: items.length === 0 ? 2 : 0.5,
@@ -93,7 +92,9 @@ export default function KanbanColumnView({
               retentionDays={retentionDays}
               onOpenDetail={onOpenDetail}
               onEdit={onEdit}
-              onDelete={onDelete}
+              onArchive={onArchive}
+              onRestore={onRestore}
+              onForceDelete={onForceDelete}
             />
           ))}
         </SortableContext>

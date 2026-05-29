@@ -16,6 +16,7 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
     position: 0,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
+    archived: false,
     ...overrides,
   };
 }
@@ -23,7 +24,9 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
 function renderCard(item: KanbanItem, handlers: {
   onOpenDetail?: (i: KanbanItem) => void;
   onEdit?: (i: KanbanItem) => void;
-  onDelete?: (i: KanbanItem) => void;
+  onArchive?: (i: KanbanItem) => void;
+  onRestore?: (i: KanbanItem) => void;
+  onForceDelete?: (i: KanbanItem) => void;
 } = {}) {
   return render(
     <DndContext>
@@ -33,7 +36,9 @@ function renderCard(item: KanbanItem, handlers: {
           retentionDays={5}
           onOpenDetail={handlers.onOpenDetail ?? vi.fn()}
           onEdit={handlers.onEdit ?? vi.fn()}
-          onDelete={handlers.onDelete ?? vi.fn()}
+          onArchive={handlers.onArchive ?? vi.fn()}
+          onRestore={handlers.onRestore ?? vi.fn()}
+          onForceDelete={handlers.onForceDelete ?? vi.fn()}
         />
       </SortableContext>
     </DndContext>,
@@ -78,11 +83,11 @@ describe('KanbanCard', () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('das Drei-Punkte-Menü bietet weiterhin Bearbeiten und Löschen', async () => {
+  it('nicht-archiviertes Item: Menü bietet Bearbeiten und Archivieren', async () => {
     const onEdit = vi.fn();
-    const onDelete = vi.fn();
-    const item = makeItem();
-    renderCard(item, { onEdit, onDelete });
+    const onArchive = vi.fn();
+    const item = makeItem({ archived: false });
+    renderCard(item, { onEdit, onArchive });
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
@@ -90,7 +95,32 @@ describe('KanbanCard', () => {
     expect(onEdit).toHaveBeenCalledWith(item);
 
     await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
-    expect(onDelete).toHaveBeenCalledWith(item);
+    await user.click(screen.getByRole('menuitem', { name: 'Archivieren' }));
+    expect(onArchive).toHaveBeenCalledWith(item);
+  });
+
+  it('archiviertes Item: Menü bietet Wiederherstellen und Endgültig löschen', async () => {
+    const onRestore = vi.fn();
+    const onForceDelete = vi.fn();
+    const item = makeItem({ archived: true });
+    renderCard(item, { onRestore, onForceDelete });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
+    expect(screen.getByRole('menuitem', { name: 'Wiederherstellen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Endgültig löschen' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('menuitem', { name: 'Wiederherstellen' }));
+    expect(onRestore).toHaveBeenCalledWith(item);
+  });
+
+  it('archiviertes Item: zeigt Chip "Archiviert"', () => {
+    renderCard(makeItem({ archived: true }));
+    expect(screen.getByText('Archiviert')).toBeInTheDocument();
+  });
+
+  it('nicht-archiviertes Item: kein Chip "Archiviert"', () => {
+    renderCard(makeItem({ archived: false }));
+    expect(screen.queryByText('Archiviert')).not.toBeInTheDocument();
   });
 });

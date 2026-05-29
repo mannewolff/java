@@ -19,6 +19,8 @@ export interface KanbanItem {
   updatedAt: string;
   /** Nur in der DONE-Spalte gesetzt — Basis fuer den Cleanup-Countdown. */
   movedToDoneAt?: string;
+  /** Soft-Delete-Flag: archivierte Items werden standardmaessig nicht angezeigt. */
+  archived: boolean;
 }
 
 export type KanbanBoard = Record<KanbanColumn, KanbanItem[]>;
@@ -39,8 +41,9 @@ export interface KanbanComment {
 
 const PATH = '/kanban';
 
-export function listKanbanItems(): Promise<KanbanBoard> {
-  return api.get<KanbanBoard>(`${PATH}/items`);
+export function listKanbanItems(includeArchived = false): Promise<KanbanBoard> {
+  const qs = includeArchived ? '?includeArchived=true' : '';
+  return api.get<KanbanBoard>(`${PATH}/items${qs}`);
 }
 
 export function createKanbanItem(
@@ -67,8 +70,16 @@ export function moveKanbanItem(
   return api.put<KanbanItem>(`${PATH}/items/${id}/move`, { column, position });
 }
 
-export function deleteKanbanItem(id: number): Promise<void> {
+export function archiveKanbanItem(id: number): Promise<void> {
   return api.del(`${PATH}/items/${id}`);
+}
+
+export function forceDeleteKanbanItem(id: number): Promise<void> {
+  return api.del(`${PATH}/items/${id}/force`);
+}
+
+export function restoreKanbanItem(id: number): Promise<KanbanItem> {
+  return api.patch<KanbanItem>(`${PATH}/items/${id}/restore`);
 }
 
 export function getKanbanSettings(): Promise<KanbanSettings> {

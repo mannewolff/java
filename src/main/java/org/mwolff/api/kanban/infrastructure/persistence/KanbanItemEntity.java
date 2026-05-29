@@ -49,6 +49,9 @@ class KanbanItemEntity {
   @Column(name = "moved_to_done_at")
   private Instant movedToDoneAt;
 
+  @Column(name = "archived", nullable = false)
+  private boolean archived;
+
   protected KanbanItemEntity() {
     // JPA
   }
@@ -66,6 +69,7 @@ class KanbanItemEntity {
     this.columnName = columnName;
     this.positionInColumn = positionInColumn;
     this.movedToDoneAt = movedToDoneAt;
+    this.archived = false;
   }
 
   @PrePersist
@@ -134,5 +138,13 @@ class KanbanItemEntity {
 
   void setMovedToDoneAt(Instant movedToDoneAt) {
     this.movedToDoneAt = movedToDoneAt;
+  }
+
+  boolean isArchived() {
+    return archived;
+  }
+
+  void setArchived(boolean archived) {
+    this.archived = archived;
   }
 }

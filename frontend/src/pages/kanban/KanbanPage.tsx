@@ -27,11 +27,13 @@ import {
 
 import {
   KANBAN_COLUMNS,
+  archiveKanbanItem,
   createKanbanItem,
-  deleteKanbanItem,
+  forceDeleteKanbanItem,
   getKanbanSettings,
   listKanbanItems,
   moveKanbanItem,
+  restoreKanbanItem,
   updateKanbanItem,
   updateKanbanSettings,
   type KanbanBoard,
@@ -46,8 +48,8 @@ import KanbanEditDrawer from './KanbanEditDrawer';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
 
-/** Default-Retention (auch Backend-Default), bis das initiale GET den echten Wert liefert. */
 const DEFAULT_RETENTION_DAYS = 5;
+const SHOW_ARCHIVED_KEY = 'kanban.showArchived';
 
 const COLUMN_LABELS: Record<KanbanColumnId, string> = {
   BACKLOG: 'Backlog',
@@ -62,28 +64,35 @@ type LoadState =
   | { kind: 'ready'; board: KanbanBoard };
 
 interface EditTarget {
-  /** {@code null} = neues Item, sonst Edit eines bestehenden. */
   item: KanbanItem | null;
   defaultColumn: KanbanColumnId;
 }
 
-/**
- * Vier-Spalten-Kanban-Board mit Drag&Drop und Edit-Drawer.
- *
- * - DnD per dnd-kit: jede Spalte ist {@link useDroppable}, jede Karte {@link useSortable}.
- * - Move-Logik liegt als pure Funktion in {@code boardOps.moveItem} (so isoliert testbar).
- * - Updates sind optimistisch: lokales Board sofort umsortieren, API-Call im Hintergrund.
- *   Bei Fehler reverten und Toast.
- * - Settings (retentionDays) kommen aus dem Issue Kanban-3 — hier wird ein Default-Stub
- *   verwendet, das Zahnrad ist auf einen Toast verdrahtet.
- */
+function loadShowArchived(): boolean {
+  try {
+    return localStorage.getItem(SHOW_ARCHIVED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveShowArchived(value: boolean): void {
+  try {
+    localStorage.setItem(SHOW_ARCHIVED_KEY, String(value));
+  } catch {
+    // localStorage nicht verfügbar
+  }
+}
+
 export default function KanbanPage(): JSX.Element {
   const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<KanbanItem | null>(null);
+  const [pendingArchive, setPendingArchive] = useState<KanbanItem | null>(null);
+  const [pendingForceDelete, setPendingForceDelete] = useState<KanbanItem | null>(null);
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
+  const [showArchived, setShowArchived] = useState(loadShowArchived);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const sensors = useSensors(
@@ -92,10 +101,9 @@ export default function KanbanPage(): JSX.Element {
     }),
   );
 
-  const reload = useCallback(async (): Promise<void> => {
+  const reload = useCallback(async (withArchived: boolean): Promise<void> => {
     try {
-      const board = await listKanbanItems();
-      // Backend liefert keys; sicherheitshalber mit leeren Spalten mergen.
+      const board = await listKanbanItems(withArchived);
       const safeBoard: KanbanBoard = { ...emptyBoard(), ...board };
       setState({ kind: 'ready', board: safeBoard });
     } catch (e) {
@@ -106,21 +114,26 @@ export default function KanbanPage(): JSX.Element {
     }
   }, []);
 
-  // Initial-Load: Items und Settings parallel. Settings-Failure soll den Board-Load nicht
-  // sprengen — wir fallen einfach auf den Default-Retention-Wert zurueck.
   useEffect(() => {
-    void reload();
+    void reload(showArchived);
     void getKanbanSettings()
       .then((s) => setRetentionDays(s.doneRetentionDays))
       .catch(() => {
-        // Default bleibt; KEIN Toast, weil das nur die Countdown-Anzeige beeinflusst.
+        // Default bleibt
       });
-  }, [reload]);
+  }, [reload, showArchived]);
 
-  async function handleSettingsSubmit(doneRetentionDays: number): Promise<void> {
+  async function handleSettingsSubmit(
+    doneRetentionDays: number,
+    newShowArchived: boolean,
+  ): Promise<void> {
     try {
       const saved = await updateKanbanSettings(doneRetentionDays);
       setRetentionDays(saved.doneRetentionDays);
+      if (newShowArchived !== showArchived) {
+        saveShowArchived(newShowArchived);
+        setShowArchived(newShowArchived);
+      }
       setSettingsOpen(false);
       notify.success('Einstellungen gespeichert.');
     } catch (e) {
@@ -142,7 +155,7 @@ export default function KanbanPage(): JSX.Element {
       await updateKanbanItem(detailItem.id, title, body);
       notify.success('Item gespeichert.');
       setDetailItem(null);
-      await reload();
+      await reload(showArchived);
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -159,20 +172,43 @@ export default function KanbanPage(): JSX.Element {
         notify.success('Item gespeichert.');
       }
       setEditTarget(null);
-      await reload();
+      await reload(showArchived);
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
   }
 
-  async function confirmDelete(): Promise<void> {
-    if (!pendingDelete) return;
-    const target = pendingDelete;
-    setPendingDelete(null);
+  async function confirmArchive(): Promise<void> {
+    if (!pendingArchive) return;
+    const target = pendingArchive;
+    setPendingArchive(null);
     try {
-      await deleteKanbanItem(target.id);
-      notify.success('Item gelöscht.');
-      await reload();
+      await archiveKanbanItem(target.id);
+      notify.success('Item archiviert.');
+      await reload(showArchived);
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Archivieren fehlgeschlagen.');
+    }
+  }
+
+  async function handleRestore(item: KanbanItem): Promise<void> {
+    try {
+      await restoreKanbanItem(item.id);
+      notify.success('Item wiederhergestellt.');
+      await reload(showArchived);
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Wiederherstellen fehlgeschlagen.');
+    }
+  }
+
+  async function confirmForceDelete(): Promise<void> {
+    if (!pendingForceDelete) return;
+    const target = pendingForceDelete;
+    setPendingForceDelete(null);
+    try {
+      await forceDeleteKanbanItem(target.id);
+      notify.success('Item endgültig gelöscht.');
+      await reload(showArchived);
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
     }
@@ -184,15 +220,12 @@ export default function KanbanPage(): JSX.Element {
     if (!over) return;
 
     const itemId = Number(active.id);
-    // Zielspalte ableiten: entweder ueber die Drop-Zone der Spalte (data.column gesetzt) oder
-    // ueber das Karten-Item, ueber dem wir gedroppt haben (data.column ebenfalls gesetzt).
     const overData = over.data.current as
       | { type: 'column'; column: KanbanColumnId }
       | { type: 'item'; column: KanbanColumnId; position: number }
       | undefined;
     if (!overData) return;
 
-    // Zielposition: bei Drop ueber Karte → deren Position, bei Drop in leere Spalte → ans Ende.
     const targetColumn = overData.column;
     const targetPosition =
       overData.type === 'item' ? overData.position : state.board[targetColumn].length;
@@ -204,8 +237,7 @@ export default function KanbanPage(): JSX.Element {
 
     try {
       await moveKanbanItem(itemId, targetColumn, targetPosition);
-      // Backend ist Source of Truth — kurz refetchen, damit movedToDoneAt & Co stimmen.
-      await reload();
+      await reload(showArchived);
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
       setState({ kind: 'ready', board: previousBoard });
@@ -261,7 +293,7 @@ export default function KanbanPage(): JSX.Element {
           >
             Neues Item
           </Button>
-          <Tooltip title="Einstellungen (Cleanup-Retention)">
+          <Tooltip title="Einstellungen">
             <IconButton
               aria-label="Kanban-Einstellungen"
               onClick={() => setSettingsOpen(true)}
@@ -312,7 +344,9 @@ export default function KanbanPage(): JSX.Element {
                 onCreate={startCreate}
                 onOpenDetail={setDetailItem}
                 onEdit={startEdit}
-                onDelete={setPendingDelete}
+                onArchive={setPendingArchive}
+                onRestore={(item) => void handleRestore(item)}
+                onForceDelete={setPendingForceDelete}
               />
             ))}
           </Stack>
@@ -341,25 +375,45 @@ export default function KanbanPage(): JSX.Element {
       <KanbanSettingsDrawer
         open={settingsOpen}
         currentRetentionDays={retentionDays}
+        showArchived={showArchived}
         onClose={() => setSettingsOpen(false)}
         onSubmit={handleSettingsSubmit}
       />
 
       <Dialog
-        open={pendingDelete != null}
-        onClose={() => setPendingDelete(null)}
-        aria-labelledby="kanban-delete-title"
+        open={pendingArchive != null}
+        onClose={() => setPendingArchive(null)}
+        aria-labelledby="kanban-archive-title"
       >
-        <DialogTitle id="kanban-delete-title">Item löschen?</DialogTitle>
+        <DialogTitle id="kanban-archive-title">Item archivieren?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            „{pendingDelete?.title}" wird unwiderruflich entfernt.
+            „{pendingArchive?.title}" wird archiviert und kann später wiederhergestellt werden.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPendingDelete(null)}>Abbrechen</Button>
-          <Button color="error" variant="contained" onClick={() => void confirmDelete()}>
-            Löschen
+          <Button onClick={() => setPendingArchive(null)}>Abbrechen</Button>
+          <Button variant="contained" onClick={() => void confirmArchive()}>
+            Archivieren
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={pendingForceDelete != null}
+        onClose={() => setPendingForceDelete(null)}
+        aria-labelledby="kanban-force-delete-title"
+      >
+        <DialogTitle id="kanban-force-delete-title">Item endgültig löschen?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            „{pendingForceDelete?.title}" wird unwiderruflich entfernt.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingForceDelete(null)}>Abbrechen</Button>
+          <Button color="error" variant="contained" onClick={() => void confirmForceDelete()}>
+            Endgültig löschen
           </Button>
         </DialogActions>
       </Dialog>

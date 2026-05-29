@@ -6,10 +6,12 @@ import java.util.Map;
 
 import jakarta.validation.Valid;
 
+import org.mwolff.api.kanban.application.ArchiveItemUseCase;
 import org.mwolff.api.kanban.application.CreateItemUseCase;
-import org.mwolff.api.kanban.application.DeleteItemUseCase;
+import org.mwolff.api.kanban.application.ForceDeleteItemUseCase;
 import org.mwolff.api.kanban.application.ListItemsUseCase;
 import org.mwolff.api.kanban.application.MoveItemUseCase;
+import org.mwolff.api.kanban.application.RestoreItemUseCase;
 import org.mwolff.api.kanban.application.UpdateItemContentUseCase;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
@@ -22,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -33,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
  * REST-Adapter für Kanban-Items. Alle Endpoints sind durch {@code
  * SecurityConfig#requestMatchers("/api/kanban/**").hasRole("USER")} geschützt. Owner-Check erfolgt
  * in den Use-Cases via JWT-{@code sub}.
+ *
+ * <p>Löschen = Soft-Delete (archivieren). Physisches Löschen nur über {@code DELETE /{id}/force}.
  */
 @RestController
 @RequestMapping("/api/kanban/items")
@@ -42,19 +47,25 @@ public class KanbanItemController {
   private final CreateItemUseCase createUseCase;
   private final UpdateItemContentUseCase updateContentUseCase;
   private final MoveItemUseCase moveUseCase;
-  private final DeleteItemUseCase deleteUseCase;
+  private final ArchiveItemUseCase archiveUseCase;
+  private final ForceDeleteItemUseCase forceDeleteUseCase;
+  private final RestoreItemUseCase restoreUseCase;
 
   public KanbanItemController(
       ListItemsUseCase listUseCase,
       CreateItemUseCase createUseCase,
       UpdateItemContentUseCase updateContentUseCase,
       MoveItemUseCase moveUseCase,
-      DeleteItemUseCase deleteUseCase) {
+      ArchiveItemUseCase archiveUseCase,
+      ForceDeleteItemUseCase forceDeleteUseCase,
+      RestoreItemUseCase restoreUseCase) {
     this.listUseCase = listUseCase;
     this.createUseCase = createUseCase;
     this.updateContentUseCase = updateContentUseCase;
     this.moveUseCase = moveUseCase;
-    this.deleteUseCase = deleteUseCase;
+    this.archiveUseCase = archiveUseCase;
+    this.forceDeleteUseCase = forceDeleteUseCase;
+    this.restoreUseCase = restoreUseCase;
   }
 
   @GetMapping
@@ -96,8 +107,19 @@ public class KanbanItemController {
   }
 
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> delete(JwtAuthenticationToken auth, @PathVariable long id) {
-    deleteUseCase.execute(auth.getToken().getSubject(), id);
+  public ResponseEntity<Void> archive(JwtAuthenticationToken auth, @PathVariable long id) {
+    archiveUseCase.execute(auth.getToken().getSubject(), id);
     return ResponseEntity.noContent().build();
+  }
+
+  @DeleteMapping("/{id}/force")
+  public ResponseEntity<Void> forceDelete(JwtAuthenticationToken auth, @PathVariable long id) {
+    forceDeleteUseCase.execute(auth.getToken().getSubject(), id);
+    return ResponseEntity.noContent().build();
+  }
+
+  @PatchMapping("/{id}/restore")
+  public KanbanItemResponse restore(JwtAuthenticationToken auth, @PathVariable long id) {
+    return KanbanItemResponse.from(restoreUseCase.execute(auth.getToken().getSubject(), id));
   }
 }

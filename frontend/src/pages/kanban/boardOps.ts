@@ -26,6 +26,7 @@ export function moveItem(
 ): KanbanBoard {
   const sourceEntry = findItem(board, itemId);
   if (!sourceEntry) return board;
+  if (sourceEntry.item.archived) return board;
   const { item, column: sourceColumn, index: sourceIndex } = sourceEntry;
 
   if (sourceColumn === targetColumn) {

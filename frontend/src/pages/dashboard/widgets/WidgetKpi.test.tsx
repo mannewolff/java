@@ -458,7 +458,7 @@ describe('WidgetKpi', () => {
     });
 
     it('zeigt Fehlermeldung bei API-Fehler', async () => {
-      latest.mockRejectedValue(new ApiError(500, 'Server-Fehler'));
+      latest.mockRejectedValue(new ApiError(500, 'Server-Fehler', null));
       render(<WidgetKpi widget={gaugeWithTs(1)} onChange={vi.fn()} onDelete={vi.fn()} />);
       await waitFor(() =>
         expect(screen.getByLabelText('KPI-Gauge-Error')).toBeInTheDocument(),

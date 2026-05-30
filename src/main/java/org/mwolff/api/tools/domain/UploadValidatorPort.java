@@ -9,16 +9,18 @@ public interface UploadValidatorPort {
   /**
    * Validiert ein hochgeladenes Bild auf Größe, Inhalt und tatsächlichen MIME-Typ.
    *
+   * @return das validierte Bild mit dem per Byte-Signatur erkannten, vertrauenswürdigen MIME-Typ
    * @throws InvalidUploadException bei fachlich invalidem Upload
    */
-  void validateImage(UploadedImage image);
+  ValidatedImage validateImage(UploadedImage image);
 
   /**
    * Validiert eine hochgeladene SVG-Datei auf Größe und tatsächlichen MIME-Typ ({@code
    * image/svg+xml}). Eigener Pfad, weil SVG nicht zu den rastergrafischen Formaten gehört und
    * deshalb von {@link #validateImage(UploadedImage)} ausgeschlossen wird.
    *
+   * @return das validierte SVG mit dem erkannten, vertrauenswürdigen MIME-Typ
    * @throws InvalidUploadException bei fachlich invalidem Upload
    */
-  void validateSvg(UploadedImage image);
+  ValidatedImage validateSvg(UploadedImage image);
 }

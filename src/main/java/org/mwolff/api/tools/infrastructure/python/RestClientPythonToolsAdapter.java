@@ -10,7 +10,7 @@ import org.mwolff.api.tools.domain.PythonToolsPort;
 import org.mwolff.api.tools.domain.ResizeParams;
 import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
-import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -43,7 +43,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   }
 
   @Override
-  public ToolImageResult resize(UploadedImage image, ResizeParams params) {
+  public ToolImageResult resize(ValidatedImage image, ResizeParams params) {
     final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
     body.add("width", Integer.toString(params.width()));
     body.add("height", Integer.toString(params.height()));
@@ -53,7 +53,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   }
 
   @Override
-  public ToolImageResult cropOg(UploadedImage image, CropOgParams params) {
+  public ToolImageResult cropOg(ValidatedImage image, CropOgParams params) {
     final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
     body.add("y_offset", Double.toString(params.yOffset()));
     body.add("x_offset", Double.toString(params.xOffset()));
@@ -64,13 +64,13 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   }
 
   @Override
-  public ToolImageResult removeBackground(UploadedImage image) {
+  public ToolImageResult removeBackground(ValidatedImage image) {
     final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
     return postForImage(REMOVE_BG_PATH, body, "remove-bg");
   }
 
   @Override
-  public ToolImageResult convertSvgToPng(UploadedImage image, SvgToPngParams params) {
+  public ToolImageResult convertSvgToPng(ValidatedImage image, SvgToPngParams params) {
     final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
     // width/height optional — nur weiterleiten wenn gesetzt, sonst nimmt cairosvg
     // die SVG-eigene Geometrie.
@@ -85,7 +85,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   }
 
   @Override
-  public PaletteResult extractPalette(UploadedImage image, PaletteParams params) {
+  public PaletteResult extractPalette(ValidatedImage image, PaletteParams params) {
     final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
     body.add("count", Integer.toString(params.count()));
 

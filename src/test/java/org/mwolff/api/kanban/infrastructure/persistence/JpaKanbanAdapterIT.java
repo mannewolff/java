@@ -83,7 +83,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             0,
             a.createdAt(),
             a.updatedAt(),
-            doneAt);
+            doneAt,
+            false);
     final KanbanItem persisted = adapter.save(moved);
 
     assertThat(persisted.title()).isEqualTo("New");
@@ -122,7 +123,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             0,
             oldDone.createdAt(),
             oldDone.updatedAt(),
-            old));
+            old,
+            false));
     adapter.save(
         new KanbanItem(
             freshDone.id(),
@@ -133,7 +135,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             1,
             freshDone.createdAt(),
             freshDone.updatedAt(),
-            fresh));
+            fresh,
+            false));
 
     final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-03-01T00:00:00Z"));
 
@@ -150,6 +153,82 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     adapter.save(KanbanItem.newInstance("user-c", "C", "", KanbanColumn.BACKLOG, 0));
 
     assertThat(adapter.distinctUsersWithDoneItems()).containsExactlyInAnyOrder(USER_A, USER_B);
+  }
+
+  @Test
+  void archiveByIdSetsArchivedTrue() {
+    final KanbanItem item =
+        adapter.save(KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0));
+    assertThat(item.archived()).isFalse();
+
+    adapter.archiveById(item.id());
+
+    assertThat(adapter.findById(item.id()))
+        .hasValueSatisfying(i -> assertThat(i.archived()).isTrue());
+  }
+
+  @Test
+  void restoreByIdSetsArchivedFalse() {
+    final KanbanItem item =
+        adapter.save(KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0));
+    adapter.archiveById(item.id());
+    assertThat(adapter.findById(item.id()))
+        .hasValueSatisfying(i -> assertThat(i.archived()).isTrue());
+
+    adapter.restoreById(item.id());
+
+    assertThat(adapter.findById(item.id()))
+        .hasValueSatisfying(i -> assertThat(i.archived()).isFalse());
+  }
+
+  @Test
+  void findAllByUserExcludesArchivedByDefault() {
+    final KanbanItem active =
+        adapter.save(KanbanItem.newInstance(USER_A, "Active", "", KanbanColumn.BACKLOG, 0));
+    final KanbanItem archived =
+        adapter.save(KanbanItem.newInstance(USER_A, "Archived", "", KanbanColumn.BACKLOG, 1));
+    adapter.archiveById(archived.id());
+
+    assertThat(adapter.findAllByUser(USER_A))
+        .extracting(KanbanItem::id)
+        .containsExactly(active.id());
+  }
+
+  @Test
+  void findAllByUserIncludingArchivedReturnsAll() {
+    final KanbanItem active =
+        adapter.save(KanbanItem.newInstance(USER_A, "Active", "", KanbanColumn.BACKLOG, 0));
+    final KanbanItem archived =
+        adapter.save(KanbanItem.newInstance(USER_A, "Archived", "", KanbanColumn.BACKLOG, 1));
+    adapter.archiveById(archived.id());
+
+    assertThat(adapter.findAllByUserIncludingArchived(USER_A))
+        .extracting(KanbanItem::id)
+        .containsExactlyInAnyOrder(active.id(), archived.id());
+  }
+
+  @Test
+  void deleteDoneOlderThanSkipsArchivedItems() {
+    final KanbanItem archivedDone =
+        adapter.save(KanbanItem.newInstance(USER_A, "OldArchived", "", KanbanColumn.DONE, 0));
+    adapter.save(
+        new KanbanItem(
+            archivedDone.id(),
+            USER_A,
+            "OldArchived",
+            "",
+            KanbanColumn.DONE,
+            0,
+            archivedDone.createdAt(),
+            archivedDone.updatedAt(),
+            Instant.parse("2026-01-01T00:00:00Z"),
+            false));
+    adapter.archiveById(archivedDone.id());
+
+    final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-06-01T00:00:00Z"));
+
+    assertThat(deleted).isEqualTo(0);
+    assertThat(adapter.findById(archivedDone.id())).isPresent();
   }
 
   // ----- Settings -----------------------------------------------------------

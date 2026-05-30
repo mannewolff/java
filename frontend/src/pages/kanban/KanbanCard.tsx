@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Box,
+  Chip,
   IconButton,
   Menu,
   MenuItem,
@@ -20,33 +21,26 @@ import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown'
 interface KanbanCardProps {
   item: KanbanItem;
   retentionDays: number;
-  /** Triggered when the user clicks the card title — öffnet das Detail-Modal. */
   onOpenDetail: (item: KanbanItem) => void;
-  /** Triggered when the user picks "Bearbeiten" from the card menu. */
   onEdit: (item: KanbanItem) => void;
-  /** Triggered when the user picks "Löschen". UI fragt eigene Confirm im Eltern-State. */
-  onDelete: (item: KanbanItem) => void;
+  onArchive: (item: KanbanItem) => void;
+  onRestore: (item: KanbanItem) => void;
+  onForceDelete: (item: KanbanItem) => void;
 }
 
-/**
- * Kompakte Card-Anzeige eines Kanban-Items. Markdown-Body wird auf drei Zeilen via CSS-clamp
- * begrenzt, lange Titles per Tooltip sichtbar. Drei-Punkte-Menue oben rechts mit "Bearbeiten"
- * und "Löschen".
- *
- * Die Card ist ueber {@link useSortable} an dnd-kit angeschlossen — Drag-Handle ist die ganze
- * Card, der Menue-Button stoppt {@code pointerDown} damit Klicks nicht als Drag interpretiert
- * werden.
- */
 export default function KanbanCard({
   item,
   retentionDays,
   onOpenDetail,
   onEdit,
-  onDelete,
+  onArchive,
+  onRestore,
+  onForceDelete,
 }: KanbanCardProps): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: 'item', column: item.column, position: item.position },
+    disabled: item.archived,
   });
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -54,10 +48,10 @@ export default function KanbanCard({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : item.archived ? 0.5 : 1,
   };
 
-  const showDoneHint = item.column === 'DONE' && item.movedToDoneAt;
+  const showDoneHint = item.column === 'DONE' && item.movedToDoneAt && !item.archived;
   const daysRemaining = showDoneHint
     ? cleanupDaysRemaining(item.movedToDoneAt!, retentionDays)
     : 0;
@@ -67,14 +61,14 @@ export default function KanbanCard({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
+      {...(item.archived ? {} : listeners)}
       variant="outlined"
       sx={{
         p: 1.5,
         mb: 1,
-        cursor: 'grab',
+        cursor: item.archived ? 'default' : 'grab',
         userSelect: 'none',
-        '&:active': { cursor: 'grabbing' },
+        '&:active': { cursor: item.archived ? 'default' : 'grabbing' },
       }}
       aria-label={`Kanban-Item ${item.title}`}
     >
@@ -85,8 +79,6 @@ export default function KanbanCard({
             role="button"
             tabIndex={0}
             aria-label={`Detail öffnen: ${item.title}`}
-            // onPointerDown stoppt die Propagation an den dnd-kit-Sensor, damit ein Klick auf
-            // den Titel das Detail-Modal oeffnet statt einen Drag zu starten.
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onOpenDetail(item)}
             onKeyDown={(e) => {
@@ -119,14 +111,16 @@ export default function KanbanCard({
         </IconButton>
       </Stack>
 
+      {item.archived && (
+        <Chip label="Archiviert" size="small" sx={{ mt: 0.5 }} />
+      )}
+
       {item.body.trim().length > 0 && (
         <Box
           sx={{
             mt: 0.5,
             color: 'text.secondary',
             fontSize: '0.85rem',
-            // Mehrzeiliges Clamp ohne den Markdown-Text vorher abschneiden zu muessen.
-            // Browser-Support: WebKit + alle modernen Browser. Fallback ist einfach lang.
             display: '-webkit-box',
             WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
@@ -151,22 +145,47 @@ export default function KanbanCard({
         onClose={() => setMenuAnchor(null)}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <MenuItem
-          onClick={() => {
-            setMenuAnchor(null);
-            onEdit(item);
-          }}
-        >
-          Bearbeiten
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setMenuAnchor(null);
-            onDelete(item);
-          }}
-        >
-          Löschen
-        </MenuItem>
+        {!item.archived && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onEdit(item);
+            }}
+          >
+            Bearbeiten
+          </MenuItem>
+        )}
+        {!item.archived && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onArchive(item);
+            }}
+          >
+            Archivieren
+          </MenuItem>
+        )}
+        {item.archived && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onRestore(item);
+            }}
+          >
+            Wiederherstellen
+          </MenuItem>
+        )}
+        {item.archived && (
+          <MenuItem
+            sx={{ color: 'error.main' }}
+            onClick={() => {
+              setMenuAnchor(null);
+              onForceDelete(item);
+            }}
+          >
+            Endgültig löschen
+          </MenuItem>
+        )}
       </Menu>
     </Paper>
   );

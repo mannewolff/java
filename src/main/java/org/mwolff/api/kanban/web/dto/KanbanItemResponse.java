@@ -14,7 +14,8 @@ public record KanbanItemResponse(
     int position,
     Instant createdAt,
     Instant updatedAt,
-    Instant movedToDoneAt) {
+    Instant movedToDoneAt,
+    boolean archived) {
 
   public static KanbanItemResponse from(KanbanItem item) {
     return new KanbanItemResponse(
@@ -25,6 +26,7 @@ public record KanbanItemResponse(
         item.position(),
         item.createdAt(),
         item.updatedAt(),
-        item.movedToDoneAt());
+        item.movedToDoneAt(),
+        item.archived());
   }
 }

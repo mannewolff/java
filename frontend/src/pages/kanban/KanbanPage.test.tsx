@@ -11,14 +11,16 @@ vi.mock('../../api/kanban', () => ({
   createKanbanItem: vi.fn(),
   updateKanbanItem: vi.fn(),
   moveKanbanItem: vi.fn(),
-  deleteKanbanItem: vi.fn(),
+  archiveKanbanItem: vi.fn(),
+  forceDeleteKanbanItem: vi.fn(),
+  restoreKanbanItem: vi.fn(),
   getKanbanSettings: vi.fn(),
   updateKanbanSettings: vi.fn(),
 }));
 
 import {
+  archiveKanbanItem,
   createKanbanItem,
-  deleteKanbanItem,
   getKanbanSettings,
   listKanbanItems,
   updateKanbanItem,
@@ -28,7 +30,7 @@ import {
 const list = listKanbanItems as ReturnType<typeof vi.fn>;
 const create = createKanbanItem as ReturnType<typeof vi.fn>;
 const update = updateKanbanItem as ReturnType<typeof vi.fn>;
-const del = deleteKanbanItem as ReturnType<typeof vi.fn>;
+const archive = archiveKanbanItem as ReturnType<typeof vi.fn>;
 const getSettings = getKanbanSettings as ReturnType<typeof vi.fn>;
 const putSettings = updateKanbanSettings as ReturnType<typeof vi.fn>;
 
@@ -49,6 +51,7 @@ function makeItem(overrides = {}) {
     position: 0,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
+    archived: false,
     ...overrides,
   };
 }
@@ -58,10 +61,9 @@ describe('KanbanPage', () => {
     list.mockReset();
     create.mockReset();
     update.mockReset();
-    del.mockReset();
+    archive.mockReset();
     getSettings.mockReset();
     putSettings.mockReset();
-    // Default-Settings für jeden Test (kann pro Test überschrieben werden).
     getSettings.mockResolvedValue({ doneRetentionDays: 5 });
   });
 
@@ -147,14 +149,14 @@ describe('KanbanPage', () => {
     expect(apply).toBeDisabled();
   });
 
-  it('zeigt den Lösch-Confirm-Dialog und ruft die API nach Bestätigung', async () => {
+  it('zeigt den Archivieren-Confirm-Dialog und ruft die API nach Bestätigung', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Weg damit' })],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
     });
-    del.mockResolvedValueOnce(undefined);
+    archive.mockResolvedValueOnce(undefined);
     list.mockResolvedValueOnce({
       BACKLOG: [],
       IN_PROGRESS: [],
@@ -167,11 +169,11 @@ describe('KanbanPage', () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
-    expect(screen.getByText(/Item löschen\?/)).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: 'Archivieren' }));
+    expect(screen.getByText(/Item archivieren\?/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Löschen' }));
-    await waitFor(() => expect(del).toHaveBeenCalledWith(1));
+    await user.click(screen.getByRole('button', { name: 'Archivieren' }));
+    await waitFor(() => expect(archive).toHaveBeenCalledWith(1));
   });
 
   it('öffnet den Edit-Drawer mit Inhalt und ruft updateKanbanItem', async () => {
@@ -222,7 +224,6 @@ describe('KanbanPage', () => {
 
     renderPage();
     await waitFor(() => expect(screen.getByText('Erledigt')).toBeInTheDocument());
-    // Bei retentionDays=5, 2 Tage vergangen → 3 Tage übrig.
     expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
   });
 
@@ -252,7 +253,6 @@ describe('KanbanPage', () => {
     await user.click(screen.getByRole('button', { name: 'Kanban-Einstellungen' }));
 
     await waitFor(() => expect(screen.getByText('Kanban-Einstellungen')).toBeInTheDocument());
-    // Header-Text trägt den geladenen Wert.
     expect(screen.getByText(/Done-Items nach/)).toHaveTextContent('14');
   });
 
@@ -275,9 +275,6 @@ describe('KanbanPage', () => {
     await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
 
     await waitFor(() => expect(putSettings).toHaveBeenCalledTimes(1));
-    // Übernehmen schickt den aktuellen Draft (5 in diesem Fall, weil wir den Slider nicht
-    // synthetisch bewegt haben — userEvent + MUI-Slider ist brüchig; reicht für den
-    // API-Call-Pfad).
     expect(putSettings).toHaveBeenCalledWith(5);
   });
 });

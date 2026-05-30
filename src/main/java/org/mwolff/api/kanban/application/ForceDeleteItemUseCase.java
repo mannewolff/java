@@ -9,13 +9,13 @@ import org.mwolff.api.kanban.domain.KanbanItemPort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Löscht ein Item und schließt die Lücke in der Quell-Spalte. Foreign-Item → 404. */
+/** Löscht ein Item physisch und schließt die Lücke in der Quell-Spalte. Foreign-Item → 404. */
 @Component
-public class DeleteItemUseCase {
+public class ForceDeleteItemUseCase {
 
   private final KanbanItemPort items;
 
-  public DeleteItemUseCase(KanbanItemPort items) {
+  public ForceDeleteItemUseCase(KanbanItemPort items) {
     this.items = items;
   }
 

@@ -1,4 +1,4 @@
-package org.mwolff.api.auth;
+package org.mwolff.api.auth.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

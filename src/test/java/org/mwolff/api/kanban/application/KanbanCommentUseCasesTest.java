@@ -37,7 +37,16 @@ class KanbanCommentUseCasesTest {
 
   private static KanbanItem ownedItem() {
     return new KanbanItem(
-        ITEM_ID, SUB_OWNER, "T", "b", KanbanColumn.BACKLOG, 0, Instant.EPOCH, Instant.EPOCH, null);
+        ITEM_ID,
+        SUB_OWNER,
+        "T",
+        "b",
+        KanbanColumn.BACKLOG,
+        0,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        null,
+        false);
   }
 
   private static KanbanComment comment(long itemId, String author) {

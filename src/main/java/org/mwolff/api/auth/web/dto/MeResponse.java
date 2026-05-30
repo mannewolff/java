@@ -1,4 +1,4 @@
-package org.mwolff.api.auth.dto;
+package org.mwolff.api.auth.web.dto;
 
 import java.util.List;
 

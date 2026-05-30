@@ -4,8 +4,10 @@ import {
   Button,
   Divider,
   Drawer,
+  FormControlLabel,
   Slider,
   Stack,
+  Switch,
   Toolbar,
   Typography,
 } from '@mui/material';
@@ -15,30 +17,28 @@ const MAX = 30;
 
 interface KanbanSettingsDrawerProps {
   open: boolean;
-  /** Aktuell persistierter Wert — Initial-Befüllung des Sliders. */
   currentRetentionDays: number;
+  showArchived: boolean;
   onClose: () => void;
-  /** Liefert den neuen Wert; Persistenz übernimmt die Eltern-Komponente. */
-  onSubmit: (doneRetentionDays: number) => Promise<void> | void;
+  onSubmit: (doneRetentionDays: number, showArchived: boolean) => Promise<void> | void;
 }
 
-/**
- * Drawer für die per-User Kanban-Settings. Aktuell genau ein Wert: doneRetentionDays als
- * Slider 1..30 Tage.
- */
 export default function KanbanSettingsDrawer({
   open,
   currentRetentionDays,
+  showArchived,
   onClose,
   onSubmit,
 }: KanbanSettingsDrawerProps): JSX.Element {
   const [draft, setDraft] = useState(currentRetentionDays);
+  const [draftShowArchived, setDraftShowArchived] = useState(showArchived);
 
-  // Beim Öffnen Draft auf den aktuellen persistierten Wert zurücksetzen — sonst hängt der
-  // Slider noch auf dem letzten Cancel-Wert.
   useEffect(() => {
-    if (open) setDraft(currentRetentionDays);
-  }, [open, currentRetentionDays]);
+    if (open) {
+      setDraft(currentRetentionDays);
+      setDraftShowArchived(showArchived);
+    }
+  }, [open, currentRetentionDays, showArchived]);
 
   return (
     <Drawer
@@ -75,9 +75,23 @@ export default function KanbanSettingsDrawer({
             </Typography>
           </Box>
           <Divider />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={draftShowArchived}
+                onChange={(e) => setDraftShowArchived(e.target.checked)}
+                aria-label="Archivierte Items anzeigen"
+              />
+            }
+            label="Archivierte Items anzeigen"
+          />
+          <Divider />
           <Stack direction="row" spacing={1} justifyContent="flex-end">
             <Button onClick={onClose}>Abbrechen</Button>
-            <Button variant="contained" onClick={() => void onSubmit(draft)}>
+            <Button
+              variant="contained"
+              onClick={() => void onSubmit(draft, draftShowArchived)}
+            >
               Übernehmen
             </Button>
           </Stack>

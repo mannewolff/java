@@ -1,10 +1,10 @@
-package org.mwolff.api.auth;
+package org.mwolff.api.auth.web;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.mwolff.api.auth.dto.MeResponse;
+import org.mwolff.api.auth.web.dto.MeResponse;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;

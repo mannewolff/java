@@ -27,16 +27,19 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
 
   @Override
   public List<KanbanItem> findAllByUser(String userSub) {
-    return itemRepo.findAllByUserSubOrderByColumnNameAscPositionInColumnAsc(userSub).stream()
+    return itemRepo.findActiveByUserSub(userSub).stream().map(JpaKanbanAdapter::toDomain).toList();
+  }
+
+  @Override
+  public List<KanbanItem> findByUserAndColumn(String userSub, KanbanColumn column) {
+    return itemRepo.findActiveByUserSubAndColumn(userSub, column).stream()
         .map(JpaKanbanAdapter::toDomain)
         .toList();
   }
 
   @Override
-  public List<KanbanItem> findByUserAndColumn(String userSub, KanbanColumn column) {
-    return itemRepo
-        .findAllByUserSubAndColumnNameOrderByPositionInColumnAsc(userSub, column)
-        .stream()
+  public List<KanbanItem> findAllByUserIncludingArchived(String userSub) {
+    return itemRepo.findAllByUserSubIncludingArchived(userSub).stream()
         .map(JpaKanbanAdapter::toDomain)
         .toList();
   }
@@ -71,6 +74,7 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
       entity.setColumnName(item.column());
       entity.setPositionInColumn(item.position());
       entity.setMovedToDoneAt(item.movedToDoneAt());
+      entity.setArchived(item.archived());
     }
     return toDomain(itemRepo.save(entity));
   }
@@ -83,6 +87,16 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   @Override
   public void deleteById(long id) {
     itemRepo.deleteById(id);
+  }
+
+  @Override
+  public void archiveById(long id) {
+    itemRepo.archiveById(id);
+  }
+
+  @Override
+  public void restoreById(long id) {
+    itemRepo.restoreById(id);
   }
 
   @Override
@@ -125,7 +139,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
         entity.getPositionInColumn(),
         entity.getCreatedAt(),
         entity.getUpdatedAt(),
-        entity.getMovedToDoneAt());
+        entity.getMovedToDoneAt(),
+        entity.isArchived());
   }
 
   private static KanbanSettings toDomain(KanbanSettingsEntity entity) {

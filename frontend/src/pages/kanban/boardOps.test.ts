@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyBoard, moveItem } from './boardOps';
 import type { KanbanBoard, KanbanColumn, KanbanItem } from '../../api/kanban';
 
-function item(id: number, column: KanbanColumn, position: number): KanbanItem {
+function item(id: number, column: KanbanColumn, position: number, archived = false): KanbanItem {
   return {
     id,
     title: `T-${id}`,
@@ -12,6 +12,7 @@ function item(id: number, column: KanbanColumn, position: number): KanbanItem {
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     movedToDoneAt: column === 'DONE' ? '2026-01-01T00:00:00Z' : undefined,
+    archived,
   };
 }
 
@@ -102,5 +103,13 @@ describe('moveItem — cross column', () => {
     });
     const next = moveItem(b, 1, 'IN_PROGRESS', 99);
     expect(next.IN_PROGRESS.map((i) => i.id)).toEqual([10, 1]);
+  });
+
+  it('archiviertes Item wird nicht bewegt — Board bleibt identisch', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0, true)],
+    });
+    const next = moveItem(b, 1, 'IN_PROGRESS', 0);
+    expect(next).toBe(b);
   });
 });

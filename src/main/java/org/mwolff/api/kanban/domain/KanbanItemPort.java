@@ -31,16 +31,29 @@ public interface KanbanItemPort {
 
   void deleteById(long id);
 
+  /** Setzt {@code archived = true} ohne physisches Löschen. */
+  void archiveById(long id);
+
+  /** Setzt {@code archived = false} (Wiederherstellung). */
+  void restoreById(long id);
+
   /**
-   * Löscht alle Items eines Users, die in der DONE-Spalte liegen und deren {@code movedToDoneAt}
-   * vor dem übergebenen Threshold liegt. Verwendet vom Auto-Cleanup-Scheduler.
+   * Alle Items des Users inkl. archivierter, sortiert nach (column, position). Für die
+   * Archiv-Ansicht — normale Abfragen verwenden {@link #findAllByUser}.
+   */
+  List<KanbanItem> findAllByUserIncludingArchived(String userSub);
+
+  /**
+   * Löscht alle nicht-archivierten Items eines Users, die in der DONE-Spalte liegen und deren
+   * {@code movedToDoneAt} vor dem übergebenen Threshold liegt. Archivierte Items sind davon
+   * ausgenommen (intentional archival). Verwendet vom Auto-Cleanup-Scheduler.
    *
    * @return Anzahl gelöschter Items, für Logging.
    */
   int deleteDoneOlderThan(String userSub, Instant threshold);
 
   /**
-   * Liefert die distinkten {@code userSub}s, die mindestens ein DONE-Item haben
+   * Liefert die distinkten {@code userSub}s, die mindestens ein nicht-archiviertes DONE-Item haben
    * (Cleanup-Iteration).
    */
   List<String> distinctUsersWithDoneItems();

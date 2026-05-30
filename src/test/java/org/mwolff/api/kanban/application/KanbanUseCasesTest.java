@@ -45,11 +45,26 @@ class KanbanUseCasesTest {
         position,
         Instant.EPOCH,
         Instant.EPOCH,
-        movedToDoneAt);
+        movedToDoneAt,
+        false);
   }
 
   private static KanbanItem item(long id, String sub, KanbanColumn column, int position) {
     return item(id, sub, column, position, column == KanbanColumn.DONE ? Instant.EPOCH : null);
+  }
+
+  private static KanbanItem archivedItem(long id, String sub, KanbanColumn column, int position) {
+    return new KanbanItem(
+        id,
+        sub,
+        "T-" + id,
+        "body-" + id,
+        column,
+        position,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        column == KanbanColumn.DONE ? Instant.EPOCH : null,
+        true);
   }
 
   // ----- list ---------------------------------------------------------------
@@ -303,27 +318,109 @@ class KanbanUseCasesTest {
         .isInstanceOf(KanbanItemNotFoundException.class);
   }
 
-  // ----- delete -------------------------------------------------------------
+  // ----- archive ------------------------------------------------------------
 
   @Test
-  void deleteShouldCloseGapInSourceColumn() {
+  void archiveShouldSetArchivedFlag() {
+    given(items.findById(2L)).willReturn(Optional.of(item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
+
+    new ArchiveItemUseCase(items).execute(SUB_OWNER, 2L);
+
+    verify(items).archiveById(2L);
+    verify(items, never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
+  }
+
+  @Test
+  void archiveThrowsForForeignItem() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+    assertThatThrownBy(() -> new ArchiveItemUseCase(items).execute(SUB_OTHER, 1L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+    verify(items, never()).archiveById(org.mockito.ArgumentMatchers.anyLong());
+  }
+
+  @Test
+  void archiveThrowsWhenItemMissing() {
+    given(items.findById(99L)).willReturn(Optional.empty());
+    assertThatThrownBy(() -> new ArchiveItemUseCase(items).execute(SUB_OWNER, 99L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+  }
+
+  // ----- restore ------------------------------------------------------------
+
+  @Test
+  void restoreShouldClearArchivedFlag() {
+    given(items.findById(2L))
+        .willReturn(Optional.of(archivedItem(2, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
+
+    new RestoreItemUseCase(items).execute(SUB_OWNER, 2L);
+
+    verify(items).restoreById(2L);
+  }
+
+  @Test
+  void restoreThrowsForForeignItem() {
+    given(items.findById(1L))
+        .willReturn(Optional.of(archivedItem(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+    assertThatThrownBy(() -> new RestoreItemUseCase(items).execute(SUB_OTHER, 1L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+    verify(items, never()).restoreById(org.mockito.ArgumentMatchers.anyLong());
+  }
+
+  @Test
+  void restoreThrowsWhenItemMissing() {
+    given(items.findById(99L)).willReturn(Optional.empty());
+    assertThatThrownBy(() -> new RestoreItemUseCase(items).execute(SUB_OWNER, 99L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+  }
+
+  // ----- force delete -------------------------------------------------------
+
+  @Test
+  void forceDeleteShouldPhysicallyDeleteAndCloseGap() {
     final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
     final KanbanItem c = item(3, SUB_OWNER, KanbanColumn.BACKLOG, 2);
     given(items.findById(2L)).willReturn(Optional.of(item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
     given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of(a, c));
 
-    new DeleteItemUseCase(items).execute(SUB_OWNER, 2L);
+    new ForceDeleteItemUseCase(items).execute(SUB_OWNER, 2L);
 
     verify(items).deleteById(2L);
-    verify(items).updatePosition(3L, 1); // c: 2 -> 1
+    verify(items).updatePosition(3L, 1);
   }
 
   @Test
-  void deleteThrowsForForeignItem() {
+  void forceDeleteThrowsForForeignItem() {
     given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
-    assertThatThrownBy(() -> new DeleteItemUseCase(items).execute(SUB_OTHER, 1L))
+    assertThatThrownBy(() -> new ForceDeleteItemUseCase(items).execute(SUB_OTHER, 1L))
         .isInstanceOf(KanbanItemNotFoundException.class);
     verify(items, never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
+  }
+
+  // ----- list archived ------------------------------------------------------
+
+  @Test
+  void listArchivedShouldReturnOnlyArchivedItems() {
+    given(items.findAllByUserIncludingArchived(SUB_OWNER))
+        .willReturn(
+            List.of(
+                item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0),
+                archivedItem(2, SUB_OWNER, KanbanColumn.IN_PROGRESS, 1),
+                archivedItem(3, SUB_OWNER, KanbanColumn.DONE, 0)));
+
+    final List<KanbanItem> result = new ListArchivedItemsUseCase(items).execute(SUB_OWNER);
+
+    assertThat(result).hasSize(2);
+    assertThat(result).allMatch(KanbanItem::archived);
+  }
+
+  @Test
+  void listArchivedShouldReturnEmptyWhenNoneArchived() {
+    given(items.findAllByUserIncludingArchived(SUB_OWNER))
+        .willReturn(List.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+
+    final List<KanbanItem> result = new ListArchivedItemsUseCase(items).execute(SUB_OWNER);
+
+    assertThat(result).isEmpty();
   }
 
   // ----- settings -----------------------------------------------------------

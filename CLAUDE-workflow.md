@@ -31,6 +31,8 @@ Plan-Mode wird über `ExitPlanMode` verlassen — das Plan-Approval ist die Vora
 
 Plan wird in **kleinteilige** GitHub-Issues überführt — eines pro logischer Einheit. Jedes Issue ist selbst-erklärend (Kontext, Aufgabe, Akzeptanzkriterium, Abhängigkeiten) und steht ohne Chat-Verlauf für sich.
 
+Neue Issues werden über die Templates in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) angelegt — `implementation.md` (Backend/Java), `frontend-implementation.md` (React) und `documentation.md` (reine Doku). Die Implementierungs-Templates enthalten die verbindliche Definition-of-Done-Checkliste, damit Architektur-, Test- und Security-Pflichten schon beim Schneiden erzwungen werden.
+
 Issue-Format → siehe [unten](#-issue-dokumentation-format).
 
 ### 4. „GO" (User)
@@ -53,9 +55,25 @@ Wenn das Projekt ein Kanban-Board nutzt, dient die **Ready**-Spalte als generell
 - Wenn UI: Dev-Server starten, Feature im Browser durchklicken (golden path + Edge-Cases).
 - Wenn DB-Schema: Flyway-Migration sauber idempotent? Rollback bei Fehlern?
 
-### 7. Code-Review durch zweites Modell (User-initiiert)
+### 7. Self-Review via `/code-review` (verpflichtend vor jedem Push)
 
-Vier-Augen-Prinzip mit zwei KI-Modellen. Standard-Setup: Claude implementiert, OpenAI Codex reviewt (oder analoge Tools). Der Review-Pass ergänzt die menschliche Bewertung — er ersetzt sie nicht.
+Vor jedem `push main`-Trigger führt Claude den `/code-review`-Skill auf der **gesamten ungepushten Commit-Reihe** (`origin/main..HEAD`) aus — nicht pro Issue, sondern pro Welle. Das verhindert Review-Müdigkeit bei sehr kleinen Issues und fängt die unscheinbaren Verstöße ab, die `mvn verify` nicht abdeckt.
+
+**Trigger-Punkt:** Sagt der User `push main`, antwortet Claude **nicht** direkt mit `git push`, sondern startet zuerst `/code-review`. Erst nach dem Review-Bericht und dessen Bewertung durch den User wird gepusht.
+
+**Findings werden klassifiziert** (P1 / P2 / P3) und im folgenden Format gemeldet:
+
+```
+## Review-Bericht (Welle #X)
+- P1: <Liste, mit Datei:Zeile + warum kritisch>
+- P2: <Liste>
+- P3: <Liste>
+```
+
+- **P1 blockt den Push.** Claude legt entweder einen Fixup im aktuellen Commit an (wenn HEAD-fix) oder ein neues Issue, das vor dem nächsten Push abgeschlossen sein muss.
+- **P2 / P3 blocken nicht.** Claude listet im finalen Push-Abschnitt die Folge-Issue-Nummern auf, die im Backlog landen.
+
+**Externes Zweit-Modell-Review (z. B. OpenAI Codex) bleibt optional** — eine zusätzliche Schicht, wenn der User es manuell drüber laufen lässt, aber nicht der Standard-Pfad. Der Self-Review ersetzt die menschliche Bewertung nicht; er ergänzt sie.
 
 ### 8. „Push-Main" (User)
 
@@ -299,6 +317,8 @@ Wenn du dich beim Arbeiten dabei ertappst, einen dieser Gedanken zu haben — **
 - „Coverage ist bei 98 %, das reicht." (Reicht nicht — 100 % oder begründeter Ausschluss.)
 - „Ich erfinde mal den nächsten Schritt." (Nein — beim Issue bleiben, bei Unklarheit nachfragen.)
 - „Der Hook ist nervig, `--no-verify`." (Nein — Hook-Ursache fixen.)
+- „Review-Skip, weil die Welle klein wirkt." (Nein — Reviews fangen genau die unscheinbaren Verstöße ab.)
+- „Direkt pushen, weil `mvn verify` grün ist." (Nein — JaCoCo + ArchUnit decken nicht alles ab: Naming, Schicht-Drift in DTOs, fehlende `@Valid`. Erst `/code-review`.)
 
 ---
 

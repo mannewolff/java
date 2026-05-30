@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.dashboard.application.CreateDashboardUseCase;
 import org.mwolff.api.dashboard.application.DeleteDashboardUseCase;
 import org.mwolff.api.dashboard.application.GetDashboardUseCase;

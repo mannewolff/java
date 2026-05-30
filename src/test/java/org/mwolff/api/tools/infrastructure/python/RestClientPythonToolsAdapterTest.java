@@ -17,7 +17,7 @@ import org.mwolff.api.tools.domain.PythonToolsException;
 import org.mwolff.api.tools.domain.ResizeParams;
 import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
-import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 import org.springframework.web.client.RestClient;
 
 import okhttp3.mockwebserver.MockResponse;
@@ -30,8 +30,8 @@ class RestClientPythonToolsAdapterTest {
   private MockWebServer server;
   private RestClientPythonToolsAdapter adapter;
 
-  private final UploadedImage image =
-      new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", "photo.png");
+  private final ValidatedImage image =
+      new ValidatedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", "photo.png");
 
   @BeforeEach
   void setUp() throws IOException {
@@ -267,42 +267,32 @@ class RestClientPythonToolsAdapterTest {
   // ----- Multipart edge cases (covers PythonToolsMultipart branches) -------
 
   @Test
-  void shouldStillUploadWhenImageContentTypeIsNull() throws Exception {
-    final UploadedImage noContentType =
-        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), null, "photo.png");
+  void shouldSendValidatedContentTypeAsFilePartHeader() throws Exception {
+    // #135: der erkannte (vertrauenswürdige) MIME-Type aus ValidatedImage muss als
+    // Content-Type des file-Parts in den Multipart-Body wandern — kein octet-stream-Fallback,
+    // kein Client-Wert.
+    final ValidatedImage webpImage =
+        new ValidatedImage("raw".getBytes(StandardCharsets.UTF_8), "image/webp", "photo.webp");
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
             .setHeader("Content-Type", "image/png")
             .setBody(new Buffer().write(new byte[] {7})));
 
-    adapter.resize(noContentType, new ResizeParams(10, 10, "auto", 90));
+    adapter.resize(webpImage, new ResizeParams(10, 10, "auto", 90));
 
     final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
     assertThat(request).isNotNull();
     final String body = request.getBody().readString(StandardCharsets.UTF_8);
     assertThat(body).contains("name=\"file\"");
-  }
-
-  @Test
-  void shouldStillUploadWhenImageContentTypeIsBlank() throws Exception {
-    final UploadedImage blankContentType =
-        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "   ", "photo.png");
-    server.enqueue(
-        new MockResponse()
-            .setResponseCode(200)
-            .setHeader("Content-Type", "image/png")
-            .setBody(new Buffer().write(new byte[] {7})));
-
-    adapter.resize(blankContentType, new ResizeParams(10, 10, "auto", 90));
-
-    assertThat(server.takeRequest(2, TimeUnit.SECONDS)).isNotNull();
+    assertThat(body).contains("Content-Type: image/webp");
+    assertThat(body).doesNotContain("application/octet-stream");
   }
 
   @Test
   void shouldFallBackToUploadFilenameWhenOriginalFilenameIsNull() throws Exception {
-    final UploadedImage noFilename =
-        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", null);
+    final ValidatedImage noFilename =
+        new ValidatedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", null);
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -320,8 +310,8 @@ class RestClientPythonToolsAdapterTest {
 
   @Test
   void shouldFallBackToUploadFilenameWhenOriginalFilenameIsBlank() throws Exception {
-    final UploadedImage blankFilename =
-        new UploadedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", "   ");
+    final ValidatedImage blankFilename =
+        new ValidatedImage("raw".getBytes(StandardCharsets.UTF_8), "image/png", "   ");
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -338,8 +328,8 @@ class RestClientPythonToolsAdapterTest {
 
   // ----- svg-to-png --------------------------------------------------------
 
-  private final UploadedImage svgImage =
-      new UploadedImage("<svg/>".getBytes(StandardCharsets.UTF_8), "image/svg+xml", "logo.svg");
+  private final ValidatedImage svgImage =
+      new ValidatedImage("<svg/>".getBytes(StandardCharsets.UTF_8), "image/svg+xml", "logo.svg");
 
   @Test
   void svgToPngShouldForwardAllFormFieldsWhenDimensionsGiven() throws Exception {

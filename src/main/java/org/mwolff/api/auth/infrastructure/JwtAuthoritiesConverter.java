@@ -1,4 +1,4 @@
-package org.mwolff.api.auth;
+package org.mwolff.api.auth.infrastructure;
 
 import java.util.Collection;
 import java.util.List;

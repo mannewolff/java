@@ -18,11 +18,36 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import AspectRatioIcon from '@mui/icons-material/AspectRatio';
+import CompressIcon from '@mui/icons-material/Compress';
 
 import { useAuth } from '../auth/useAuth';
 import { useNotify } from '../notify/NotifyProvider';
 
 const SWAGGER_UI_PATH = '/api/swagger-ui.html';
+
+/** Bildtools, die aus dem Hauptmenü ausgelagert wurden (#131) — Routen bleiben aktiv. */
+const IMAGE_TOOLS = [
+  {
+    path: '/tools/remove-background',
+    label: 'Hintergrund entfernen',
+    description: 'Freisteller per KI — entfernt den Bildhintergrund',
+    icon: AutoFixHighIcon,
+  },
+  {
+    path: '/tools/og-image',
+    label: 'Beitragsbild',
+    description: 'Bild auf Standard-Format für Social-/OG-Vorschau zuschneiden',
+    icon: AspectRatioIcon,
+  },
+  {
+    path: '/tools/resize',
+    label: 'Bild verkleinern',
+    description: 'Bilder auf eine kleinere Auflösung herunterrechnen',
+    icon: CompressIcon,
+  },
+] as const;
 
 /** Maskiert den Token zu `eyJ…[letzte 6 Zeichen]`, ohne ihn ganz preiszugeben. */
 function maskToken(token: string): string {
@@ -64,6 +89,27 @@ export default function SettingsPage() {
             />
           </ListItemButton>
         </ListItem>
+      </List>
+
+      <Divider sx={{ my: 3 }} />
+
+      <Typography variant="h6" gutterBottom>
+        Bildverarbeitung
+      </Typography>
+      <List>
+        {IMAGE_TOOLS.map((tool) => {
+          const Icon = tool.icon;
+          return (
+            <ListItem key={tool.path} disablePadding>
+              <ListItemButton component={RouterLink} to={tool.path}>
+                <ListItemIcon>
+                  <Icon />
+                </ListItemIcon>
+                <ListItemText primary={tool.label} secondary={tool.description} />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
 
       <Divider sx={{ my: 3 }} />

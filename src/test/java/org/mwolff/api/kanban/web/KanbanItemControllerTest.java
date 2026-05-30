@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,11 +19,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
+import org.mwolff.api.kanban.application.ArchiveItemUseCase;
 import org.mwolff.api.kanban.application.CreateItemUseCase;
-import org.mwolff.api.kanban.application.DeleteItemUseCase;
+import org.mwolff.api.kanban.application.ForceDeleteItemUseCase;
 import org.mwolff.api.kanban.application.ListItemsUseCase;
 import org.mwolff.api.kanban.application.MoveItemUseCase;
+import org.mwolff.api.kanban.application.RestoreItemUseCase;
 import org.mwolff.api.kanban.application.UpdateItemContentUseCase;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
@@ -52,7 +55,9 @@ class KanbanItemControllerTest {
   @MockitoBean private CreateItemUseCase createUseCase;
   @MockitoBean private UpdateItemContentUseCase updateUseCase;
   @MockitoBean private MoveItemUseCase moveUseCase;
-  @MockitoBean private DeleteItemUseCase deleteUseCase;
+  @MockitoBean private ArchiveItemUseCase archiveUseCase;
+  @MockitoBean private ForceDeleteItemUseCase forceDeleteUseCase;
+  @MockitoBean private RestoreItemUseCase restoreUseCase;
 
   @MockitoBean private JwtDecoder jwtDecoder;
 
@@ -66,7 +71,8 @@ class KanbanItemControllerTest {
         position,
         Instant.EPOCH,
         Instant.EPOCH,
-        column == KanbanColumn.DONE ? Instant.EPOCH : null);
+        column == KanbanColumn.DONE ? Instant.EPOCH : null,
+        false);
   }
 
   @Test
@@ -190,16 +196,52 @@ class KanbanItemControllerTest {
   }
 
   @Test
-  void deleteShouldReturn204() throws Exception {
+  void archiveShouldReturn204() throws Exception {
     mockMvc
         .perform(delete("/api/kanban/items/3").with(userJwt()))
         .andExpect(status().isNoContent());
   }
 
   @Test
-  void deleteForeignShouldReturn404() throws Exception {
-    willThrow(new KanbanItemNotFoundException(3L)).given(deleteUseCase).execute(any(), eq(3L));
+  void archiveForeignShouldReturn404() throws Exception {
+    willThrow(new KanbanItemNotFoundException(3L)).given(archiveUseCase).execute(any(), eq(3L));
 
     mockMvc.perform(delete("/api/kanban/items/3").with(userJwt())).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void forceDeleteShouldReturn204() throws Exception {
+    mockMvc
+        .perform(delete("/api/kanban/items/3/force").with(userJwt()))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void forceDeleteForeignShouldReturn404() throws Exception {
+    willThrow(new KanbanItemNotFoundException(3L)).given(forceDeleteUseCase).execute(any(), eq(3L));
+
+    mockMvc
+        .perform(delete("/api/kanban/items/3/force").with(userJwt()))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void restoreShouldReturn200WithItem() throws Exception {
+    given(restoreUseCase.execute(SUB, 5L)).willReturn(item(5L, KanbanColumn.BACKLOG, 0));
+
+    mockMvc
+        .perform(patch("/api/kanban/items/5/restore").with(userJwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(5))
+        .andExpect(jsonPath("$.archived").value(false));
+  }
+
+  @Test
+  void restoreForeignShouldReturn404() throws Exception {
+    willThrow(new KanbanItemNotFoundException(5L)).given(restoreUseCase).execute(any(), eq(5L));
+
+    mockMvc
+        .perform(patch("/api/kanban/items/5/restore").with(userJwt()))
+        .andExpect(status().isNotFound());
   }
 }

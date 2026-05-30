@@ -5,6 +5,7 @@ import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsPort;
 import org.mwolff.api.tools.domain.UploadValidatorPort;
 import org.mwolff.api.tools.domain.UploadedImage;
+import org.mwolff.api.tools.domain.ValidatedImage;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,7 +20,7 @@ public class ExtractPaletteUseCase {
   }
 
   public PaletteResult execute(UploadedImage image, PaletteParams params) {
-    validator.validateImage(image);
-    return tools.extractPalette(image, params);
+    final ValidatedImage validated = validator.validateImage(image);
+    return tools.extractPalette(validated, params);
   }
 }

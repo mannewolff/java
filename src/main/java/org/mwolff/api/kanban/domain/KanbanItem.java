@@ -20,6 +20,7 @@ import java.util.Objects;
  * @param createdAt Erstanlage
  * @param updatedAt letzte Änderung
  * @param movedToDoneAt Zeitpunkt des letzten Wechsels nach DONE (null außerhalb DONE)
+ * @param archived {@code true} = archiviert (Soft-Delete), wird standardmäßig nicht angezeigt
  */
 public record KanbanItem(
     Long id,
@@ -30,7 +31,8 @@ public record KanbanItem(
     int position,
     Instant createdAt,
     Instant updatedAt,
-    Instant movedToDoneAt) {
+    Instant movedToDoneAt,
+    boolean archived) {
 
   /** Maximale Länge des Titels — entspricht dem Schema. */
   public static final int MAX_TITLE_LENGTH = 200;
@@ -70,13 +72,23 @@ public record KanbanItem(
   public static KanbanItem newInstance(
       String userSub, String title, String body, KanbanColumn column, int position) {
     final Instant movedToDone = column == KanbanColumn.DONE ? Instant.now() : null;
-    return new KanbanItem(null, userSub, title, body, column, position, null, null, movedToDone);
+    return new KanbanItem(
+        null, userSub, title, body, column, position, null, null, movedToDone, false);
   }
 
-  /** Kopie mit neuem Titel und neuem Body. {@code movedToDoneAt}-Logik bleibt unverändert. */
+  /** Kopie mit neuem Titel und neuem Body. Alle anderen Felder bleiben unverändert. */
   public KanbanItem withContent(String newTitle, String newBody) {
     return new KanbanItem(
-        id, userSub, newTitle, newBody, column, position, createdAt, updatedAt, movedToDoneAt);
+        id,
+        userSub,
+        newTitle,
+        newBody,
+        column,
+        position,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived);
   }
 
   /**
@@ -88,12 +100,30 @@ public record KanbanItem(
     final boolean leavingDone = column == KanbanColumn.DONE && newColumn != KanbanColumn.DONE;
     final Instant nextMovedToDone = enteringDone ? now : leavingDone ? null : movedToDoneAt;
     return new KanbanItem(
-        id, userSub, title, body, newColumn, newPosition, createdAt, updatedAt, nextMovedToDone);
+        id,
+        userSub,
+        title,
+        body,
+        newColumn,
+        newPosition,
+        createdAt,
+        updatedAt,
+        nextMovedToDone,
+        archived);
   }
 
   /** Kopie mit neuer Position (gleiche Spalte). */
   public KanbanItem withPosition(int newPosition) {
     return new KanbanItem(
-        id, userSub, title, body, column, newPosition, createdAt, updatedAt, movedToDoneAt);
+        id,
+        userSub,
+        title,
+        body,
+        column,
+        newPosition,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived);
   }
 }

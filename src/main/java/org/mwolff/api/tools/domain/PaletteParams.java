@@ -4,8 +4,9 @@ package org.mwolff.api.tools.domain;
 public record PaletteParams(int count) {
 
   public PaletteParams {
-    if (count < 1) {
-      throw new IllegalArgumentException("count must be >= 1");
+    // Fachliche Invariante (#134): deckungsgleich mit dem Web-Vertrag in PaletteController.
+    if (count < 2 || count > 10) {
+      throw new IllegalArgumentException("count must be between 2 and 10");
     }
   }
 }

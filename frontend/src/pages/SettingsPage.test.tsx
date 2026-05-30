@@ -107,3 +107,23 @@ describe('SettingsPage — Entwickler / API', () => {
     expect(screen.queryByRole('button', { name: 'Token kopieren' })).not.toBeInTheDocument();
   });
 });
+
+describe('SettingsPage — Bildverarbeitung', () => {
+  beforeEach(() => {
+    authState = makeAuth();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it.each([
+    ['Hintergrund entfernen', '/tools/remove-background'],
+    ['Beitragsbild', '/tools/og-image'],
+    ['Bild verkleinern', '/tools/resize'],
+  ])('verlinkt das ausgelagerte Bildtool "%s" auf %s', (label, path) => {
+    render_();
+    const link = screen.getByRole('link', { name: new RegExp(label) });
+    expect(link).toHaveAttribute('href', path);
+  });
+});

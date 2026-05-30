@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.mwolff.api.auth.SecurityConfig;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.kanban.application.AddCommentUseCase;
 import org.mwolff.api.kanban.application.DeleteCommentUseCase;
 import org.mwolff.api.kanban.application.ListCommentsUseCase;

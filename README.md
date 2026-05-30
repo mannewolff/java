@@ -61,6 +61,8 @@ Das Script erledigt zwei Sachen:
 
 > **Warum dieser Override?** Vite-Frontend wird im Docker-Multi-Stage-Build via `npm run build` gebaut → das ist `mode=production` → Vite lädt `frontend/.env.production` (Production-Keycloak unter `toolboxauth.mwolff.org`). Lokal funktioniert das nicht, weil der Production-Realm `localhost:8080` nicht als Redirect-URI kennt. `frontend/.env.production.local` hat in Vites Auflösungs-Reihenfolge **höhere** Priorität als `.env.production` und überschreibt die Keys nur lokal — die Datei steht in `.gitignore` und kommt nie ins Repo.
 
+> **Wichtig:** Das Script ist idempotent — mehrfaches Ausführen ist safe. Wenn du auf einem Rechner arbeitest, auf dem du zuvor schon mal `local-dev-setup.sh` ausgeführt hast, läuft es einfach erneut durch und überschreibt `frontend/.env.production.local` neu (kein Problem). `frontend/.env.production.local` ist **gitignored** und muss daher nach jedem frischen `git clone` einmalig neu erzeugt werden.
+
 Anschließend **Passwörter in `.env` anpassen** (mindestens `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD`).
 
 #### Schritt 2: Stack starten
@@ -203,6 +205,8 @@ uv run uvicorn main:app --reload
 
 Frontend läuft auf `http://localhost:5173` und leitet `/api/*` per Proxy an Spring auf `:8080` weiter. Spring spricht python-tools unter `http://localhost:8000` an (siehe `PYTHON_TOOLS_URL`). Login geht über Keycloak auf `:8081`, Realm `toolbox-dev`.
 
+> **Kein `.env.production.local`-Problem im Dev-Modus.** `npm run dev` nutzt automatisch `frontend/.env.development` (Vite `mode=development`) — dort steht bereits `localhost:8081`. Der Override für den Docker-Build (`frontend/.env.production.local`) ist für diesen Workflow **nicht nötig**.
+
 ### 2. Voller Build (ein jar)
 
 ```bash
@@ -238,9 +242,27 @@ Alle UI-Routen sind hinter Keycloak-Login und erfordern Rolle `USER`. Backend-En
 | `/dashboards/:id` | `GET /api/dashboards/{id}`, `PUT /api/dashboards/{id}` | Detail mit Widgets, Layout speichern |
 | `/dashboards/:id` (inline rename) | `PUT /api/dashboards/{id}/name` | Inline-Rename |
 
-Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
+Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend), `KANBAN_LIST` (Mini-Board-Vorschau). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
+
+### Kanban-Board
+
+| Route | Endpoint | Zweck |
+|---|---|---|
+| `/kanban` | `GET/POST/PATCH/DELETE /api/kanban/items` | Vier-Spalten-Board (Backlog → In Progress → In Review → Done) |
+
+Drag & Drop zwischen Spalten und innerhalb einer Spalte (dnd-kit). Items können archiviert (Soft-Delete), wiederhergestellt oder endgültig gelöscht werden. DONE-Items werden nach konfigurierbaren Tagen automatisch bereinigt (`DoneItemCleanupJob`). Kommentarfunktion pro Item. Einstellungen (Retention-Tage, Archiv-Anzeige) über den Settings-Drawer.
+
+### Zeitreihen
+
+| Route | Endpoint | Zweck |
+|---|---|---|
+| `/timeseries` | `GET/POST /api/timeseries` | Zeitreihen anlegen, Datenpunkte ingesten und visualisieren |
+
+Daten können per Ingest-Token via API ohne Login eingespeist werden (`POST /api/ingest/{token}`).
 
 ### Image-Tools
+
+Die Bildtools sind aus dem Hauptmenü in die **Einstellungen** umgezogen (Ausnahme: SVG → PNG und Farbpipette sind weiterhin im Menü). Die Routen bleiben in allen Fällen aktiv.
 
 | Tool | UI-Route | Backend-Endpoint | Implementierung |
 |---|---|---|---|
@@ -248,6 +270,7 @@ Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend). Grid 
 | Beitragsbild (1200×630) | `/tools/og-image` | `POST /api/tools/crop-og`, `POST /api/tools/palette` | Spring proxy → python-tools (Pillow + colorthief) |
 | Bild verkleinern | `/tools/resize` | `POST /api/tools/resize` | Spring proxy → python-tools (Pillow LANCZOS) |
 | SVG → PNG | `/tools/svg-to-png` | `POST /api/tools/svg-to-png` | Spring proxy → python-tools (cairosvg) |
+| Farbpipette | `/tools/color-picker` | `POST /api/tools/palette` | Spring proxy → python-tools (colorthief) |
 
 ### Sonstiges
 

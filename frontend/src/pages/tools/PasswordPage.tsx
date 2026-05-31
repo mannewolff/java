@@ -267,14 +267,16 @@ export default function PasswordPage() {
                 endAdornment: (
                   <InputAdornment position="end">
                     <Tooltip title="Hash kopieren">
-                      <IconButton
-                        edge="end"
-                        onClick={() => copyToClipboard(hash, 'Hash')}
-                        aria-label="Hash kopieren"
-                        disabled={!hash}
-                      >
-                        <ContentCopyIcon />
-                      </IconButton>
+                      <span style={{ display: 'inline-flex' }}>
+                        <IconButton
+                          edge="end"
+                          onClick={() => copyToClipboard(hash, 'Hash')}
+                          aria-label="Hash kopieren"
+                          disabled={!hash}
+                        >
+                          <ContentCopyIcon />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </InputAdornment>
                 ),

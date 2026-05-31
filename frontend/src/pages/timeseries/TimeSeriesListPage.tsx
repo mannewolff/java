@@ -193,32 +193,28 @@ export default function TimeSeriesListPage(): JSX.Element {
               }
             >
               <ListItemButton onClick={() => navigate(`/timeseries/${ts.id}`)}>
-                <ListItemText
-                  primary={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{ts.name}</Typography>
-                      <Chip label={ts.unit} size="small" variant="outlined" />
-                      <Chip
-                        label={ts.dataType === 'INTEGER' ? 'Ganzzahl' : 'Dezimal'}
-                        size="small"
-                        color={ts.dataType === 'INTEGER' ? 'secondary' : 'default'}
-                        variant="outlined"
-                      />
-                    </Stack>
-                  }
-                  secondary={
-                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                <ListItemText disableTypography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography>{ts.name}</Typography>
+                    <Chip label={ts.unit} size="small" variant="outlined" />
+                    <Chip
+                      label={ts.dataType === 'INTEGER' ? 'Ganzzahl' : 'Dezimal'}
+                      size="small"
+                      color={ts.dataType === 'INTEGER' ? 'secondary' : 'default'}
+                      variant="outlined"
+                    />
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {ts.entryCount} {ts.entryCount === 1 ? 'Eintrag' : 'Einträge'}
+                    </Typography>
+                    {ts.description && (
                       <Typography variant="caption" color="text.secondary">
-                        {ts.entryCount} {ts.entryCount === 1 ? 'Eintrag' : 'Einträge'}
+                        · {ts.description}
                       </Typography>
-                      {ts.description && (
-                        <Typography variant="caption" color="text.secondary">
-                          · {ts.description}
-                        </Typography>
-                      )}
-                    </Stack>
-                  }
-                />
+                    )}
+                  </Stack>
+                </ListItemText>
               </ListItemButton>
             </ListItem>
           ))}

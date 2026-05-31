@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 
 import org.mwolff.api.timeseries.application.AddEntryUseCase;
 import org.mwolff.api.timeseries.application.AggregateTimeSeriesUseCase;
@@ -31,6 +32,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,6 +48,7 @@ import org.springframework.web.bind.annotation.RestController;
  * SecurityConfig#requestMatchers("/api/timeseries/**").hasRole("USER")} geschuetzt. Owner-Check
  * passiert in den Use-Cases — der Controller leitet nur {@code sub} aus dem JWT weiter.
  */
+@Validated
 @RestController
 @RequestMapping("/api/timeseries")
 public class TimeSeriesController {
@@ -109,14 +112,14 @@ public class TimeSeriesController {
   }
 
   @GetMapping("/{id}")
-  public TimeSeriesSummaryResponse get(JwtAuthenticationToken auth, @PathVariable long id) {
+  public TimeSeriesSummaryResponse get(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     return TimeSeriesSummaryResponse.from(getUseCase.execute(auth.getToken().getSubject(), id));
   }
 
   @PutMapping("/{id}")
   public TimeSeriesSummaryResponse update(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody UpdateTimeSeriesRequest body) {
     final String sub = auth.getToken().getSubject();
     updateUseCase.execute(sub, id, body.name(), body.description(), body.unit(), body.dataType());
@@ -124,7 +127,7 @@ public class TimeSeriesController {
   }
 
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> delete(JwtAuthenticationToken auth, @PathVariable long id) {
+  public ResponseEntity<Void> delete(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     deleteUseCase.execute(auth.getToken().getSubject(), id);
     return ResponseEntity.noContent().build();
   }
@@ -132,7 +135,7 @@ public class TimeSeriesController {
   @GetMapping("/{id}/entries")
   public List<TimeSeriesEntryResponse> listEntries(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant from,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -153,7 +156,7 @@ public class TimeSeriesController {
   @PostMapping("/{id}/entries")
   public ResponseEntity<TimeSeriesEntryResponse> addEntry(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody AddEntryRequest body) {
     final TimeSeriesEntry created =
         addEntryUseCase.execute(auth.getToken().getSubject(), id, body.timestamp(), body.value());
@@ -161,14 +164,14 @@ public class TimeSeriesController {
   }
 
   @GetMapping("/{id}/latest")
-  public TimeSeriesEntryResponse latest(JwtAuthenticationToken auth, @PathVariable long id) {
+  public TimeSeriesEntryResponse latest(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     return TimeSeriesEntryResponse.from(
         latestEntryUseCase.execute(auth.getToken().getSubject(), id));
   }
 
   @PostMapping(path = "/{id}/entries/bulk", consumes = "text/csv")
   public ResponseEntity<BulkImportResponse> bulkImport(
-      JwtAuthenticationToken auth, @PathVariable long id, @RequestBody byte[] body) {
+      JwtAuthenticationToken auth, @PathVariable @Min(1) long id, @RequestBody byte[] body) {
     if (body.length > MAX_BULK_BYTES) {
       throw new IllegalArgumentException("body too large: max " + MAX_BULK_BYTES + " bytes");
     }
@@ -187,7 +190,7 @@ public class TimeSeriesController {
   @GetMapping("/{id}/aggregate")
   public List<AggregateBucketResponse> aggregate(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @RequestParam Granularity granularity,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant from,

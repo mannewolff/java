@@ -3,6 +3,7 @@ package org.mwolff.api.dashboard.web;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 
 import org.mwolff.api.dashboard.application.CreateDashboardUseCase;
 import org.mwolff.api.dashboard.application.DeleteDashboardUseCase;
@@ -23,6 +24,7 @@ import org.mwolff.api.dashboard.web.dto.UpdateLayoutRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * SecurityConfig#requestMatchers("/api/dashboards/**").hasRole("USER")} geschützt. Owner-Check
  * passiert in den Use-Cases — der Controller leitet nur {@code sub} aus dem JWT weiter.
  */
+@Validated
 @RestController
 @RequestMapping("/api/dashboards")
 public class DashboardController {
@@ -84,14 +87,14 @@ public class DashboardController {
   }
 
   @GetMapping("/{id}")
-  public DashboardDetailResponse get(JwtAuthenticationToken auth, @PathVariable long id) {
+  public DashboardDetailResponse get(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     return DashboardDetailResponse.from(getUseCase.execute(auth.getToken().getSubject(), id));
   }
 
   @PutMapping("/{id}")
   public DashboardDetailResponse updateLayout(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody UpdateLayoutRequest body) {
     final String sub = auth.getToken().getSubject();
     final List<Widget> domainWidgets =
@@ -103,7 +106,7 @@ public class DashboardController {
 
   @PutMapping("/{id}/default")
   public DashboardSummaryResponse markAsDefault(
-      JwtAuthenticationToken auth, @PathVariable long id) {
+      JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     return DashboardSummaryResponse.from(
         markDefaultUseCase.execute(auth.getToken().getSubject(), id));
   }
@@ -111,7 +114,7 @@ public class DashboardController {
   @PutMapping("/{id}/name")
   public DashboardSummaryResponse rename(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody RenameDashboardRequest body) {
     return DashboardSummaryResponse.from(
         renameUseCase.execute(auth.getToken().getSubject(), id, body.name()));
@@ -120,7 +123,7 @@ public class DashboardController {
   @PutMapping("/{id}/background")
   public DashboardSummaryResponse setBackgroundColor(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody SetBackgroundColorRequest body) {
     return DashboardSummaryResponse.from(
         setBackgroundColorUseCase.execute(
@@ -128,7 +131,7 @@ public class DashboardController {
   }
 
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> delete(JwtAuthenticationToken auth, @PathVariable long id) {
+  public ResponseEntity<Void> delete(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     deleteUseCase.execute(auth.getToken().getSubject(), id);
     return ResponseEntity.noContent().build();
   }

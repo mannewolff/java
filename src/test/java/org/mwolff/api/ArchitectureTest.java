@@ -69,7 +69,7 @@ class ArchitectureTest {
   }
 
   @Test
-  void requestAndResponseDtosShouldLiveInDtoOrAdapterPackages() {
+  void requestAndResponseDtosShouldLiveInWebOrDtoPackages() {
     final ArchRule rule =
         noClasses()
             .that()
@@ -77,11 +77,11 @@ class ArchitectureTest {
             .or()
             .haveSimpleNameEndingWith("Response")
             .should()
-            .resideOutsideOfPackages("..dto..", "..tools..", "..web..")
-            .as("DTOs (*Request, *Response) belong in a *.dto, *.tools or *.web package")
+            .resideOutsideOfPackages("..dto..", "..web..")
+            .as("DTOs (*Request, *Response) belong in a *.dto or *.web package only")
             .because(
-                "consistent DTO placement keeps the wire contract visible and prevents domain "
-                    + "types from leaking into HTTP responses");
+                "HTTP request/response DTOs are web adapters; they must not spread into domain "
+                    + "or application layers (CLAUDE-java.md §3.1)");
     rule.check(productionClasses);
   }
 }

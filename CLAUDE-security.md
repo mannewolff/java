@@ -23,6 +23,39 @@ Verbindliche Sicherheits-Regeln für Spring-Boot-Backend und React-Frontend. Die
 - Falls Auth in dieses Projekt einzieht: Token im `HttpOnly`-Cookie speichern (vom Spring-Backend gesetzt), nicht in `localStorage`. `localStorage` ist nur dann akzeptabel, wenn ausdrücklich besprochen und das XSS-Risiko anders kontrolliert wird.
 - Token-Expiry serverseitig prüfen; UI darf darauf vertrauen, dass das Backend abgelaufene Tokens ablehnt.
 
+### OIDC-Token-Speicherung — dokumentierte Sicherheitsentscheidung
+
+**Ist-Stand:** Tokens werden in `sessionStorage` gespeichert ([`oidcConfig.ts`](frontend/src/auth/oidcConfig.ts)), nicht in einem `HttpOnly`-Cookie.
+
+**Begründung:**
+Das Frontend ist ein PKCE-Public-Client (`toolbox-web`) ohne Backend-BFF (Backend-for-Frontend). Ein HttpOnly-Cookie erfordert ein BFF, das den OIDC-Code-Exchange serverseitig durchführt und das Cookie setzt — das ist für diese Single-User-Toolbox unverhältnismäßiger Infrastrukturaufwand.
+
+`sessionStorage` statt `localStorage`:
+- Tokens verschwinden beim Tab-Schließen (kein persistentes Risiko)
+- Kein Cross-Tab-Leak (jeder Tab hat eigene `sessionStorage`)
+- XSS-Risiko ist für React-Apps gering: automatisches Escaping aktiv, `dangerouslySetInnerHTML` verboten
+
+**Restrisiko:** Jedes JavaScript auf derselben Origin kann `sessionStorage` lesen. Dieses Risiko wird durch folgende Gegenmaßnahmen kontrolliert:
+- React escapt Textknoten automatisch (kein XSS durch normales Rendering)
+- `dangerouslySetInnerHTML` ist projektweites Verbot (→ CLAUDE-security.md)
+- Keine Service Workers (kein Worker-basierter XSS-Eskalationsvektor)
+- Keycloak-Tokens sind kurzlebig (Standard-Expiry 5 min Keycloak-Default + Refresh-Token-Rotation)
+
+**Zukünftige Migration:** Wenn ein BFF eingeführt wird, ist auf HttpOnly-Cookie umzustellen. Bis dahin ist `sessionStorage` die bewusst gewählte, akzeptierte Lösung.
+
+### Bearer-Token-Copy-to-Clipboard in Settings
+
+**Ist-Stand:** Die Settings-Seite zeigt den aktuellen Bearer-Token verkürzt und erlaubt Kopieren in die Zwischenablage ([`SettingsPage.tsx`](frontend/src/pages/SettingsPage.tsx)).
+
+**Use-Case:** Developer-Workflow — Swagger UI (`/swagger-ui.html`) benötigt für authenticated Endpoints einen gültigen Bearer-Token zur manuellen API-Erkundung im Dev-Betrieb.
+
+**Risiko und Akzeptanz:**
+- Token liegt kurz in der System-Zwischenablage → sollte nach Nutzung gecleart werden
+- Feature ist für eingeloggte User sichtbar (kein unauthenicated Zugriff)
+- Kein Logging des Tokens, kein Server-seitiger Transfer
+
+Dieses Feature ist **bewusst für Dev-Zwecke** vorgesehen. In Produktion ist es akzeptiert, da der Token nur dem eigenen User gehört. Wenn das Feature künftig entfernt werden soll, ist dafür ein separates Issue anzulegen.
+
 ### Input & XSS
 
 - React escapt Textknoten automatisch — das schützt vor XSS, **solange** kein `dangerouslySetInnerHTML` verwendet wird.

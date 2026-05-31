@@ -290,36 +290,46 @@
                                 -->
                                 <exclude>org/mwolff/api/tools/infrastructure/python/PythonToolsConfig.class</exclude>
                                 <!--
-                                  Dashboard-Persistence-Layer: JPA-Entities (Getter/Setter ohne
-                                  Logik) und der JpaDashboardAdapter sind nur via Testcontainers-
-                                  MariaDB sinnvoll testbar. Die fachliche Logik liegt in den
-                                  Application-Use-Cases und ist dort zu 100% gedeckt (siehe
-                                  DashboardUseCasesTest); der Adapter wird via *IT mit echter
-                                  MariaDB verifiziert.
+                                  JPA-Adapter und -Entities: nur via Testcontainers-MariaDB
+                                  sinnvoll testbar (*IT-Tests). Die fachliche Logik liegt in den
+                                  Application-Use-Cases und ist dort zu 100% gedeckt. Jede
+                                  Klasse wird einzeln ausgeschlossen — keine pauschalen
+                                  Paket-Wildcards (CLAUDE-java.md).
                                 -->
-                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/**</exclude>
+                                <!-- Dashboard Persistence -->
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/DashboardEntity.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/DashboardJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/JpaDashboardAdapter.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/WidgetEntity.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/WidgetJpaRepository.class</exclude>
+                                <!-- Kanban Persistence -->
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAdapter.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanCommentAdapter.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanCommentEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanCommentJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsJpaRepository.class</exclude>
+                                <!-- TimeSeries Persistence -->
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/JpaTimeSeriesAdapter.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntity.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntryEntity.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntryJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesJpaRepository.class</exclude>
+                                <!-- Ingest Persistence (Adapter + Entity + Repository) -->
+                                <exclude>org/mwolff/api/ingest/infrastructure/persistence/JpaIngestTokenAdapter.class</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenEntity.class</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenJpaRepository.class</exclude>
                                 <!--
-                                  Kanban-Persistence-Layer: gleicher Grund wie Dashboard. Adapter
-                                  + Entities sind nur via Testcontainers-MariaDB sinnvoll testbar
-                                  (JpaKanbanAdapterIT). Fachlogik liegt in den Use-Cases und ist
-                                  dort zu 100% gedeckt.
+                                  IngestRateLimiter: In-Memory-Wrapper ohne fachliche Branches.
+                                  Sha256TokenCryptoAdapter: hat Unit-Test (Sha256TokenCryptoAdapterTest),
+                                  aber der catch(NoSuchAlgorithmException)-Block ist in der JVM nicht
+                                  erreichbar (SHA-256 ist garantiert verfügbar) — daher 2 nicht
+                                  abdeckbare Zeilen. Klasse wird gezielt ausgeschlossen.
                                 -->
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/**</exclude>
-                                <!--
-                                  TimeSeries-Persistence-Layer: gleicher Grund wie Dashboard und
-                                  Kanban. Adapter + Entities werden via JpaTimeSeriesAdapterIT mit
-                                  Testcontainers-MariaDB gepruefst. Fachlogik liegt in den
-                                  Use-Cases (TimeSeriesUseCasesTest).
-                                -->
-                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/**</exclude>
-                                <!--
-                                  Ingest-Infrastructure: Persistence-Adapter, SHA-256-Crypto
-                                  (unreachable catch fuer NoSuchAlgorithmException) und der
-                                  In-Memory-RateLimiter-Wrapper. Fachlogik ist in
-                                  IngestRateLimiterTest und Sha256TokenCryptoAdapterTest
-                                  separat gedeckt; das Bundle hier sind Spring-Wirings.
-                                -->
-                                <exclude>org/mwolff/api/ingest/infrastructure/**</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/ratelimit/IngestRateLimiter.class</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/crypto/Sha256TokenCryptoAdapter.class</exclude>
                                 <!--
                                   Ingest-Auth-/RateLimit-Filter: Plumbing-Adapter zwischen
                                   Spring-Security-Chain und den UseCases. Fachlogik wird

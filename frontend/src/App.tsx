@@ -1,23 +1,32 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './layout/AppShell';
-import DashboardListPage from './pages/dashboard/DashboardListPage';
-import DashboardPage from './pages/dashboard/DashboardPage';
-import DashboardDefaultRedirect from './pages/dashboard/DashboardDefaultRedirect';
 import { EditModeProvider } from './pages/dashboard/EditModeContext';
 import { KioskModeProvider } from './pages/dashboard/KioskModeContext';
 import { NotifyProvider } from './notify/NotifyProvider';
-import SettingsPage from './pages/SettingsPage';
-import RemoveBackgroundPage from './pages/tools/RemoveBackgroundPage';
-import OgImagePage from './pages/tools/OgImagePage';
-import ResizePage from './pages/tools/ResizePage';
-import SvgToPngPage from './pages/tools/SvgToPngPage';
-import ColorPickerPage from './pages/tools/ColorPickerPage';
-import PasswordPage from './pages/tools/PasswordPage';
-import KanbanPage from './pages/kanban/KanbanPage';
-import TimeSeriesListPage from './pages/timeseries/TimeSeriesListPage';
-import TimeSeriesDetailPage from './pages/timeseries/TimeSeriesDetailPage';
-import IngestTokenSettingsPage from './pages/settings/IngestTokenSettingsPage';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import PageLoader from './layout/PageLoader';
+
+const DashboardListPage = lazy(() => import('./pages/dashboard/DashboardListPage'));
+const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
+const DashboardDefaultRedirect = lazy(
+  () => import('./pages/dashboard/DashboardDefaultRedirect'),
+);
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const RemoveBackgroundPage = lazy(() => import('./pages/tools/RemoveBackgroundPage'));
+const OgImagePage = lazy(() => import('./pages/tools/OgImagePage'));
+const ResizePage = lazy(() => import('./pages/tools/ResizePage'));
+const SvgToPngPage = lazy(() => import('./pages/tools/SvgToPngPage'));
+const ColorPickerPage = lazy(() => import('./pages/tools/ColorPickerPage'));
+const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
+const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
+const TimeSeriesListPage = lazy(() => import('./pages/timeseries/TimeSeriesListPage'));
+const TimeSeriesDetailPage = lazy(
+  () => import('./pages/timeseries/TimeSeriesDetailPage'),
+);
+const IngestTokenSettingsPage = lazy(
+  () => import('./pages/settings/IngestTokenSettingsPage'),
+);
 
 export default function App() {
   return (
@@ -38,22 +47,120 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/dashboards/default" replace />} />
-        <Route path="/dashboards" element={<DashboardListPage />} />
-        <Route path="/dashboards/default" element={<DashboardDefaultRedirect />} />
-        <Route path="/dashboards/:id" element={<DashboardPage />} />
+        <Route
+          path="/dashboards"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <DashboardListPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/dashboards/default"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <DashboardDefaultRedirect />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/dashboards/:id"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <DashboardPage />
+            </Suspense>
+          }
+        />
         {/* Backward-Compat: alter /dashboard-Bookmark landet beim Default. */}
         <Route path="/dashboard" element={<Navigate to="/dashboards/default" replace />} />
-        <Route path="/tools/remove-background" element={<RemoveBackgroundPage />} />
-        <Route path="/tools/og-image" element={<OgImagePage />} />
-        <Route path="/tools/resize" element={<ResizePage />} />
-        <Route path="/tools/svg-to-png" element={<SvgToPngPage />} />
-        <Route path="/tools/color-picker" element={<ColorPickerPage />} />
-        <Route path="/tools/password" element={<PasswordPage />} />
-        <Route path="/kanban" element={<KanbanPage />} />
-        <Route path="/timeseries" element={<TimeSeriesListPage />} />
-        <Route path="/timeseries/:id" element={<TimeSeriesDetailPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/tokens" element={<IngestTokenSettingsPage />} />
+        <Route
+          path="/tools/remove-background"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <RemoveBackgroundPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/og-image"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <OgImagePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/resize"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <ResizePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/svg-to-png"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <SvgToPngPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/color-picker"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <ColorPickerPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/password"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <PasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/kanban"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <KanbanPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/timeseries"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <TimeSeriesListPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/timeseries/:id"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <TimeSeriesDetailPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <SettingsPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings/tokens"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <IngestTokenSettingsPage />
+            </Suspense>
+          }
+        />
       </Route>
     </Routes>
   );

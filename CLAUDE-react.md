@@ -36,6 +36,22 @@ Der Dev-Server (Vite, `:5173`) leitet `/api/*` per Proxy an Spring Boot (`:8080`
 - `vite.config.ts` nur ändern, wenn unvermeidbar. Insbesondere die Proxy-Konfiguration für `/api` bleibt stabil, damit Dev- und Prod-Verhalten symmetrisch sind.
 - Neue Vite-Plugins nur mit erkennbarem Nutzen.
 
+### Performance-Budget
+
+Messung 2026-05-31 nach Einführung von Route-Level Lazy Loading:
+
+| Chunk | Größe (minified) | Gzip | Limit | Status |
+|---|---|---|---|---|
+| `index.js` (Vendor) | ~485 kB | ~152 kB | 600 kB | ✅ Floor: React + MUI + Router + OIDC |
+| `DashboardPage.js` | ~528 kB | ~146 kB | 600 kB | ✅ Dokumentierte Ausnahme: Widget-Registry |
+| Alle anderen Route-Chunks | < 130 kB | < 40 kB | 600 kB | ✅ |
+
+**Regeln:**
+- **Route-Level Lazy Loading ist Pflicht** für alle Top-Level-Routen in `App.tsx` (via `React.lazy` + `Suspense`). Kein direktes Import einer Page-Komponente in `App.tsx` ohne `lazy()`.
+- **Neuer Chunk > 600 kB** → Pflicht-Review: lässt sich die Komponente aufteilen? Wenn nein, dokumentierter Ausnahmefall in dieser Tabelle.
+- **Vendor-Bundle** (`index.js`) wird durch MUI-Basis bestimmt. Keine zusätzlichen Abhängigkeiten ins Vendor-Bundle einschleppen, ohne Größe zu prüfen.
+- `build.chunkSizeWarningLimit: 600` in `vite.config.ts` ist die Grenze für Build-Warnungen — entspricht dem dokumentierten Budget.
+
 ---
 
 ## ⚛️ React-Komponenten

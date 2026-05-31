@@ -164,7 +164,8 @@ public class TimeSeriesController {
   }
 
   @GetMapping("/{id}/latest")
-  public TimeSeriesEntryResponse latest(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
+  public TimeSeriesEntryResponse latest(
+      JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     return TimeSeriesEntryResponse.from(
         latestEntryUseCase.execute(auth.getToken().getSubject(), id));
   }

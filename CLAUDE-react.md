@@ -12,6 +12,7 @@ Verbindliche Regeln für das Frontend (`frontend/src/`). Ergänzend zu [CLAUDE.m
 - **React Router 6** (BrowserRouter, flache Routen)
 - **Material UI 6 (MUI)** + Emotion für Styling
 - **Vitest + React Testing Library** für Tests
+- **ESLint 10** (`eslint.config.js` flat config) mit TypeScript, React, React-Hooks, jsx-a11y
 
 Der Dev-Server (Vite, `:5173`) leitet `/api/*` per Proxy an Spring Boot (`:8080`). In Produktion serviert Spring Boot den Vite-Build aus `classpath:/static/`. Eine Domain, kein CORS.
 
@@ -197,9 +198,39 @@ Neue wiederverwendbare UI-Bausteine: eigener Ordner unter `frontend/src/componen
 
 ---
 
+## 🔍 ESLint / A11y-Gate
+
+**ESLint ist verbindlich** und muss vor jedem Push grün sein.
+
+```bash
+cd frontend && npm run lint   # ESLint auf src/
+```
+
+**Konfiguration:** [`eslint.config.js`](frontend/eslint.config.js) (flat config, ESLint 10+)
+- `typescript-eslint` (recommended): TypeScript-Korrektheit, kein `any`
+- `eslint-plugin-react` (recommended + jsx-runtime): React-Regeln
+- `eslint-plugin-react-hooks` (recommended): Hooks-Regeln, `exhaustive-deps`
+- `eslint-plugin-jsx-a11y` (recommended): Accessibility-Regeln
+
+**Bewusst deaktiviert:**
+- `react-hooks/set-state-in-effect`: Experimentelle Regel in react-hooks v7, die `useEffect(() => { void load(); }, [])` ablehnt — Standard-Datenfetch-Pattern in diesem Projekt.
+- `jsx-a11y/no-autofocus`: `autoFocus` auf Modal-Dialog-Inputs ist ARIA-konform; pauschales Verbot erzeugt A11y-Rückschritt.
+
+**Neue `eslint-disable`-Kommentare** im Produktivcode müssen im PR begründet werden.
+
+**Pflichtchecks vor Push (Frontend):**
+
+```bash
+cd frontend && npm run build    # TypeScript + Vite
+cd frontend && npm run lint     # ESLint + jsx-a11y
+cd frontend && npm test         # Vitest
+```
+
+---
+
 ## 🔗 Weiterführende Docs
 
 - [CLAUDE.md](CLAUDE.md) — Projekt-Übersicht
 - [CLAUDE-java.md](CLAUDE-java.md) — Backend-Pendant
-- [CLAUDE-security.md](CLAUDE-security.md) — XSS, Storage, Secrets
+- [CLAUDE-security.md](CLAUDE-security.md) — XSS, Storage, Secrets, OIDC
 - [CLAUDE-workflow.md](CLAUDE-workflow.md) — 9-Schritte-Workflow + Pflichtchecks

@@ -246,6 +246,7 @@ export default function WidgetPlot({
     }
     // `widget.config` ist die stabile String-Quelle aller config.*-Felder; die
     // geparsten Werte (u. a. das overlays-Array) sind pro Render neue Referenzen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, widget.config, seriesList]);
 
   function toggleOverlay(overlay: PlotOverlay): void {
@@ -273,14 +274,15 @@ export default function WidgetPlot({
   const chartData = points ?? [];
 
   const overlayLines = useMemo(() => {
-    if (isRawMode || chartData.length === 0 || config.overlays.length === 0) return [];
-    const values = chartData.map((p) => p.value);
+    const data = points ?? [];
+    if (isRawMode || data.length === 0 || config.overlays.length === 0) return [];
+    const values = data.map((p) => p.value);
     return config.overlays.map((overlay) => ({
       overlay,
       y: overlayValue(overlay, values),
       ...OVERLAY_META[overlay],
     }));
-  }, [isRawMode, chartData, config.overlays]);
+  }, [isRawMode, points, config.overlays]);
 
   const noConfiguredSeries = config.timeSeriesId == null;
 

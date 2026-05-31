@@ -388,7 +388,7 @@ export default function KanbanPage(): JSX.Element {
         <DialogTitle id="kanban-archive-title">Item archivieren?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            „{pendingArchive?.title}" wird archiviert und kann später wiederhergestellt werden.
+            „{pendingArchive?.title}” wird archiviert und kann später wiederhergestellt werden.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -407,7 +407,7 @@ export default function KanbanPage(): JSX.Element {
         <DialogTitle id="kanban-force-delete-title">Item endgültig löschen?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            „{pendingForceDelete?.title}" wird unwiderruflich entfernt.
+            „{pendingForceDelete?.title}” wird unwiderruflich entfernt.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

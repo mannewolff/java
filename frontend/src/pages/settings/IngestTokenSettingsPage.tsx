@@ -313,7 +313,7 @@ export default function IngestTokenSettingsPage(): JSX.Element {
         <DialogTitle id="token-revoke-title">Token widerrufen?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Der Token „{toRevoke?.name}" wird sofort deaktiviert. Externe Programme, die ihn
+            Der Token „{toRevoke?.name}” wird sofort deaktiviert. Externe Programme, die ihn
             verwenden, bekommen ab sofort 401.
           </DialogContentText>
         </DialogContent>

@@ -288,7 +288,7 @@ export default function TimeSeriesListPage(): JSX.Element {
         <DialogTitle id="timeseries-delete-title">Zeitreihe löschen?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Die Zeitreihe „{toDelete?.name}" und alle ihre Einträge werden unwiderruflich
+            Die Zeitreihe „{toDelete?.name}” und alle ihre Einträge werden unwiderruflich
             entfernt.
           </DialogContentText>
         </DialogContent>

@@ -9,6 +9,7 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 - **Neu im Projekt?** Lies diese Datei + [CLAUDE-workflow.md](CLAUDE-workflow.md).
 - **Java/Spring-Backend arbeiten?** → [CLAUDE-java.md](CLAUDE-java.md)
 - **React-Frontend arbeiten?** → [CLAUDE-react.md](CLAUDE-react.md)
+- **Python-Microservice (python-tools) arbeiten?** → [CLAUDE-Python.md](CLAUDE-Python.md)
 - **Dashboard-Widget bauen/ändern?** → [CLAUDE-widget.md](CLAUDE-widget.md)
 - **Security?** → [CLAUDE-security.md](CLAUDE-security.md)
 - **Plan-Mode / Git / Issue-Workflow?** → [CLAUDE-workflow.md](CLAUDE-workflow.md)
@@ -21,9 +22,10 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 |---|---|---|
 | **CLAUDE.md** (diese Datei) | Projekt-Übersicht + Pflichtchecks | ❌ Projekt |
 | [CLAUDE-java.md](CLAUDE-java.md) | Java 21, Spring Boot 3, TDD, Coverage, Mutationstests | ✅ Allgemein |
-| [CLAUDE-react.md](CLAUDE-react.md) | React 18, Vite, TypeScript, MUI | ✅ Allgemein |
+| [CLAUDE-react.md](CLAUDE-react.md) | React 18, Vite, TypeScript, MUI, Lazy Loading, ESLint/A11y | ✅ Allgemein |
+| [CLAUDE-Python.md](CLAUDE-Python.md) | FastAPI, Pillow, rembg, python-tools Microservice | ❌ Projekt |
 | [CLAUDE-widget.md](CLAUDE-widget.md) | Dashboard-Widgets: Props-Vertrag, Config, Darstellung, neuer Typ | ❌ Projekt |
-| [CLAUDE-security.md](CLAUDE-security.md) | Spring Security, JPA, Frontend-XSS, Secrets | ✅ Allgemein |
+| [CLAUDE-security.md](CLAUDE-security.md) | Spring Security, JPA, Frontend-XSS, Secrets, OIDC-Token-Handling | ✅ Allgemein |
 | [CLAUDE-workflow.md](CLAUDE-workflow.md) | 9-Schritte-Workflow, Issues, Git, Pflichtchecks | ✅ Allgemein |
 
 ---

@@ -26,7 +26,7 @@ export interface CreateTimeSeriesPayload {
   dataType: TimeSeriesDataType;
 }
 
-export interface UpdateTimeSeriesPayload extends CreateTimeSeriesPayload {}
+export type UpdateTimeSeriesPayload = CreateTimeSeriesPayload;
 
 export interface ListEntriesParams {
   from?: string;

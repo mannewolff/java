@@ -391,7 +391,6 @@ export default function DashboardPage(): JSX.Element {
     const dirty =
       detail != null && draft != null && !widgetsEqual(detail.widgets, draft.widgets);
     if (dirty) {
-      // eslint-disable-next-line no-alert
       const ok = window.confirm('Ungespeicherte Änderungen verwerfen?');
       if (!ok) return;
     }
@@ -665,7 +664,7 @@ export default function DashboardPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 1 }}>
             {editMode
               ? 'Ziehe ein Widget aus der linken Palette auf das Dashboard.'
-              : 'Klicke oben rechts auf „Bearbeiten", um Widgets hinzuzufügen.'}
+              : 'Klicke oben rechts auf „Bearbeiten”, um Widgets hinzuzufügen.'}
           </Typography>
         </Paper>
       )}
@@ -735,8 +734,8 @@ export default function DashboardPage(): JSX.Element {
         <DialogTitle id="widget-delete-title">Widget löschen?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Das Widget wird aus dem Layout entfernt. Die Änderung wird erst mit „Speichern"
-            persistiert — bis dahin kannst du sie über „Abbrechen" zurückrollen.
+            Das Widget wird aus dem Layout entfernt. Die Änderung wird erst mit „Speichern”
+            persistiert — bis dahin kannst du sie über „Abbrechen” zurückrollen.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

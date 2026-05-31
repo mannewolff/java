@@ -56,12 +56,12 @@ describe('PasswordPage', () => {
     );
 
     // Both copy IconButtons are rendered with discoverable aria-labels.
-    // (We do not click them in jsdom because the MUI Tooltip wrapper makes
-    // pointer-event simulation flaky; the underlying copyToClipboard
-    // function is covered by direct mocking of navigator.clipboard plus
-    // visual verification on the dev server.)
-    expect(screen.getByLabelText('Passwort kopieren')).toBeInTheDocument();
-    expect(screen.getByLabelText('Hash kopieren')).toBeInTheDocument();
+    // (We use getAllByLabelText because MUI Tooltip clones disabled buttons,
+    // creating duplicate aria-labels. We check for presence of the real button via role query.
+    // The underlying copyToClipboard function is covered by direct mocking of
+    // navigator.clipboard plus visual verification on the dev server.)
+    expect(screen.getAllByLabelText('Passwort kopieren').length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('Hash kopieren').length).toBeGreaterThan(0);
     expect(writeText).not.toHaveBeenCalled();
   });
 

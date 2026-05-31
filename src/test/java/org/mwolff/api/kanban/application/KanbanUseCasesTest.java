@@ -96,7 +96,8 @@ class KanbanUseCasesTest {
         .willReturn(List.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-    final KanbanItem created = new CreateItemUseCase(items).execute(SUB_OWNER, "Neu", "body", null);
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "body", null);
 
     assertThat(created.column()).isEqualTo(KanbanColumn.BACKLOG);
     assertThat(created.position()).isEqualTo(1);
@@ -108,7 +109,7 @@ class KanbanUseCasesTest {
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
     final KanbanItem created =
-        new CreateItemUseCase(items).execute(SUB_OWNER, "Neu", "", KanbanColumn.DONE);
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", KanbanColumn.DONE);
 
     assertThat(created.column()).isEqualTo(KanbanColumn.DONE);
     assertThat(created.movedToDoneAt()).isNotNull();

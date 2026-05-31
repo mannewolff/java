@@ -2,6 +2,8 @@ package org.mwolff.api.kanban.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.AbstractIntegrationTest;
 import org.mwolff.api.kanban.domain.KanbanColumn;
@@ -24,7 +26,9 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   @Autowired private JpaKanbanAdapter items;
 
   private long createItem() {
-    return items.save(KanbanItem.newInstance(USER, "Item", "", KanbanColumn.BACKLOG, 0)).id();
+    return items
+        .save(KanbanItem.newInstance(USER, "Item", "", KanbanColumn.BACKLOG, 0, Instant.now()))
+        .id();
   }
 
   @Test

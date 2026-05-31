@@ -11,7 +11,8 @@ class KanbanItemTest {
 
   @Test
   void newInstanceInBacklogShouldNotSetMovedToDoneAt() {
-    final KanbanItem item = KanbanItem.newInstance("sub-1", "T", "body", KanbanColumn.BACKLOG, 0);
+    final KanbanItem item =
+        KanbanItem.newInstance("sub-1", "T", "body", KanbanColumn.BACKLOG, 0, Instant.EPOCH);
     assertThat(item.id()).isNull();
     assertThat(item.movedToDoneAt()).isNull();
     assertThat(item.column()).isEqualTo(KanbanColumn.BACKLOG);
@@ -19,7 +20,8 @@ class KanbanItemTest {
 
   @Test
   void newInstanceInDoneShouldSetMovedToDoneAt() {
-    final KanbanItem item = KanbanItem.newInstance("sub-1", "T", "", KanbanColumn.DONE, 0);
+    final KanbanItem item =
+        KanbanItem.newInstance("sub-1", "T", "", KanbanColumn.DONE, 0, Instant.EPOCH);
     assertThat(item.movedToDoneAt()).isNotNull();
   }
 
@@ -95,7 +97,8 @@ class KanbanItemTest {
 
   @Test
   void newInstanceShouldDefaultArchivedToFalse() {
-    final KanbanItem item = KanbanItem.newInstance("u", "T", "", KanbanColumn.BACKLOG, 0);
+    final KanbanItem item =
+        KanbanItem.newInstance("u", "T", "", KanbanColumn.BACKLOG, 0, Instant.EPOCH);
     assertThat(item.archived()).isFalse();
   }
 
@@ -114,7 +117,8 @@ class KanbanItemTest {
   @Test
   void withColumnAndPositionSetsMovedToDoneAtOnEntry() {
     final Instant now = Instant.parse("2026-01-01T12:00:00Z");
-    final KanbanItem original = KanbanItem.newInstance("u", "T", "", KanbanColumn.IN_REVIEW, 2);
+    final KanbanItem original =
+        KanbanItem.newInstance("u", "T", "", KanbanColumn.IN_REVIEW, 2, Instant.EPOCH);
     final KanbanItem moved = original.withColumnAndPosition(KanbanColumn.DONE, 0, now);
     assertThat(moved.column()).isEqualTo(KanbanColumn.DONE);
     assertThat(moved.movedToDoneAt()).isEqualTo(now);

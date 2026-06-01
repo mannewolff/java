@@ -1,0 +1,38 @@
+name: Increment app version (minor)
+
+# Nach jedem Push auf main wird die Minor-Version der laufenden Anwendung um eins
+# erhoeht. Der Aufruf geht per HTTP-POST an den oeffentlichen Endpoint der
+# deployten App (kein Auth noetig — siehe #162). Die Versionszeile liegt in der
+# DB; der Bump ist daher KEIN Commit und loest den Workflow nicht erneut aus.
+on:
+  push:
+    branches: [main]
+
+# Mehrere schnell aufeinanderfolgende Pushes nicht parallel inkrementieren.
+concurrency:
+  group: increment-app-version
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  increment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST increment-minor an die deployte App
+        env:
+          # Basis-URL der erreichbaren App (z. B. https://tools.mwolff.org).
+          # Als Repository-Secret hinterlegen. Fehlt es, wird sauber uebersprungen.
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_BASE_URL:-}" ]; then
+            echo "APP_BASE_URL-Secret nicht gesetzt — Versions-Inkrement uebersprungen."
+            exit 0
+          fi
+          echo "Inkrementiere Minor-Version unter ${APP_BASE_URL} ..."
+          curl --fail --silent --show-error --max-time 30 \
+            -X POST "${APP_BASE_URL%/}/api/app/version/increment-minor"
+          echo ""
+          echo "Minor-Version erhoeht."

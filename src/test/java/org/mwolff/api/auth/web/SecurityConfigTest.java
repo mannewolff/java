@@ -83,6 +83,25 @@ class SecurityConfigTest {
   }
 
   @Test
+  void shouldAllowAnonymousAccessToOpenApiSpec() throws Exception {
+    // #166: Die OpenAPI-Spec ist oeffentlich. Ohne Token geht Auth durch — im Slice-Test
+    // ohne Springdoc-Mapping liefert der DispatcherServlet 404 (NICHT 401/403).
+    mockMvc.perform(get("/api/openapi")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void shouldAllowAnonymousAccessToSwaggerUiHtml() throws Exception {
+    // #166: Swagger-UI ist oeffentlich (404 statt 401 = erlaubt im Slice).
+    mockMvc.perform(get("/api/swagger-ui.html")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void shouldAllowAnonymousAccessToSwaggerUiResources() throws Exception {
+    // #166: Swagger-UI-Ressourcen unter /api/swagger-ui/** sind oeffentlich.
+    mockMvc.perform(get("/api/swagger-ui/index.html")).andExpect(status().isNotFound());
+  }
+
+  @Test
   void shouldRejectExpiredOrInvalidJwtWithUnauthorized() throws Exception {
     // given — Mock-Decoder simuliert einen abgelaufenen / invaliden Token.
     // BadJwtException ist die Resource-Server-spezifische Variante, die in 401 uebersetzt wird

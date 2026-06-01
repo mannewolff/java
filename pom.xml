@@ -351,6 +351,15 @@
                                   Branches; Fachlogik ist via CsvBulkParserTest abgedeckt.
                                 -->
                                 <exclude>org/mwolff/api/timeseries/web/CsvBulkParser*</exclude>
+                                <!--
+                                  AppVersion-Persistence: JPA-Entity (Getter/Setter +
+                                  @PrePersist/@PreUpdate) und das Spring-Data-Repository sind nur
+                                  via Testcontainers-MariaDB sinnvoll testbar
+                                  (AppVersionJpaRepositoryIT / JpaAppVersionAdapterIT). Fachlogik
+                                  liegt in der Domain (AppVersion) und den Use-Cases.
+                                -->
+                                <exclude>org/mwolff/api/appversion/infrastructure/persistence/AppVersionEntity.class</exclude>
+                                <exclude>org/mwolff/api/appversion/infrastructure/persistence/AppVersionJpaRepository.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>

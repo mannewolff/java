@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AppBar,
   Avatar,
@@ -31,6 +31,7 @@ import { useEditMode } from '../pages/dashboard/EditModeContext';
 import { useKioskMode } from '../pages/dashboard/KioskModeContext';
 import WidgetPalette from '../pages/dashboard/WidgetPalette';
 import type { WidgetType } from '../api/dashboard';
+import { getAppVersion } from '../api/appVersion';
 
 const DRAWER_WIDTH = 240;
 const DRAWER_COLLAPSED_WIDTH = 56;
@@ -68,6 +69,22 @@ export default function AppShell() {
   const { kioskMode } = useKioskMode();
 
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
+  // Anwendungsversion (z. B. "0.1") aus dem Backend; bei Fehler bleibt sie leer (graceful).
+  const [version, setVersion] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    getAppVersion()
+      .then((v) => {
+        if (!cancelled) setVersion(`${v.major}.${v.minor}`);
+      })
+      .catch(() => {
+        // Graceful Degradation: ohne Version-Suffix weiteranzeigen.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleCollapsed = (): void => {
     setCollapsed((prev) => {
@@ -230,7 +247,7 @@ export default function AppShell() {
             sx={{ height: 32, mr: 1.5 }}
           />
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            mannewolff-tools
+            {version ? `mannewolff-tools v${version}` : 'mannewolff-tools'}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Avatar

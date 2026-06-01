@@ -48,9 +48,10 @@ management:
 server:
   port: ${SERVER_PORT:8080}
 
-# OpenAPI-Doku (#96): hinter dem normalen /api-Prefix, eingeloggte
-# USER-Rolle. Springdoc-Default-Pfade /v3/api-docs und /swagger-ui
-# werden auf die Toolbox-Konvention angepasst.
+# OpenAPI-Doku (#96, oeffentlich seit #166): hinter dem normalen /api-Prefix.
+# Spec + Swagger-UI sind ohne Token erreichbar (siehe SecurityConfig permitAll).
+# Springdoc-Default-Pfade /v3/api-docs und /swagger-ui werden auf die
+# Toolbox-Konvention (/api/openapi, /api/swagger-ui.html) angepasst.
 springdoc:
   api-docs:
     path: /api/openapi

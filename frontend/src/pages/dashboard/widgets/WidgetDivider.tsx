@@ -22,6 +22,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 
 import type { WidgetDto } from '../../../api/dashboard';
+import { DIVIDER_HORIZONTAL_SIZE, DIVIDER_VERTICAL_SIZE } from '../widgetDefaults';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 type Orientation = 'horizontal' | 'vertical';
@@ -114,7 +115,15 @@ export default function WidgetDivider({
         ? { backgroundColor: draftBackgroundColor.trim() }
         : {}),
     };
-    onChange({ ...widget, config: JSON.stringify(next) });
+    // Grid-Größe folgt der Orientierung: vertikal = 1 Spalte breit (dünne Linie zwischen
+    // Widgets), horizontal = volle Breite. User-Resize der Breite wird dadurch überschrieben.
+    const size = next.orientation === 'vertical' ? DIVIDER_VERTICAL_SIZE : DIVIDER_HORIZONTAL_SIZE;
+    onChange({
+      ...widget,
+      width: size.width,
+      height: size.height,
+      config: JSON.stringify(next),
+    });
     setOpen(false);
   }
 

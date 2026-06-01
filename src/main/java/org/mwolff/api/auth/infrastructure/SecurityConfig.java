@@ -56,10 +56,15 @@ public class SecurityConfig {
                     // Ingest-Token-Verwaltung: JWT-User legt Tokens fuer Maschinen an (#92).
                     .requestMatchers("/api/ingest-tokens/**")
                     .hasRole("USER")
-                    // OpenAPI-Doku (#96): Schema + Swagger-UI eingeloggt erreichbar.
+                    // OpenAPI-Doku (#166): Schema + Swagger-UI oeffentlich, damit Entwickler
+                    // ohne Token-Fummelei darauf zugreifen koennen. Es wird nur die
+                    // Dokumentation (Endpoint-Liste + Schemas) oeffentlich — die Endpoints
+                    // selbst bleiben auth-geschuetzt, die Daten bleiben sicher.
+                    // Springdoc-Pfade laut application.yml: /api/openapi (Spec) und
+                    // /api/swagger-ui.html (UI).
                     .requestMatchers(
                         "/api/openapi/**", "/api/swagger-ui/**", "/api/swagger-ui.html")
-                    .hasRole("USER")
+                    .permitAll()
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
                     .permitAll()

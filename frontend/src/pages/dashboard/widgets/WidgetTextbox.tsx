@@ -21,8 +21,22 @@ import ReactMarkdown from 'react-markdown';
 import type { WidgetDto } from '../../../api/dashboard';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
+/** Padding in MUI-Spacing-Units (1 Unit = 8px). Default 2 (= 16px, bisheriges Verhalten). */
+const DEFAULT_PADDING = 2;
+const MAX_PADDING = 8;
+
+function clampPadding(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n)) return DEFAULT_PADDING;
+  return Math.min(MAX_PADDING, Math.max(0, Math.round(n)));
+}
+
 interface TextboxConfig {
   markdown: string;
+  paddingTop: number;
+  paddingLeft: number;
+  paddingRight: number;
+  paddingBottom: number;
   showBorder: boolean;
   backgroundColor?: string;
 }
@@ -32,10 +46,21 @@ function parseConfig(raw: string): TextboxConfig {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
       markdown: typeof parsed.markdown === 'string' ? parsed.markdown : '',
+      paddingTop: clampPadding(parsed.paddingTop),
+      paddingLeft: clampPadding(parsed.paddingLeft),
+      paddingRight: clampPadding(parsed.paddingRight),
+      paddingBottom: clampPadding(parsed.paddingBottom),
       ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { markdown: '', showBorder: false };
+    return {
+      markdown: '',
+      paddingTop: DEFAULT_PADDING,
+      paddingLeft: DEFAULT_PADDING,
+      paddingRight: DEFAULT_PADDING,
+      paddingBottom: DEFAULT_PADDING,
+      showBorder: false,
+    };
   }
 }
 
@@ -73,6 +98,10 @@ export default function WidgetTextbox({
   const surface = widgetSurface(readOnly, config);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(config.markdown);
+  const [draftPadTop, setDraftPadTop] = useState(String(config.paddingTop));
+  const [draftPadLeft, setDraftPadLeft] = useState(String(config.paddingLeft));
+  const [draftPadRight, setDraftPadRight] = useState(String(config.paddingRight));
+  const [draftPadBottom, setDraftPadBottom] = useState(String(config.paddingBottom));
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
   const paperRef = useRef<HTMLDivElement | null>(null);
@@ -82,9 +111,14 @@ export default function WidgetTextbox({
   useEffect(() => {
     if (open) {
       setDraft(config.markdown);
+      setDraftPadTop(String(config.paddingTop));
+      setDraftPadLeft(String(config.paddingLeft));
+      setDraftPadRight(String(config.paddingRight));
+      setDraftPadBottom(String(config.paddingBottom));
       setDraftShowBorder(config.showBorder);
       setDraftBackgroundColor(config.backgroundColor ?? '');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, config.markdown, config.showBorder, config.backgroundColor]);
 
   // Read-Modus: ResizeObserver am Paper meldet `scrollHeight` an die DashboardPage.
@@ -105,6 +139,10 @@ export default function WidgetTextbox({
   function handleApply(): void {
     const next: TextboxConfig = {
       markdown: draft,
+      paddingTop: clampPadding(draftPadTop),
+      paddingLeft: clampPadding(draftPadLeft),
+      paddingRight: clampPadding(draftPadRight),
+      paddingBottom: clampPadding(draftPadBottom),
       showBorder: draftShowBorder,
       ...(draftBackgroundColor.trim() !== ''
         ? { backgroundColor: draftBackgroundColor.trim() }
@@ -124,7 +162,16 @@ export default function WidgetTextbox({
       ref={paperRef}
       variant={surface.variant}
       elevation={surface.elevation}
-      sx={{ p: 2, height: '100%', position: 'relative', overflow: 'auto', ...surface.sx }}
+      sx={{
+        pt: config.paddingTop,
+        pl: config.paddingLeft,
+        pr: config.paddingRight,
+        pb: config.paddingBottom,
+        height: '100%',
+        position: 'relative',
+        overflow: 'auto',
+        ...surface.sx,
+      }}
     >
       {!readOnly && (
         <Stack
@@ -183,12 +230,56 @@ export default function WidgetTextbox({
               </Typography>
               <Paper
                 variant="outlined"
-                sx={{ p: 2, mt: 0.5, minHeight: 80 }}
+                sx={{
+                  pt: clampPadding(draftPadTop),
+                  pl: clampPadding(draftPadLeft),
+                  pr: clampPadding(draftPadRight),
+                  pb: clampPadding(draftPadBottom),
+                  mt: 0.5,
+                  minHeight: 80,
+                }}
                 aria-label="Live-Vorschau"
               >
                 <ReactMarkdown>{draft}</ReactMarkdown>
               </Paper>
             </Box>
+            <Divider textAlign="left">Abstände zum Rahmen (0–8)</Divider>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                label="Oben"
+                type="number"
+                value={draftPadTop}
+                onChange={(e) => setDraftPadTop(e.target.value)}
+                fullWidth
+                inputProps={{ min: 0, max: MAX_PADDING, 'aria-label': 'Abstand oben' }}
+              />
+              <TextField
+                label="Unten"
+                type="number"
+                value={draftPadBottom}
+                onChange={(e) => setDraftPadBottom(e.target.value)}
+                fullWidth
+                inputProps={{ min: 0, max: MAX_PADDING, 'aria-label': 'Abstand unten' }}
+              />
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                label="Links"
+                type="number"
+                value={draftPadLeft}
+                onChange={(e) => setDraftPadLeft(e.target.value)}
+                fullWidth
+                inputProps={{ min: 0, max: MAX_PADDING, 'aria-label': 'Abstand links' }}
+              />
+              <TextField
+                label="Rechts"
+                type="number"
+                value={draftPadRight}
+                onChange={(e) => setDraftPadRight(e.target.value)}
+                fullWidth
+                inputProps={{ min: 0, max: MAX_PADDING, 'aria-label': 'Abstand rechts' }}
+              />
+            </Stack>
             <Divider textAlign="left">Darstellung</Divider>
             <FormControlLabel
               control={

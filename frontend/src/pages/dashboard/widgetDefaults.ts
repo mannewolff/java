@@ -20,12 +20,19 @@ export function pxToRows(pxHeight: number): number {
  * Default-Größen pro Widget-Typ. Die Werte sind Grid-Einheiten — 12 Spalten total, also
  * fühlt sich KPI 2×2 wie ein Sechstel der Breite und Textbox 4×3 wie ein Drittel an.
  */
+/**
+ * Grid-Größen des Divider-Widgets je Orientierung. Vertikal ist nur 1 Spalte breit (dünne Linie,
+ * passt zwischen zwei 6-Spalten-Widgets) und etwas höher; horizontal nimmt die volle Breite ein.
+ */
+export const DIVIDER_HORIZONTAL_SIZE = { width: 6, height: 1 } as const;
+export const DIVIDER_VERTICAL_SIZE = { width: 1, height: 3 } as const;
+
 export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number }> = {
   KPI: { width: 2, height: 2 },
   TEXTBOX: { width: 4, height: 3 },
   PLOT: { width: 6, height: 4 },
   KANBAN_LIST: { width: 3, height: 4 },
-  DIVIDER: { width: 6, height: 1 },
+  DIVIDER: { ...DIVIDER_HORIZONTAL_SIZE },
 };
 
 /** Initial-Config je Widget-Typ — passend zu den Widget-Komponenten in widgets/. */

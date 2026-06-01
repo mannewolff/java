@@ -21,6 +21,18 @@ vi.mock('../auth/useAuth', () => ({
   }),
 }));
 
+// AppShell lädt beim Mount die App-Version für den Header — im Slice-Test gemockt.
+vi.mock('../api/appVersion', () => ({
+  getAppVersion: vi.fn(),
+}));
+import { getAppVersion } from '../api/appVersion';
+const mockGetAppVersion = getAppVersion as ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  mockGetAppVersion.mockReset();
+  mockGetAppVersion.mockResolvedValue({ major: 0, minor: 1 });
+});
+
 function renderShell(initialEntry = '/dashboards/default') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -208,5 +220,35 @@ describe('AppShell collapsed sidebar', () => {
     // Icon-Buttons haben aria-label mit dem Menüpunkt-Namen
     expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Einstellungen' })).toBeInTheDocument();
+  });
+});
+
+describe('AppShell App-Version (#163)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('zeigt die geladene Version im Header-Titel', async () => {
+    mockGetAppVersion.mockResolvedValue({ major: 0, minor: 1 });
+    renderShell();
+    expect(await screen.findByText('mannewolff-tools v0.1')).toBeInTheDocument();
+  });
+
+  it('ruft die Version-API genau einmal beim Mount auf', async () => {
+    mockGetAppVersion.mockResolvedValue({ major: 1, minor: 4 });
+    renderShell();
+    await screen.findByText('mannewolff-tools v1.4');
+    expect(mockGetAppVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it('zeigt nur den Titel ohne Version bei API-Fehler (graceful)', async () => {
+    mockGetAppVersion.mockRejectedValue(new Error('boom'));
+    renderShell();
+    expect(await screen.findByText('mannewolff-tools')).toBeInTheDocument();
+    expect(screen.queryByText(/v\d/)).not.toBeInTheDocument();
   });
 });

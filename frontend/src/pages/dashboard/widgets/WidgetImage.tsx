@@ -307,6 +307,9 @@ export default function WidgetImage({
         ) : config.mode === 'crop' ? (
           <Box
             ref={containerRef}
+            // mousedown stoppen, sonst startet react-grid-layout im Edit-Modus einen Tile-Drag
+            // (RGL lauscht auf mousedown, nicht auf pointer-Events) und das ganze Widget wandert.
+            onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}

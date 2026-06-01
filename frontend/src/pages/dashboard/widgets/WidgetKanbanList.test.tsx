@@ -316,6 +316,56 @@ describe('WidgetKanbanList Body-Vorschau (#167)', () => {
   });
 });
 
+describe('WidgetKanbanList 4-Spalten-Layout (#191)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('zeigt Status-Icon, Nummer, Titel und Body je Item', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'Erstes', 0, 'Mein Body'), column: 'BACKLOG', number: 7 }];
+    board.IN_REVIEW = [{ ...makeItem(2, 'Zweites', 0), column: 'IN_REVIEW', number: 8 }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG', 'IN_REVIEW'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const li = (await screen.findByRole('button', { name: 'Erstes' })).closest('li')!;
+    // Status-Icon (Backlog) + Nummer + Body in derselben Zeile.
+    expect(li.querySelector('[data-testid="InboxIcon"]')).not.toBeNull();
+    expect(li.textContent).toContain('#7');
+    expect(li.textContent).toContain('Mein Body');
+
+    const li2 = screen.getByRole('button', { name: 'Zweites' }).closest('li')!;
+    expect(li2.querySelector('[data-testid="VisibilityIcon"]')).not.toBeNull();
+    expect(li2.textContent).toContain('#8');
+  });
+
+  it('blendet die Nummer aus, wenn sie 0 ist', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'Ohne', 0), column: 'BACKLOG', number: 0 }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList widget={widget({ columns: ['BACKLOG'], limit: 5 })} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+
+    const li = (await screen.findByRole('button', { name: 'Ohne' })).closest('li')!;
+    expect(li.textContent).not.toContain('#');
+  });
+});
+
 describe('WidgetKanbanList Inline-Layout (#172)', () => {
   beforeEach(() => {
     listItems.mockReset();
@@ -344,12 +394,12 @@ describe('WidgetKanbanList Inline-Layout (#172)', () => {
     const titleLink = await screen.findByRole('button', { name: 'Erstes' });
     const li = titleLink.closest('li');
     expect(li).not.toBeNull();
-    // Spalten-Label "Backlog" steht in derselben Zeile (li) wie der Titel-Link.
-    expect(li?.textContent).toContain('Backlog');
+    // Seit #191: Spalte wird per Status-Icon (mit aria-label) statt Textlabel dargestellt.
+    expect(li?.querySelector('[aria-label="Backlog"]')).not.toBeNull();
     expect(li?.textContent).toContain('Erstes');
-    // Zweites Item zeigt sein eigenes Spalten-Label.
+    // Zweites Item zeigt sein eigenes Status-Icon.
     const li2 = screen.getByRole('button', { name: 'Zweites' }).closest('li');
-    expect(li2?.textContent).toContain('In Review');
+    expect(li2?.querySelector('[aria-label="In Review"]')).not.toBeNull();
   });
 
   it('der Titel bleibt die zugängliche Beschriftung des Links (nicht das Spalten-Label)', async () => {

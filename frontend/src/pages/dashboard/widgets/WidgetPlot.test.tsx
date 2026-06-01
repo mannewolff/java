@@ -7,6 +7,7 @@ import WidgetPlot, {
   computeYDomain,
   forecastHorizon,
   linearRegression,
+  mergeSeries,
   overlayValue,
 } from './WidgetPlot';
 import type { WidgetDto } from '../../../api/dashboard';
@@ -52,6 +53,7 @@ describe('WidgetPlot', () => {
     aggregate.mockReset();
     entries.mockReset();
     list.mockReset();
+    list.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -347,6 +349,42 @@ describe('forecastHorizon', () => {
   });
 });
 
+describe('mergeSeries', () => {
+  it('identische Labels → eine Zeile pro Label mit s0/s1', () => {
+    const a = [
+      { label: 'A', value: 1, iso: '2026-01-01T00:00:00Z' },
+      { label: 'B', value: 2, iso: '2026-01-02T00:00:00Z' },
+    ];
+    const b = [
+      { label: 'A', value: 10, iso: '2026-01-01T00:00:00Z' },
+      { label: 'B', value: 20, iso: '2026-01-02T00:00:00Z' },
+    ];
+    const rows = mergeSeries([a, b]);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ label: 'A', s0: 1, s1: 10 });
+    expect(rows[1]).toMatchObject({ label: 'B', s0: 2, s1: 20 });
+  });
+
+  it('disjunkte Labels → Outer-Join, fehlende Werte undefined, chronologisch', () => {
+    const a = [{ label: 'A', value: 1, iso: '2026-01-01T00:00:00Z' }];
+    const b = [{ label: 'B', value: 20, iso: '2026-01-02T00:00:00Z' }];
+    const rows = mergeSeries([a, b]);
+    expect(rows.map((r) => r.label)).toEqual(['A', 'B']);
+    expect(rows[0].s0).toBe(1);
+    expect(rows[0].s1).toBeUndefined();
+    expect(rows[1].s0).toBeUndefined();
+    expect(rows[1].s1).toBe(20);
+  });
+
+  it('sortiert nach iso, auch bei unsortierter Eingabe', () => {
+    const a = [
+      { label: 'spät', value: 2, iso: '2026-01-02T00:00:00Z' },
+      { label: 'früh', value: 1, iso: '2026-01-01T00:00:00Z' },
+    ];
+    expect(mergeSeries([a]).map((r) => r.label)).toEqual(['früh', 'spät']);
+  });
+});
+
 describe('computeYDomain', () => {
   it('beide gesetzt → [min, max]', () => {
     expect(computeYDomain(80, 85)).toEqual([80, 85]);
@@ -382,6 +420,7 @@ describe('WidgetPlot Regression', () => {
     aggregate.mockReset();
     entries.mockReset();
     list.mockReset();
+    list.mockResolvedValue([]);
   });
   afterEach(() => cleanup());
 
@@ -441,5 +480,131 @@ describe('WidgetPlot Regression', () => {
     const parsed = JSON.parse(next.config) as { yMin: number; yMax: number };
     expect(parsed.yMin).toBe(80);
     expect(parsed.yMax).toBe(85);
+  });
+});
+
+describe('WidgetPlot Multi-Serie (#156)', () => {
+  beforeEach(() => {
+    aggregate.mockReset();
+    entries.mockReset();
+    list.mockReset();
+    list.mockResolvedValue([]);
+  });
+  afterEach(() => cleanup());
+
+  const SUMMARIES = [
+    { id: 1, name: 'Gewicht', unit: 'kg', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+    { id: 2, name: 'Temperatur', unit: '°C', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+    { id: 3, name: 'Puls', unit: 'bpm', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+  ];
+
+  it('lädt alle konfigurierten Serien (aggregiert)', async () => {
+    aggregate.mockResolvedValue([]);
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [
+            { timeSeriesId: 1, color: '#111' },
+            { timeSeriesId: 2, color: '#222' },
+            { timeSeriesId: 3, color: '#333' },
+          ],
+          defaultGranularity: 'DAILY',
+        })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(3, 'DAILY'));
+  });
+
+  it('Legacy-Single-Serie (timeSeriesId) wird migriert und geladen', async () => {
+    aggregate.mockResolvedValue([
+      { bucketStart: '2026-05-27T00:00:00Z', count: 1, min: 1, max: 1, avg: 80, last: 1 },
+    ]);
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 9, defaultGranularity: 'DAILY' })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(9, 'DAILY'));
+  });
+
+  it('zwei Serien rendern ohne Crash, Plot-Bereich vorhanden (Legende an)', async () => {
+    // recharts <Legend> rendert in jsdom keine Item-Texte (kein echtes Layout) — die
+    // Namens-/Klick-Darstellung wird manuell am Testserver verifiziert. Hier prüfen wir,
+    // dass die Multi-Serie mit aktivierter Legende fehlerfrei rendert.
+    aggregate.mockResolvedValue([
+      { bucketStart: '2026-05-27T00:00:00Z', count: 1, min: 1, max: 1, avg: 80, last: 1 },
+    ]);
+    list.mockResolvedValue(SUMMARIES);
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [
+            { timeSeriesId: 1, color: '#111' },
+            { timeSeriesId: 2, color: '#222' },
+          ],
+          defaultGranularity: 'DAILY',
+          showLegend: true,
+        })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY'));
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
+  });
+
+  it('Drawer: zweite Serie + Legende werden gespeichert', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValue(SUMMARIES);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ series: [{ timeSeriesId: 1, color: '#1976d2' }], defaultGranularity: 'DAILY' })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    const addBtn = await screen.findByRole('button', { name: '+ Zeitreihe' });
+    await user.click(addBtn);
+    await user.click(screen.getByRole('checkbox', { name: 'Legende anzeigen' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as {
+      series: { timeSeriesId: number; color: string }[];
+      showLegend: boolean;
+    };
+    expect(parsed.series).toHaveLength(2);
+    expect(parsed.showLegend).toBe(true);
+  });
+
+  it('Drawer: Overlays nur bei genau 1 Serie sichtbar', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValue(SUMMARIES);
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [
+            { timeSeriesId: 1, color: '#111' },
+            { timeSeriesId: 2, color: '#222' },
+          ],
+          defaultGranularity: 'DAILY',
+        })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await screen.findByText('Plot bearbeiten');
+    // 2 Serien → kein Overlay-Block
+    expect(screen.queryByText('Overlay-Linien')).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WidgetImage, { clamp01, panBy, parseImageConfig } from './WidgetImage';
@@ -152,6 +152,25 @@ describe('WidgetImage Crop-Modus (#186)', () => {
 
     const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { mode: string };
     expect(parsed.mode).toBe('crop');
+  });
+
+  it('pannt im Read-Modus NICHT (kein onChange beim Ziehen)', async () => {
+    const onChange = vi.fn();
+    render(
+      <WidgetImage
+        widget={widget({ imageId: 5, mode: 'crop' })}
+        onChange={onChange}
+        onDelete={vi.fn()}
+        readOnly
+      />,
+    );
+    const img = await screen.findByAltText('Widget-Bild');
+    const container = img.parentElement as HTMLElement;
+    expect(container).toHaveStyle('cursor: default');
+    fireEvent.pointerDown(container, { clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(container, { clientX: 80, clientY: 10 });
+    fireEvent.pointerUp(container);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('rendert im Crop-Modus mit objectFit none + objectPosition', async () => {

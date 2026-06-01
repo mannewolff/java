@@ -34,6 +34,19 @@ describe('WidgetTextbox', () => {
     expect(screen.getByText('Dies ist ein Test.')).toBeInTheDocument();
   });
 
+  it('der Markdown-Container hat keinen festen Eigen-Abstand oben (paddingTop=0 wirkt; #171)', () => {
+    render(
+      <WidgetTextbox
+        widget={makeWidget('# Titel', { config: JSON.stringify({ markdown: '# Titel', paddingTop: 0 }) })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const wrapper = screen.getByRole('heading', { level: 1, name: 'Titel' }).parentElement as HTMLElement;
+    // Regressionsschutz gegen das frühere hardcodierte mt: 0.5 (= 4px), das paddingTop=0 sabotierte.
+    expect(wrapper).not.toHaveStyle('margin-top: 4px');
+  });
+
   it('öffnet den Edit-Drawer und zeigt den aktuellen Markdown-Text in der Textarea', async () => {
     const user = userEvent.setup();
     render(

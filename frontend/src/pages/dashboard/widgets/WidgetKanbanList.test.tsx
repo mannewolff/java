@@ -315,6 +315,60 @@ describe('WidgetKanbanList Body-Vorschau (#167)', () => {
   });
 });
 
+describe('WidgetKanbanList Inline-Layout (#172)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('zeigt das Spalten-Label inline vor dem Titel', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'Erstes', 0), column: 'BACKLOG' }];
+    board.IN_REVIEW = [{ ...makeItem(2, 'Zweites', 0), column: 'IN_REVIEW' }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG', 'IN_REVIEW'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const titleLink = await screen.findByRole('button', { name: 'Erstes' });
+    const li = titleLink.closest('li');
+    expect(li).not.toBeNull();
+    // Spalten-Label "Backlog" steht in derselben Zeile (li) wie der Titel-Link.
+    expect(li?.textContent).toContain('Backlog');
+    expect(li?.textContent).toContain('Erstes');
+    // Zweites Item zeigt sein eigenes Spalten-Label.
+    const li2 = screen.getByRole('button', { name: 'Zweites' }).closest('li');
+    expect(li2?.textContent).toContain('In Review');
+  });
+
+  it('der Titel bleibt die zugängliche Beschriftung des Links (nicht das Spalten-Label)', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'Nur Titel', 0), column: 'BACKLOG' }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    // Accessible name = Titel, nicht "Backlog – Nur Titel".
+    expect(await screen.findByRole('button', { name: 'Nur Titel' })).toBeInTheDocument();
+  });
+});
+
 describe('WidgetKanbanList Multi-Spalten (#168)', () => {
   beforeEach(() => {
     listItems.mockReset();

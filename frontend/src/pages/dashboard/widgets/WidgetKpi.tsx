@@ -34,6 +34,8 @@ import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 type KpiColor = 'neutral' | 'success' | 'warning' | 'error';
 type KpiStyle = 'number' | 'gauge' | 'timeseries';
+/** Was die Gauge mittig anzeigt: Prozent-Verhältnis oder den tatsächlichen Wert + Einheit. */
+type GaugeDisplay = 'percent' | 'value';
 
 const COLORS: ReadonlyArray<KpiColor> = ['neutral', 'success', 'warning', 'error'];
 const STYLES: ReadonlyArray<{ value: KpiStyle; label: string }> = [
@@ -64,6 +66,10 @@ interface GaugeConfig {
   lowEnd: number;
   mediumEnd: number;
   rangeLabel: string;
+  /** Mittelanzeige: Prozent (Default) oder tatsächlicher Wert + Einheit. */
+  display: GaugeDisplay;
+  /** Einheit für den statischen Wert-Modus. Im Zeitreihen-Modus gewinnt die Serien-Einheit. */
+  unit: string;
   /** Optional: aktuellen Wert aus dieser Zeitreihe laden. null/undefined = statischer Modus. */
   timeSeriesId?: number | null;
   /** Refresh-Intervall in Sekunden wenn timeSeriesId gesetzt. Default: 60. */
@@ -108,6 +114,8 @@ const GAUGE_DEFAULTS = {
   lowEnd: 33,
   mediumEnd: 66,
   rangeLabel: '',
+  display: 'percent' as GaugeDisplay,
+  unit: '',
 };
 
 function parseConfig(raw: string): KpiConfig {
@@ -132,6 +140,9 @@ function parseConfig(raw: string): KpiConfig {
         typeof parsed.mediumEnd === 'number' ? parsed.mediumEnd : GAUGE_DEFAULTS.mediumEnd,
       rangeLabel:
         typeof parsed.rangeLabel === 'string' ? parsed.rangeLabel : GAUGE_DEFAULTS.rangeLabel,
+      // Fehlendes display-Feld → 'percent' (rückwärtskompatibel zu bestehenden Gauges).
+      display: parsed.display === 'value' ? 'value' : 'percent',
+      unit: typeof parsed.unit === 'string' ? parsed.unit : GAUGE_DEFAULTS.unit,
       timeSeriesId:
         typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
       refreshSeconds:
@@ -262,6 +273,8 @@ export default function WidgetKpi({
   const [draftGaugeRefresh, setDraftGaugeRefresh] = useState<string>(
     String(gaugeConfig.refreshSeconds ?? 60),
   );
+  const [draftGaugeDisplay, setDraftGaugeDisplay] = useState<GaugeDisplay>(gaugeConfig.display);
+  const [draftGaugeUnit, setDraftGaugeUnit] = useState<string>(gaugeConfig.unit);
 
   // TimeSeries-Drafts
   const tsConfig: TimeSeriesConfig =
@@ -298,6 +311,8 @@ export default function WidgetKpi({
       setDraftRangeLabel(config.rangeLabel);
       setDraftGaugeSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
       setDraftGaugeRefresh(String(config.refreshSeconds ?? 60));
+      setDraftGaugeDisplay(config.display);
+      setDraftGaugeUnit(config.unit);
     } else {
       setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
       setDraftRefresh(String(config.refreshSeconds));
@@ -339,6 +354,8 @@ export default function WidgetKpi({
         lowEnd: parseOrDefault(draftLowEnd, GAUGE_DEFAULTS.lowEnd),
         mediumEnd: parseOrDefault(draftMediumEnd, GAUGE_DEFAULTS.mediumEnd),
         rangeLabel: draftRangeLabel,
+        display: draftGaugeDisplay,
+        unit: draftGaugeUnit.trim(),
         timeSeriesId: draftGaugeSeriesId === '' ? null : Number.parseInt(draftGaugeSeriesId, 10),
         refreshSeconds: clampRefresh(parseOrDefault(draftGaugeRefresh, 60)),
         ...display,
@@ -487,6 +504,26 @@ export default function WidgetKpi({
                   fullWidth
                   inputProps={{ step: 'any' }}
                 />
+                <TextField
+                  select
+                  label="Mittelanzeige"
+                  value={draftGaugeDisplay}
+                  onChange={(e) => setDraftGaugeDisplay(e.target.value as GaugeDisplay)}
+                  fullWidth
+                >
+                  <MenuItem value="percent">Prozent</MenuItem>
+                  <MenuItem value="value">Wert</MenuItem>
+                </TextField>
+                {draftGaugeDisplay === 'value' && (
+                  <TextField
+                    label="Einheit"
+                    value={draftGaugeUnit}
+                    onChange={(e) => setDraftGaugeUnit(e.target.value)}
+                    fullWidth
+                    placeholder="z. B. kg"
+                    helperText="Im Zeitreihen-Modus wird die Einheit der Serie verwendet."
+                  />
+                )}
                 <Stack direction="row" spacing={1}>
                   <TextField
                     label="Min"
@@ -672,11 +709,37 @@ function NumberView({ config }: { config: NumberConfig }): JSX.Element {
   );
 }
 
+function formatGaugeValue(value: number, unit: string): string {
+  const num = value.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+  return unit.trim() === '' ? num : `${num} ${unit.trim()}`;
+}
+
 function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
   // Dynamischer Modus: Wert aus Zeitreihe laden.
   const [dynamicValue, setDynamicValue] = useState<number | null>(null);
   const [tsLoading, setTsLoading] = useState(false);
   const [tsError, setTsError] = useState<string | null>(null);
+  // Serien-Einheit für den Wert-Modus (z. B. "kg") — einmalig geladen.
+  const [seriesUnit, setSeriesUnit] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (config.timeSeriesId == null || config.display !== 'value') {
+      setSeriesUnit(null);
+      return;
+    }
+    const id = config.timeSeriesId;
+    let cancelled = false;
+    getTimeSeries(id)
+      .then((s) => {
+        if (!cancelled) setSeriesUnit(s.unit);
+      })
+      .catch(() => {
+        if (!cancelled) setSeriesUnit(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [config.timeSeriesId, config.display]);
 
   useEffect(() => {
     if (config.timeSeriesId == null) {
@@ -737,7 +800,14 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
 
   const needle = polar(cx, cy, radius - strokeWidth - 4, needleAngle);
 
-  const percentDisplay = `${Math.round(valueRatio * 100)}%`;
+  // Einheit im Wert-Modus: Zeitreihe → Serien-Einheit, sonst die konfigurierte Einheit.
+  const effectiveUnit = config.timeSeriesId != null ? (seriesUnit ?? '') : config.unit;
+  const centerDisplay =
+    config.display === 'value'
+      ? formatGaugeValue(effectiveValue, effectiveUnit)
+      : `${Math.round(valueRatio * 100)}%`;
+  // Wert+Einheit kann länger sein als "60%" → etwas kleinere Schrift, damit es mittig passt.
+  const centerFontSize = config.display === 'value' ? 16 : 22;
 
   if (config.timeSeriesId != null && tsLoading && dynamicValue === null) {
     return (
@@ -805,11 +875,11 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
             x={cx}
             y={cy - 10}
             textAnchor="middle"
-            fontSize="22"
+            fontSize={centerFontSize}
             fontWeight="700"
             fill={theme.palette.text.primary}
           >
-            {percentDisplay}
+            {centerDisplay}
           </text>
           {config.rangeLabel && (
             <text

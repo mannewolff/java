@@ -50,11 +50,11 @@ function emptyBoard(): KanbanBoard {
   return { BACKLOG: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
 }
 
-function makeItem(id: number, title: string, position: number): KanbanItem {
+function makeItem(id: number, title: string, position: number, body = ''): KanbanItem {
   return {
     id,
     title,
-    body: '',
+    body,
     column: 'BACKLOG',
     position,
     createdAt: '2026-05-29T00:00:00Z',
@@ -245,5 +245,71 @@ describe('WidgetKanbanList', () => {
     render(<WidgetKanbanList widget={w} onChange={vi.fn()} onDelete={vi.fn()} />);
 
     expect(await screen.findByText('Backlog')).toBeInTheDocument();
+  });
+});
+
+describe('WidgetKanbanList Body-Vorschau (#167)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('zeigt Title und Body-Vorschau des Items', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [makeItem(1, 'Mein Titel', 0, 'Eine kurze Beschreibung des Items')];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ column: 'BACKLOG', limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Mein Titel' })).toBeInTheDocument();
+    expect(screen.getByText('Eine kurze Beschreibung des Items')).toBeInTheDocument();
+  });
+
+  it('langer Body (>300 Zeichen) wird gerendert (Ellipsis via CSS)', async () => {
+    const longBody = 'L'.repeat(350);
+    const board = emptyBoard();
+    board.BACKLOG = [makeItem(1, 'Titel', 0, longBody)];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ column: 'BACKLOG', limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText(longBody)).toBeInTheDocument();
+  });
+
+  it('zeigt keinen Body-Knoten wenn der Body leer ist', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [makeItem(1, 'NurTitel', 0, '')];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ column: 'BACKLOG', limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const title = await screen.findByRole('button', { name: 'NurTitel' });
+    // Das <li> enthält nur den Titel-Link, keinen zusätzlichen Body-Text.
+    const li = title.closest('li');
+    expect(li).not.toBeNull();
+    expect(li?.querySelectorAll('p').length).toBe(0);
   });
 });

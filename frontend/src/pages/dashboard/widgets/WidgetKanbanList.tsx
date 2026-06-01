@@ -224,6 +224,24 @@ export default function WidgetKanbanList({
                 >
                   {item.title}
                 </Link>
+                {item.body && (
+                  <Typography
+                    component="p"
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      // Body-Vorschau: max. 2 Zeilen, danach "…" (CSS-Ellipsis).
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {item.body}
+                  </Typography>
+                )}
               </Box>
             ))}
           </Stack>

@@ -60,6 +60,7 @@ function makeItem(id: number, title: string, position: number, body = ''): Kanba
     createdAt: '2026-05-29T00:00:00Z',
     updatedAt: '2026-05-29T00:00:00Z',
     archived: false,
+    number: id,
   };
 }
 

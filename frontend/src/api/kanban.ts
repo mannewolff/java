@@ -21,6 +21,8 @@ export interface KanbanItem {
   movedToDoneAt?: string;
   /** Soft-Delete-Flag: archivierte Items werden standardmaessig nicht angezeigt. */
   archived: boolean;
+  /** Fortlaufende, pro User eindeutige Anzeige-Nummer (#187/#188). */
+  number: number;
 }
 
 export type KanbanBoard = Record<KanbanColumn, KanbanItem[]>;

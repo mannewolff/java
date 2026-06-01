@@ -72,7 +72,8 @@ class KanbanItemControllerTest {
         Instant.EPOCH,
         Instant.EPOCH,
         column == KanbanColumn.DONE ? Instant.EPOCH : null,
-        false);
+        false,
+        0);
   }
 
   @Test

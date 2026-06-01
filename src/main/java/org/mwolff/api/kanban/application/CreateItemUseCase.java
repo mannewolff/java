@@ -28,7 +28,10 @@ public class CreateItemUseCase {
   public KanbanItem execute(String userSub, String title, String body, KanbanColumn column) {
     final KanbanColumn target = column == null ? KanbanColumn.BACKLOG : column;
     final int nextPosition = items.findByUserAndColumn(userSub, target).size();
+    // Fortlaufende Anzeige-Nummer pro User (#187): erstes Item = 1, sonst höchste + 1.
+    final int nextNumber = items.getMaxNumberForUser(userSub).map(max -> max + 1).orElse(1);
     return items.save(
-        KanbanItem.newInstance(userSub, title, body, target, nextPosition, Instant.now(clock)));
+        KanbanItem.newInstance(userSub, title, body, target, nextPosition, Instant.now(clock))
+            .withNumber(nextNumber));
   }
 }

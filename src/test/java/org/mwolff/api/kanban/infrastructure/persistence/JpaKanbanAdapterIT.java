@@ -93,7 +93,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             a.createdAt(),
             a.updatedAt(),
             doneAt,
-            false);
+            false,
+            a.number());
     final KanbanItem persisted = adapter.save(moved);
 
     assertThat(persisted.title()).isEqualTo("New");
@@ -137,7 +138,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             oldDone.createdAt(),
             oldDone.updatedAt(),
             old,
-            false));
+            false,
+            oldDone.number()));
     adapter.save(
         new KanbanItem(
             freshDone.id(),
@@ -149,7 +151,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             freshDone.createdAt(),
             freshDone.updatedAt(),
             fresh,
-            false));
+            false,
+            freshDone.number()));
 
     final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-03-01T00:00:00Z"));
 
@@ -242,7 +245,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             archivedDone.createdAt(),
             archivedDone.updatedAt(),
             Instant.parse("2026-01-01T00:00:00Z"),
-            false));
+            false,
+            archivedDone.number()));
     adapter.archiveById(archivedDone.id());
 
     final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-06-01T00:00:00Z"));

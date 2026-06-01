@@ -30,7 +30,7 @@ class KanbanItemTest {
     assertThatThrownBy(
             () ->
                 new KanbanItem(
-                    null, null, "T", "", KanbanColumn.BACKLOG, 0, null, null, null, false))
+                    null, null, "T", "", KanbanColumn.BACKLOG, 0, null, null, null, false, 0))
         .isInstanceOf(NullPointerException.class);
   }
 
@@ -39,7 +39,7 @@ class KanbanItemTest {
     assertThatThrownBy(
             () ->
                 new KanbanItem(
-                    null, " ", "T", "", KanbanColumn.BACKLOG, 0, null, null, null, false))
+                    null, " ", "T", "", KanbanColumn.BACKLOG, 0, null, null, null, false, 0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("userSub");
   }
@@ -48,7 +48,8 @@ class KanbanItemTest {
   void shouldRejectBlankTitle() {
     assertThatThrownBy(
             () ->
-                new KanbanItem(null, "u", "", "", KanbanColumn.BACKLOG, 0, null, null, null, false))
+                new KanbanItem(
+                    null, "u", "", "", KanbanColumn.BACKLOG, 0, null, null, null, false, 0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("title");
   }
@@ -59,7 +60,7 @@ class KanbanItemTest {
     assertThatThrownBy(
             () ->
                 new KanbanItem(
-                    null, "u", over, "", KanbanColumn.BACKLOG, 0, null, null, null, false))
+                    null, "u", over, "", KanbanColumn.BACKLOG, 0, null, null, null, false, 0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("title");
   }
@@ -70,7 +71,7 @@ class KanbanItemTest {
     assertThatThrownBy(
             () ->
                 new KanbanItem(
-                    null, "u", "T", over, KanbanColumn.BACKLOG, 0, null, null, null, false))
+                    null, "u", "T", over, KanbanColumn.BACKLOG, 0, null, null, null, false, 0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("body");
   }
@@ -80,7 +81,7 @@ class KanbanItemTest {
     assertThatThrownBy(
             () ->
                 new KanbanItem(
-                    null, "u", "T", "", KanbanColumn.BACKLOG, -1, null, null, null, false))
+                    null, "u", "T", "", KanbanColumn.BACKLOG, -1, null, null, null, false, 0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("position");
   }
@@ -90,7 +91,8 @@ class KanbanItemTest {
     final Instant now = Instant.parse("2026-01-01T00:00:00Z");
     assertThatThrownBy(
             () ->
-                new KanbanItem(null, "u", "T", "", KanbanColumn.BACKLOG, 0, null, null, now, false))
+                new KanbanItem(
+                    null, "u", "T", "", KanbanColumn.BACKLOG, 0, null, null, now, false, 0))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("movedToDoneAt");
   }
@@ -105,7 +107,8 @@ class KanbanItemTest {
   @Test
   void withContentShouldPreserveArchivedFlag() {
     final KanbanItem original =
-        new KanbanItem(1L, "u", "Old", "old body", KanbanColumn.BACKLOG, 0, null, null, null, true);
+        new KanbanItem(
+            1L, "u", "Old", "old body", KanbanColumn.BACKLOG, 0, null, null, null, true, 0);
     final KanbanItem updated = original.withContent("New", "new body");
     assertThat(updated.title()).isEqualTo("New");
     assertThat(updated.body()).isEqualTo("new body");
@@ -129,7 +132,7 @@ class KanbanItemTest {
     final Instant earlier = Instant.parse("2026-01-01T00:00:00Z");
     final Instant now = Instant.parse("2026-01-02T00:00:00Z");
     final KanbanItem inDone =
-        new KanbanItem(1L, "u", "T", "", KanbanColumn.DONE, 0, null, null, earlier, false);
+        new KanbanItem(1L, "u", "T", "", KanbanColumn.DONE, 0, null, null, earlier, false, 0);
     final KanbanItem moved = inDone.withColumnAndPosition(KanbanColumn.IN_REVIEW, 0, now);
     assertThat(moved.column()).isEqualTo(KanbanColumn.IN_REVIEW);
     assertThat(moved.movedToDoneAt()).isNull();
@@ -140,16 +143,42 @@ class KanbanItemTest {
     final Instant earlier = Instant.parse("2026-01-01T00:00:00Z");
     final Instant now = Instant.parse("2026-01-02T00:00:00Z");
     final KanbanItem inDone =
-        new KanbanItem(1L, "u", "T", "", KanbanColumn.DONE, 0, null, null, earlier, false);
+        new KanbanItem(1L, "u", "T", "", KanbanColumn.DONE, 0, null, null, earlier, false, 0);
     final KanbanItem moved = inDone.withColumnAndPosition(KanbanColumn.DONE, 3, now);
     assertThat(moved.position()).isEqualTo(3);
     assertThat(moved.movedToDoneAt()).isEqualTo(earlier);
   }
 
   @Test
+  void newInstanceDefaultsNumberToZero() {
+    final KanbanItem item =
+        KanbanItem.newInstance("u", "T", "", KanbanColumn.BACKLOG, 0, Instant.EPOCH);
+    assertThat(item.number()).isZero();
+  }
+
+  @Test
+  void withNumberSetsNumberAndPreservesRest() {
+    final KanbanItem item =
+        KanbanItem.newInstance("u", "T", "b", KanbanColumn.BACKLOG, 2, Instant.EPOCH).withNumber(7);
+    assertThat(item.number()).isEqualTo(7);
+    assertThat(item.title()).isEqualTo("T");
+    assertThat(item.position()).isEqualTo(2);
+  }
+
+  @Test
+  void shouldRejectNegativeNumber() {
+    assertThatThrownBy(
+            () ->
+                new KanbanItem(
+                    null, "u", "T", "", KanbanColumn.BACKLOG, 0, null, null, null, false, -1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("number");
+  }
+
+  @Test
   void withPositionShouldPreserveArchivedFlag() {
     final KanbanItem original =
-        new KanbanItem(1L, "u", "T", "", KanbanColumn.BACKLOG, 0, null, null, null, true);
+        new KanbanItem(1L, "u", "T", "", KanbanColumn.BACKLOG, 0, null, null, null, true, 0);
     final KanbanItem moved = original.withPosition(5);
     assertThat(moved.position()).isEqualTo(5);
     assertThat(moved.archived()).isTrue();

@@ -52,6 +52,9 @@ class KanbanItemEntity {
   @Column(name = "archived", nullable = false)
   private boolean archived;
 
+  @Column(name = "number", nullable = false)
+  private int number;
+
   protected KanbanItemEntity() {
     // JPA
   }
@@ -146,5 +149,13 @@ class KanbanItemEntity {
 
   void setArchived(boolean archived) {
     this.archived = archived;
+  }
+
+  int getNumber() {
+    return number;
+  }
+
+  void setNumber(int number) {
+    this.number = number;
   }
 }

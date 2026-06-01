@@ -46,7 +46,8 @@ class KanbanCommentUseCasesTest {
         Instant.EPOCH,
         Instant.EPOCH,
         null,
-        false);
+        false,
+        0);
   }
 
   private static KanbanComment comment(long itemId, String author) {

@@ -46,7 +46,8 @@ class KanbanUseCasesTest {
         Instant.EPOCH,
         Instant.EPOCH,
         movedToDoneAt,
-        false);
+        false,
+        0);
   }
 
   private static KanbanItem item(long id, String sub, KanbanColumn column, int position) {
@@ -64,7 +65,8 @@ class KanbanUseCasesTest {
         Instant.EPOCH,
         Instant.EPOCH,
         column == KanbanColumn.DONE ? Instant.EPOCH : null,
-        true);
+        true,
+        0);
   }
 
   // ----- list ---------------------------------------------------------------
@@ -113,6 +115,30 @@ class KanbanUseCasesTest {
 
     assertThat(created.column()).isEqualTo(KanbanColumn.DONE);
     assertThat(created.movedToDoneAt()).isNotNull();
+  }
+
+  @Test
+  void createShouldAssignNumberOneForFirstItem() {
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(java.util.Optional.empty());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", null);
+
+    assertThat(created.number()).isEqualTo(1);
+  }
+
+  @Test
+  void createShouldAssignNextNumberAfterExistingMax() {
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(java.util.Optional.of(5));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", null);
+
+    assertThat(created.number()).isEqualTo(6);
   }
 
   // ----- update content -----------------------------------------------------

@@ -21,6 +21,13 @@ public interface KanbanItemPort {
 
   Optional<KanbanItem> findById(long id);
 
+  /**
+   * Höchste vergebene Anzeige-Nummer (#187) eines Users über ALLE Items (inkl. archivierter), damit
+   * neu vergebene Nummern nie mit denen archivierter Items kollidieren (Unique-Constraint). Leer,
+   * wenn der User noch keine Items hat.
+   */
+  Optional<Integer> getMaxNumberForUser(String userSub);
+
   KanbanItem save(KanbanItem item);
 
   /**

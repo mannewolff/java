@@ -9,7 +9,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +27,8 @@ import org.mwolff.api.timeseries.domain.TimeSeriesPort;
 
 class AggregateTimeSeriesUseCaseTest {
 
+  private static final Instant FIXED_NOW = Instant.parse("2026-01-01T00:00:00Z");
+  private final Clock clock = Clock.fixed(FIXED_NOW, ZoneId.of("UTC"));
   private final TimeSeriesPort timeSeries = mock(TimeSeriesPort.class);
   private final TimeSeriesEntryPort entries = mock(TimeSeriesEntryPort.class);
 
@@ -50,7 +54,7 @@ class AggregateTimeSeriesUseCaseTest {
                 entry(3L, "2026-05-28T12:00:00Z", "30")));
 
     final List<AggregateBucket> result =
-        new AggregateTimeSeriesUseCase(timeSeries, entries)
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
             .execute(SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty());
 
     assertThat(result).hasSize(2);
@@ -74,7 +78,7 @@ class AggregateTimeSeriesUseCaseTest {
     given(entries.findByTimeSeries(eq(1L), any(), any(), anyInt())).willReturn(List.of());
 
     final List<AggregateBucket> result =
-        new AggregateTimeSeriesUseCase(timeSeries, entries)
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
             .execute(SUB, 1L, Granularity.WEEKLY, Optional.empty(), Optional.empty());
 
     assertThat(result).isEmpty();
@@ -97,7 +101,7 @@ class AggregateTimeSeriesUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new AggregateTimeSeriesUseCase(timeSeries, entries)
+                new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
                     .execute(SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty()))
         .isInstanceOf(TimeSeriesNotFoundException.class);
   }
@@ -108,7 +112,7 @@ class AggregateTimeSeriesUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new AggregateTimeSeriesUseCase(timeSeries, entries)
+                new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
                     .execute(SUB, 99L, Granularity.DAILY, Optional.empty(), Optional.empty()))
         .isInstanceOf(TimeSeriesNotFoundException.class);
   }
@@ -123,7 +127,7 @@ class AggregateTimeSeriesUseCaseTest {
                 entry(2L, "2026-01-15T08:00:00Z", "200")));
 
     final List<AggregateBucket> result =
-        new AggregateTimeSeriesUseCase(timeSeries, entries)
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
             .execute(SUB, 1L, Granularity.YEARLY, Optional.empty(), Optional.empty());
 
     assertThat(result).hasSize(2);
@@ -140,7 +144,7 @@ class AggregateTimeSeriesUseCaseTest {
                 entry(1L, "2026-04-15T08:00:00Z", "1"), entry(2L, "2026-05-15T08:00:00Z", "2")));
 
     final List<AggregateBucket> result =
-        new AggregateTimeSeriesUseCase(timeSeries, entries)
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
             .execute(SUB, 1L, Granularity.MONTHLY, Optional.empty(), Optional.empty());
 
     assertThat(result).hasSize(2);
@@ -161,7 +165,7 @@ class AggregateTimeSeriesUseCaseTest {
                 entry(3L, "2026-05-27T10:00:00Z", "15")));
 
     final List<AggregateBucket> result =
-        new AggregateTimeSeriesUseCase(timeSeries, entries)
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
             .execute(SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty());
 
     final AggregateBucket bucket = result.get(0);

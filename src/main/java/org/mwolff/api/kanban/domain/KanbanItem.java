@@ -70,8 +70,8 @@ public record KanbanItem(
    * Use-Case-seitig gesetzt).
    */
   public static KanbanItem newInstance(
-      String userSub, String title, String body, KanbanColumn column, int position) {
-    final Instant movedToDone = column == KanbanColumn.DONE ? Instant.now() : null;
+      String userSub, String title, String body, KanbanColumn column, int position, Instant now) {
+    final Instant movedToDone = column == KanbanColumn.DONE ? now : null;
     return new KanbanItem(
         null, userSub, title, body, column, position, null, null, movedToDone, false);
   }

@@ -158,7 +158,7 @@ export default function SettingsPage() {
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            Für die Authentifizierung in der Swagger UI: „Authorize" → Token einfügen.
+            Für die Authentifizierung in der Swagger UI: „Authorize” → Token einfügen.
           </Typography>
         </Box>
 

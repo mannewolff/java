@@ -30,7 +30,9 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void saveAndReadItemFromBacklog() {
     final KanbanItem saved =
-        adapter.save(KanbanItem.newInstance(USER_A, "Title", "body", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(
+                USER_A, "Title", "body", KanbanColumn.BACKLOG, 0, Instant.now()));
 
     assertThat(saved.id()).isNotNull();
     assertThat(saved.createdAt()).isNotNull();
@@ -41,9 +43,11 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void findByUserAndColumnReturnsSorted() {
     final KanbanItem a =
-        adapter.save(KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     final KanbanItem b =
-        adapter.save(KanbanItem.newInstance(USER_A, "B", "", KanbanColumn.BACKLOG, 1));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "B", "", KanbanColumn.BACKLOG, 1, Instant.now()));
 
     assertThat(adapter.findByUserAndColumn(USER_A, KanbanColumn.BACKLOG))
         .extracting(KanbanItem::id)
@@ -52,8 +56,10 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
 
   @Test
   void findAllByUserFiltersByOwner() {
-    adapter.save(KanbanItem.newInstance(USER_A, "Mine", "", KanbanColumn.BACKLOG, 0));
-    adapter.save(KanbanItem.newInstance(USER_B, "Other", "", KanbanColumn.BACKLOG, 0));
+    adapter.save(
+        KanbanItem.newInstance(USER_A, "Mine", "", KanbanColumn.BACKLOG, 0, Instant.now()));
+    adapter.save(
+        KanbanItem.newInstance(USER_B, "Other", "", KanbanColumn.BACKLOG, 0, Instant.now()));
 
     assertThat(adapter.findAllByUser(USER_A)).extracting(KanbanItem::title).containsExactly("Mine");
   }
@@ -61,7 +67,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void updatePositionPersists() {
     final KanbanItem a =
-        adapter.save(KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     adapter.updatePosition(a.id(), 5);
     assertThat(adapter.findById(a.id()))
         .hasValueSatisfying(i -> assertThat(i.position()).isEqualTo(5));
@@ -70,7 +77,9 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void saveExistingUpdatesTitleColumnPositionAndMovedToDoneAt() {
     final KanbanItem a =
-        adapter.save(KanbanItem.newInstance(USER_A, "Old", "old body", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(
+                USER_A, "Old", "old body", KanbanColumn.BACKLOG, 0, Instant.now()));
 
     final Instant doneAt = Instant.parse("2026-05-27T12:00:00Z");
     final KanbanItem moved =
@@ -96,7 +105,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void deleteByIdRemoves() {
     final KanbanItem a =
-        adapter.save(KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     adapter.deleteById(a.id());
     assertThat(adapter.findById(a.id())).isEmpty();
   }
@@ -107,11 +117,14 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     final Instant fresh = Instant.parse("2026-05-27T00:00:00Z");
     // Erst alle anlegen, dann via save() in DONE setzen mit explizitem movedToDoneAt.
     final KanbanItem oldDone =
-        adapter.save(KanbanItem.newInstance(USER_A, "Old", "", KanbanColumn.DONE, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Old", "", KanbanColumn.DONE, 0, Instant.now()));
     final KanbanItem freshDone =
-        adapter.save(KanbanItem.newInstance(USER_A, "Fresh", "", KanbanColumn.DONE, 1));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Fresh", "", KanbanColumn.DONE, 1, Instant.now()));
     final KanbanItem backlog =
-        adapter.save(KanbanItem.newInstance(USER_A, "Backlog", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Backlog", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     // movedToDoneAt für oldDone ueberschreiben
     adapter.save(
         new KanbanItem(
@@ -148,9 +161,9 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
 
   @Test
   void distinctUsersWithDoneItemsListsOwners() {
-    adapter.save(KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.DONE, 0));
-    adapter.save(KanbanItem.newInstance(USER_B, "B", "", KanbanColumn.DONE, 0));
-    adapter.save(KanbanItem.newInstance("user-c", "C", "", KanbanColumn.BACKLOG, 0));
+    adapter.save(KanbanItem.newInstance(USER_A, "A", "", KanbanColumn.DONE, 0, Instant.now()));
+    adapter.save(KanbanItem.newInstance(USER_B, "B", "", KanbanColumn.DONE, 0, Instant.now()));
+    adapter.save(KanbanItem.newInstance("user-c", "C", "", KanbanColumn.BACKLOG, 0, Instant.now()));
 
     assertThat(adapter.distinctUsersWithDoneItems()).containsExactlyInAnyOrder(USER_A, USER_B);
   }
@@ -158,7 +171,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void archiveByIdSetsArchivedTrue() {
     final KanbanItem item =
-        adapter.save(KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     assertThat(item.archived()).isFalse();
 
     adapter.archiveById(item.id());
@@ -170,7 +184,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void restoreByIdSetsArchivedFalse() {
     final KanbanItem item =
-        adapter.save(KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     adapter.archiveById(item.id());
     assertThat(adapter.findById(item.id()))
         .hasValueSatisfying(i -> assertThat(i.archived()).isTrue());
@@ -184,9 +199,11 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void findAllByUserExcludesArchivedByDefault() {
     final KanbanItem active =
-        adapter.save(KanbanItem.newInstance(USER_A, "Active", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Active", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     final KanbanItem archived =
-        adapter.save(KanbanItem.newInstance(USER_A, "Archived", "", KanbanColumn.BACKLOG, 1));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Archived", "", KanbanColumn.BACKLOG, 1, Instant.now()));
     adapter.archiveById(archived.id());
 
     assertThat(adapter.findAllByUser(USER_A))
@@ -197,9 +214,11 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void findAllByUserIncludingArchivedReturnsAll() {
     final KanbanItem active =
-        adapter.save(KanbanItem.newInstance(USER_A, "Active", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Active", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     final KanbanItem archived =
-        adapter.save(KanbanItem.newInstance(USER_A, "Archived", "", KanbanColumn.BACKLOG, 1));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "Archived", "", KanbanColumn.BACKLOG, 1, Instant.now()));
     adapter.archiveById(archived.id());
 
     assertThat(adapter.findAllByUserIncludingArchived(USER_A))
@@ -210,7 +229,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void deleteDoneOlderThanSkipsArchivedItems() {
     final KanbanItem archivedDone =
-        adapter.save(KanbanItem.newInstance(USER_A, "OldArchived", "", KanbanColumn.DONE, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "OldArchived", "", KanbanColumn.DONE, 0, Instant.now()));
     adapter.save(
         new KanbanItem(
             archivedDone.id(),
@@ -257,7 +277,8 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   @Test
   void createdAndUpdatedAtAreSet() {
     final KanbanItem item =
-        adapter.save(KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0));
+        adapter.save(
+            KanbanItem.newInstance(USER_A, "T", "", KanbanColumn.BACKLOG, 0, Instant.now()));
     assertThat(item.createdAt()).isNotNull();
     assertThat(item.updatedAt()).isNotNull();
   }

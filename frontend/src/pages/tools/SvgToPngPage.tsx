@@ -155,7 +155,7 @@ export default function SvgToPngPage(): JSX.Element {
 
   const applySettings = (): void => {
     if (!BACKGROUND_PATTERN.test(draftBackground)) {
-      setDraftBackgroundError('Erlaubt: „transparent" oder #rrggbb (z. B. #ffffff)');
+      setDraftBackgroundError('Erlaubt: „transparent” oder #rrggbb (z. B. #ffffff)');
       return;
     }
     setBackground(draftBackground);
@@ -329,7 +329,7 @@ export default function SvgToPngPage(): JSX.Element {
             Hintergrund
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Bestimmt die Hintergrundfarbe des PNGs. „transparent" lässt den Alpha-Kanal offen,
+            Bestimmt die Hintergrundfarbe des PNGs. „transparent” lässt den Alpha-Kanal offen,
             sonst muss ein Hex-Code im Format <code>#rrggbb</code> verwendet werden.
           </Typography>
           <Stack spacing={2}>

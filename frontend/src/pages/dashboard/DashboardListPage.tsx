@@ -211,7 +211,7 @@ export default function DashboardListPage(): JSX.Element {
         <DialogTitle id="dashboard-delete-title">Dashboard löschen?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Das Dashboard „{toDelete?.name}" und alle seine Widgets werden unwiderruflich
+            Das Dashboard „{toDelete?.name}” und alle seine Widgets werden unwiderruflich
             entfernt.
           </DialogContentText>
         </DialogContent>

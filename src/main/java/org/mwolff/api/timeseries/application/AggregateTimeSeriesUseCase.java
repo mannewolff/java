@@ -2,6 +2,7 @@ package org.mwolff.api.timeseries.application;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.Period;
@@ -34,10 +35,13 @@ public class AggregateTimeSeriesUseCase {
 
   private final TimeSeriesPort timeSeries;
   private final TimeSeriesEntryPort entries;
+  private final Clock clock;
 
-  public AggregateTimeSeriesUseCase(TimeSeriesPort timeSeries, TimeSeriesEntryPort entries) {
+  public AggregateTimeSeriesUseCase(
+      TimeSeriesPort timeSeries, TimeSeriesEntryPort entries, Clock clock) {
     this.timeSeries = timeSeries;
     this.entries = entries;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -51,7 +55,7 @@ public class AggregateTimeSeriesUseCase {
         .findById(timeSeriesId)
         .filter(ts -> ts.userSub().equals(userSub))
         .orElseThrow(() -> new TimeSeriesNotFoundException(timeSeriesId));
-    final Instant now = Instant.now();
+    final Instant now = Instant.now(clock);
     final Instant rangeTo = to.orElse(now);
     final Instant rangeFrom = from.orElseGet(() -> defaultFrom(granularity, rangeTo));
 

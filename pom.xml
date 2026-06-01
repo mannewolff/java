@@ -23,6 +23,8 @@
         <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
         <node.version>v20.18.0</node.version>
         <skip.frontend>false</skip.frontend>
+        <!-- Default: leer; wird von jacoco-prepare-agent im normalen Build überschrieben. -->
+        <jacocoArgLine></jacocoArgLine>
     </properties>
 
     <dependencies>
@@ -100,12 +102,6 @@
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
             <version>1.3.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-subclass</artifactId>
-            <version>5.17.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -239,6 +235,14 @@
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
+                        <configuration>
+                            <!--
+                              Eigener Property-Name verhindert, dass PIT den JaCoCo-Agent
+                              in seine Minion-JVMs erbt. PIT liest Maven's 'argLine'-Property
+                              aus — würde JaCoCo + PIT zusammen instrumentieren und crashen.
+                            -->
+                            <propertyName>jacocoArgLine</propertyName>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>jacoco-report</id>
@@ -286,36 +290,46 @@
                                 -->
                                 <exclude>org/mwolff/api/tools/infrastructure/python/PythonToolsConfig.class</exclude>
                                 <!--
-                                  Dashboard-Persistence-Layer: JPA-Entities (Getter/Setter ohne
-                                  Logik) und der JpaDashboardAdapter sind nur via Testcontainers-
-                                  MariaDB sinnvoll testbar. Die fachliche Logik liegt in den
-                                  Application-Use-Cases und ist dort zu 100% gedeckt (siehe
-                                  DashboardUseCasesTest); der Adapter wird via *IT mit echter
-                                  MariaDB verifiziert.
+                                  JPA-Adapter und -Entities: nur via Testcontainers-MariaDB
+                                  sinnvoll testbar (*IT-Tests). Die fachliche Logik liegt in den
+                                  Application-Use-Cases und ist dort zu 100% gedeckt. Jede
+                                  Klasse wird einzeln ausgeschlossen — keine pauschalen
+                                  Paket-Wildcards (CLAUDE-java.md).
                                 -->
-                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/**</exclude>
+                                <!-- Dashboard Persistence -->
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/DashboardEntity.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/DashboardJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/JpaDashboardAdapter.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/WidgetEntity.class</exclude>
+                                <exclude>org/mwolff/api/dashboard/infrastructure/persistence/WidgetJpaRepository.class</exclude>
+                                <!-- Kanban Persistence -->
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAdapter.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanCommentAdapter.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanCommentEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanCommentJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsJpaRepository.class</exclude>
+                                <!-- TimeSeries Persistence -->
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/JpaTimeSeriesAdapter.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntity.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntryEntity.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntryJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesJpaRepository.class</exclude>
+                                <!-- Ingest Persistence (Adapter + Entity + Repository) -->
+                                <exclude>org/mwolff/api/ingest/infrastructure/persistence/JpaIngestTokenAdapter.class</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenEntity.class</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenJpaRepository.class</exclude>
                                 <!--
-                                  Kanban-Persistence-Layer: gleicher Grund wie Dashboard. Adapter
-                                  + Entities sind nur via Testcontainers-MariaDB sinnvoll testbar
-                                  (JpaKanbanAdapterIT). Fachlogik liegt in den Use-Cases und ist
-                                  dort zu 100% gedeckt.
+                                  IngestRateLimiter: In-Memory-Wrapper ohne fachliche Branches.
+                                  Sha256TokenCryptoAdapter: hat Unit-Test (Sha256TokenCryptoAdapterTest),
+                                  aber der catch(NoSuchAlgorithmException)-Block ist in der JVM nicht
+                                  erreichbar (SHA-256 ist garantiert verfügbar) — daher 2 nicht
+                                  abdeckbare Zeilen. Klasse wird gezielt ausgeschlossen.
                                 -->
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/**</exclude>
-                                <!--
-                                  TimeSeries-Persistence-Layer: gleicher Grund wie Dashboard und
-                                  Kanban. Adapter + Entities werden via JpaTimeSeriesAdapterIT mit
-                                  Testcontainers-MariaDB gepruefst. Fachlogik liegt in den
-                                  Use-Cases (TimeSeriesUseCasesTest).
-                                -->
-                                <exclude>org/mwolff/api/timeseries/infrastructure/persistence/**</exclude>
-                                <!--
-                                  Ingest-Infrastructure: Persistence-Adapter, SHA-256-Crypto
-                                  (unreachable catch fuer NoSuchAlgorithmException) und der
-                                  In-Memory-RateLimiter-Wrapper. Fachlogik ist in
-                                  IngestRateLimiterTest und Sha256TokenCryptoAdapterTest
-                                  separat gedeckt; das Bundle hier sind Spring-Wirings.
-                                -->
-                                <exclude>org/mwolff/api/ingest/infrastructure/**</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/ratelimit/IngestRateLimiter.class</exclude>
+                                <exclude>org/mwolff/api/ingest/infrastructure/crypto/Sha256TokenCryptoAdapter.class</exclude>
                                 <!--
                                   Ingest-Auth-/RateLimit-Filter: Plumbing-Adapter zwischen
                                   Spring-Security-Chain und den UseCases. Fachlogik wird
@@ -373,8 +387,15 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <configuration>
-                    <failOnViolation>false</failOnViolation>
-                    <failsOnError>false</failsOnError>
+                    <!--
+                      Projekt nutzt Google Java Format (Spotless) — daher google_checks.xml
+                      als Checkstyle-Basis. Sun-Checks (80-Zeichen-Limit, FinalParameters,
+                      volle Javadoc-Pflicht) widersprechen dem GJF-Stil und erzeugen ~4500
+                      False-Positive-Violations.
+                    -->
+                    <configLocation>google_checks.xml</configLocation>
+                    <failOnViolation>true</failOnViolation>
+                    <failsOnError>true</failsOnError>
                     <logViolationsToConsole>true</logViolationsToConsole>
                     <consoleOutput>true</consoleOutput>
                 </configuration>
@@ -452,6 +473,13 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
+                    <!--
+                      jacocoArgLine: JaCoCo-Agent muss explizit eingebunden werden, da
+                      der Property-Name von 'argLine' auf 'jacocoArgLine' umgestellt wurde
+                      (verhindert PIT-Konflikt). allowAttachSelf: Mockito InlineMockMaker
+                      braucht ByteBuddy-Attach unter Java 21 Homebrew.
+                    -->
+                    <argLine>${jacocoArgLine} -Djdk.attach.allowAttachSelf=true</argLine>
                 </configuration>
             </plugin>
             <plugin>
@@ -556,6 +584,21 @@
             <id>pit</id>
             <build>
                 <plugins>
+                    <!--
+                      JaCoCo-prepare-agent wird im PIT-Profil deaktiviert: PIT liest
+                      Maven's argLine-Property aus und würde den JaCoCo-Agent in seine
+                      Minion-JVMs erben — JaCoCo+PIT-Instrumentation im selben JVM crasht.
+                    -->
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>jacoco-prepare-agent</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.pitest</groupId>
                         <artifactId>pitest-maven</artifactId>
@@ -563,11 +606,30 @@
                             <!--
                               JUnit-5-Plugin ist Pflicht, sonst findet PIT die Jupiter-Tests
                               nicht und alle Mutanten ueberleben.
+                              Exclusions: pitest-junit5-plugin 1.2.1 bringt JUnit Platform
+                              1.9.2 mit; das Projekt nutzt 1.12.2 via Spring Boot. Beide
+                              Versionen im Minion-Classpath erzeugen einen JUnitException auf
+                              TestEngine-Discovery. Die alten 1.9.x-JARs werden hier entfernt,
+                              damit nur noch die 1.12.x-Version aus dem Projekt-Classpath gilt.
                             -->
                             <dependency>
                                 <groupId>org.pitest</groupId>
                                 <artifactId>pitest-junit5-plugin</artifactId>
                                 <version>1.2.1</version>
+                                <exclusions>
+                                    <exclusion>
+                                        <groupId>org.junit.platform</groupId>
+                                        <artifactId>junit-platform-launcher</artifactId>
+                                    </exclusion>
+                                    <exclusion>
+                                        <groupId>org.junit.platform</groupId>
+                                        <artifactId>junit-platform-engine</artifactId>
+                                    </exclusion>
+                                    <exclusion>
+                                        <groupId>org.junit.platform</groupId>
+                                        <artifactId>junit-platform-commons</artifactId>
+                                    </exclusion>
+                                </exclusions>
                             </dependency>
                         </dependencies>
                         <configuration>
@@ -577,8 +639,33 @@
                             <excludedClasses>
                                 <param>org.mwolff.api.ApiApplication</param>
                             </excludedClasses>
-                            <mutationThreshold>60</mutationThreshold>
-                            <testStrengthThreshold>60</testStrengthThreshold>
+                            <!--
+                              IT-Tests (Testcontainers+Docker) werden aus PIT ausgeschlossen.
+                              PIT erkennt *IT-Klassen als normale Test-Klassen und versucht
+                              sie ohne Docker auszuführen — das schlägt fehl ("did not pass
+                              without mutation"). Fachliche Coverage für Persistence-Layer
+                              über *Test-Unit-Tests und Surefire-Ergebnisse sichern.
+                            -->
+                            <excludedTestClasses>
+                                <param>*IT</param>
+                            </excludedTestClasses>
+                            <!--
+                              PIT forkt eigene Minion-JVMs; ohne allowAttachSelf kann
+                              ByteBuddy den Agent nicht dynamisch laden und der Minion
+                              crasht mit UNKNOWN_ERROR.
+                            -->
+                            <jvmArgs>
+                                <value>-Djdk.attach.allowAttachSelf=true</value>
+                            </jvmArgs>
+                            <!--
+                              Messung 2026-05-31: Mutation Score 70%, Test Strength 92%.
+                              142 Mutations ohne Coverage (Persistence-Layer, JaCoCo-Exclusions).
+                              Schwellen entsprechen Ist-Stand — nächste Welle: Persistence-
+                              Layer-Tests über Unit-Tests abdecken und auf 80%/95% anheben.
+                              Folge-Issue: #71 (PIT auf 100%).
+                            -->
+                            <mutationThreshold>70</mutationThreshold>
+                            <testStrengthThreshold>90</testStrengthThreshold>
                             <timestampedReports>false</timestampedReports>
                         </configuration>
                         <executions>

@@ -12,6 +12,7 @@ Verbindliche Regeln für das Frontend (`frontend/src/`). Ergänzend zu [CLAUDE.m
 - **React Router 6** (BrowserRouter, flache Routen)
 - **Material UI 6 (MUI)** + Emotion für Styling
 - **Vitest + React Testing Library** für Tests
+- **ESLint 10** (`eslint.config.js` flat config) mit TypeScript, React, React-Hooks, jsx-a11y
 
 Der Dev-Server (Vite, `:5173`) leitet `/api/*` per Proxy an Spring Boot (`:8080`). In Produktion serviert Spring Boot den Vite-Build aus `classpath:/static/`. Eine Domain, kein CORS.
 
@@ -35,6 +36,22 @@ Der Dev-Server (Vite, `:5173`) leitet `/api/*` per Proxy an Spring Boot (`:8080`
 - **Keine** Secrets in `VITE_*` — alles dort ist potenziell öffentlich (siehe [CLAUDE-security.md](CLAUDE-security.md)).
 - `vite.config.ts` nur ändern, wenn unvermeidbar. Insbesondere die Proxy-Konfiguration für `/api` bleibt stabil, damit Dev- und Prod-Verhalten symmetrisch sind.
 - Neue Vite-Plugins nur mit erkennbarem Nutzen.
+
+### Performance-Budget
+
+Messung 2026-05-31 nach Einführung von Route-Level Lazy Loading:
+
+| Chunk | Größe (minified) | Gzip | Limit | Status |
+|---|---|---|---|---|
+| `index.js` (Vendor) | ~485 kB | ~152 kB | 600 kB | ✅ Floor: React + MUI + Router + OIDC |
+| `DashboardPage.js` | ~528 kB | ~146 kB | 600 kB | ✅ Dokumentierte Ausnahme: Widget-Registry |
+| Alle anderen Route-Chunks | < 130 kB | < 40 kB | 600 kB | ✅ |
+
+**Regeln:**
+- **Route-Level Lazy Loading ist Pflicht** für alle Top-Level-Routen in `App.tsx` (via `React.lazy` + `Suspense`). Kein direktes Import einer Page-Komponente in `App.tsx` ohne `lazy()`.
+- **Neuer Chunk > 600 kB** → Pflicht-Review: lässt sich die Komponente aufteilen? Wenn nein, dokumentierter Ausnahmefall in dieser Tabelle.
+- **Vendor-Bundle** (`index.js`) wird durch MUI-Basis bestimmt. Keine zusätzlichen Abhängigkeiten ins Vendor-Bundle einschleppen, ohne Größe zu prüfen.
+- `build.chunkSizeWarningLimit: 600` in `vite.config.ts` ist die Grenze für Build-Warnungen — entspricht dem dokumentierten Budget.
 
 ---
 
@@ -181,9 +198,39 @@ Neue wiederverwendbare UI-Bausteine: eigener Ordner unter `frontend/src/componen
 
 ---
 
+## 🔍 ESLint / A11y-Gate
+
+**ESLint ist verbindlich** und muss vor jedem Push grün sein.
+
+```bash
+cd frontend && npm run lint   # ESLint auf src/
+```
+
+**Konfiguration:** [`eslint.config.js`](frontend/eslint.config.js) (flat config, ESLint 10+)
+- `typescript-eslint` (recommended): TypeScript-Korrektheit, kein `any`
+- `eslint-plugin-react` (recommended + jsx-runtime): React-Regeln
+- `eslint-plugin-react-hooks` (recommended): Hooks-Regeln, `exhaustive-deps`
+- `eslint-plugin-jsx-a11y` (recommended): Accessibility-Regeln
+
+**Bewusst deaktiviert:**
+- `react-hooks/set-state-in-effect`: Experimentelle Regel in react-hooks v7, die `useEffect(() => { void load(); }, [])` ablehnt — Standard-Datenfetch-Pattern in diesem Projekt.
+- `jsx-a11y/no-autofocus`: `autoFocus` auf Modal-Dialog-Inputs ist ARIA-konform; pauschales Verbot erzeugt A11y-Rückschritt.
+
+**Neue `eslint-disable`-Kommentare** im Produktivcode müssen im PR begründet werden.
+
+**Pflichtchecks vor Push (Frontend):**
+
+```bash
+cd frontend && npm run build    # TypeScript + Vite
+cd frontend && npm run lint     # ESLint + jsx-a11y
+cd frontend && npm test         # Vitest
+```
+
+---
+
 ## 🔗 Weiterführende Docs
 
 - [CLAUDE.md](CLAUDE.md) — Projekt-Übersicht
 - [CLAUDE-java.md](CLAUDE-java.md) — Backend-Pendant
-- [CLAUDE-security.md](CLAUDE-security.md) — XSS, Storage, Secrets
+- [CLAUDE-security.md](CLAUDE-security.md) — XSS, Storage, Secrets, OIDC
 - [CLAUDE-workflow.md](CLAUDE-workflow.md) — 9-Schritte-Workflow + Pflichtchecks

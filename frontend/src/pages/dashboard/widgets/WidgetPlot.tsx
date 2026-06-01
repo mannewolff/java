@@ -67,6 +67,14 @@ const OVERLAY_ORDER: readonly PlotOverlay[] = ['mean', 'median', 'min', 'max'];
 export const MAX_SERIES = 3;
 /** Default-Farben für neue Serien (Blau, Rot, Grün — analog matplotlib-Stil). */
 export const DEFAULT_SERIES_COLORS: readonly string[] = ['#1976d2', '#d32f2f', '#2e7d32'];
+/** Auswählbare Serien-Farben im Drawer (5 gängige, gut unterscheidbare Farben). */
+export const SWATCH_COLORS: ReadonlyArray<{ name: string; value: string }> = [
+  { name: 'Blau', value: '#1976d2' },
+  { name: 'Rot', value: '#d32f2f' },
+  { name: 'Grün', value: '#2e7d32' },
+  { name: 'Orange', value: '#ed6c02' },
+  { name: 'Lila', value: '#9c27b0' },
+];
 
 /** Y-Achsen-Seite einer Serie. */
 type AxisSide = 'left' | 'right';
@@ -683,7 +691,7 @@ export default function WidgetPlot({
               </Typography>
               <Stack spacing={1.5} sx={{ mt: 0.5 }}>
                 {draftSeries.map((s, i) => (
-                  <Stack key={i} spacing={0.5}>
+                  <Stack key={i} spacing={1.25}>
                     <TextField
                       select
                       size="small"
@@ -700,21 +708,48 @@ export default function WidgetPlot({
                         </MenuItem>
                       ))}
                     </TextField>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <TextField
-                        size="small"
-                        label="Farbe"
-                        value={s.color}
-                        onChange={(e) => updateSeries(i, { color: e.target.value })}
-                        sx={{ width: 96 }}
-                      />
+                    <Stack direction="row" spacing={1.5} alignItems="flex-end">
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Farbe
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.25 }}>
+                          {SWATCH_COLORS.map((c) => {
+                            const selected = s.color === c.value;
+                            return (
+                              <Box
+                                key={c.value}
+                                component="button"
+                                type="button"
+                                aria-label={`Farbe ${c.name}`}
+                                aria-pressed={selected}
+                                onClick={() => updateSeries(i, { color: c.value })}
+                                sx={{
+                                  width: 22,
+                                  height: 22,
+                                  p: 0,
+                                  borderRadius: '50%',
+                                  cursor: 'pointer',
+                                  bgcolor: c.value,
+                                  border: (theme) =>
+                                    selected
+                                      ? `2px solid ${theme.palette.text.primary}`
+                                      : `1px solid ${theme.palette.divider}`,
+                                  boxShadow: (theme) =>
+                                    selected ? `0 0 0 2px ${theme.palette.background.paper}` : 'none',
+                                }}
+                              />
+                            );
+                          })}
+                        </Stack>
+                      </Box>
                       <TextField
                         select
                         size="small"
                         label="Achse"
                         value={s.yAxis}
                         onChange={(e) => updateSeries(i, { yAxis: e.target.value as AxisSide })}
-                        sx={{ minWidth: 96 }}
+                        sx={{ minWidth: 88 }}
                       >
                         <MenuItem value="left">Links</MenuItem>
                         <MenuItem value="right">Rechts</MenuItem>

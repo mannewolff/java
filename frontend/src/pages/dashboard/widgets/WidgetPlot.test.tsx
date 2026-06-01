@@ -704,3 +704,63 @@ describe('WidgetPlot getrennte Y-Achsen (#157)', () => {
     expect(parsed.series[0].yAxis).toBe('left');
   });
 });
+
+describe('WidgetPlot Farb-Swatches (#165)', () => {
+  beforeEach(() => {
+    aggregate.mockReset();
+    entries.mockReset();
+    list.mockReset();
+    list.mockResolvedValue([]);
+  });
+  afterEach(() => cleanup());
+
+  it('Drawer: Klick auf Farb-Swatch setzt die Serienfarbe', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValue([
+      { id: 1, name: 'Gewicht', unit: 'kg', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+    ]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [{ timeSeriesId: 1, color: '#1976d2', yAxis: 'left' }],
+          defaultGranularity: 'DAILY',
+        })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.click(await screen.findByRole('button', { name: 'Farbe Rot' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { series: { color: string }[] };
+    expect(parsed.series[0].color).toBe('#d32f2f');
+  });
+
+  it('aktiver Swatch ist als gewählt markiert (aria-pressed)', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValue([
+      { id: 1, name: 'Gewicht', unit: 'kg', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+    ]);
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [{ timeSeriesId: 1, color: '#2e7d32', yAxis: 'left' }],
+          defaultGranularity: 'DAILY',
+        })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    const green = await screen.findByRole('button', { name: 'Farbe Grün' });
+    expect(green).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Farbe Blau' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+});

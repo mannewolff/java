@@ -49,6 +49,7 @@ import useViewportWidth from './useViewportWidth';
 import { useEditMode } from './EditModeContext';
 import { useKioskMode } from './KioskModeContext';
 import WidgetDivider from './widgets/WidgetDivider';
+import WidgetImage from './widgets/WidgetImage';
 import WidgetKanbanList from './widgets/WidgetKanbanList';
 import WidgetKpi from './widgets/WidgetKpi';
 import WidgetPlot from './widgets/WidgetPlot';
@@ -455,6 +456,15 @@ export default function DashboardPage(): JSX.Element {
       case 'DIVIDER':
         return (
           <WidgetDivider
+            widget={widget}
+            onChange={(next) => handleWidgetChange(index, next)}
+            onDelete={() => handleWidgetDeleteRequest(index)}
+            readOnly={!editMode}
+          />
+        );
+      case 'IMAGE':
+        return (
+          <WidgetImage
             widget={widget}
             onChange={(next) => handleWidgetChange(index, next)}
             onDelete={() => handleWidgetDeleteRequest(index)}

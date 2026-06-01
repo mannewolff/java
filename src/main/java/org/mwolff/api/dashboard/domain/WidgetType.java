@@ -9,5 +9,6 @@ public enum WidgetType {
   KPI,
   PLOT,
   KANBAN_LIST,
-  DIVIDER
+  DIVIDER,
+  IMAGE
 }

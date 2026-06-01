@@ -32,6 +32,7 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number
   PLOT: { width: 6, height: 4 },
   KANBAN_LIST: { width: 3, height: 4 },
   DIVIDER: { ...DIVIDER_HORIZONTAL_SIZE },
+  IMAGE: { width: 4, height: 4 },
 };
 
 /** Initial-Config je Widget-Typ — passend zu den Widget-Komponenten in widgets/. */
@@ -54,6 +55,13 @@ export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
   }),
   KANBAN_LIST: JSON.stringify({ column: 'BACKLOG', limit: 5 }),
   DIVIDER: JSON.stringify({ color: '', thickness: 2 }),
+  IMAGE: JSON.stringify({
+    imageId: null,
+    mode: 'resize',
+    objectFit: 'contain',
+    cropOffsetX: 0,
+    cropOffsetY: 0,
+  }),
 };
 
 /** Erzeugt ein neues Widget mit Default-Größe und -Config an Position (0, 0). */

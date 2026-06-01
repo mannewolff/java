@@ -7,28 +7,21 @@ import {
   Drawer,
   FormControlLabel,
   IconButton,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   Switch,
   TextField,
   Toolbar,
   Typography,
 } from '@mui/material';
-import FormControl from '@mui/material/FormControl';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 
 import type { WidgetDto } from '../../../api/dashboard';
-import { DIVIDER_HORIZONTAL_SIZE, DIVIDER_VERTICAL_SIZE } from '../widgetDefaults';
+import { DIVIDER_HORIZONTAL_SIZE } from '../widgetDefaults';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
-type Orientation = 'horizontal' | 'vertical';
-
 interface DividerConfig {
-  orientation: Orientation;
   /** CSS-Farbwert; leer = Theme-Standard (`divider`). */
   color: string;
   /** Linienbreite in Pixeln. */
@@ -39,22 +32,23 @@ interface DividerConfig {
 
 const DEFAULT_THICKNESS = 2;
 
+// Der Divider ist seit #176 horizontal-only. Persistierte Alt-Configs mit
+// `orientation: 'vertical'` (aus dem zurückgezogenen #170) werden ignoriert und
+// horizontal gerendert — keine DB-Migration nötig.
 function parseConfig(raw: string): DividerConfig {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const orientation: Orientation = parsed.orientation === 'vertical' ? 'vertical' : 'horizontal';
     const thickness =
       typeof parsed.thickness === 'number' && parsed.thickness > 0
         ? parsed.thickness
         : DEFAULT_THICKNESS;
     return {
-      orientation,
       color: typeof parsed.color === 'string' ? parsed.color : '',
       thickness,
       ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { orientation: 'horizontal', color: '', thickness: DEFAULT_THICKNESS, showBorder: false };
+    return { color: '', thickness: DEFAULT_THICKNESS, showBorder: false };
   }
 }
 
@@ -67,7 +61,7 @@ interface Props {
 }
 
 /**
- * Trennlinien-Widget. Zeichnet eine horizontale oder vertikale Linie in der Kachel.
+ * Trennlinien-Widget. Zeichnet eine horizontale Linie über die volle Breite der Kachel.
  * Die Stop-Propagation auf `onMouseDown` der Aktions-Buttons verhindert, dass
  * react-grid-layout den Klick als Drag-Start interpretiert.
  */
@@ -79,9 +73,7 @@ export default function WidgetDivider({
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
   const surface = widgetSurface(readOnly, config);
-  const isHorizontal = config.orientation === 'horizontal';
   const [open, setOpen] = useState(false);
-  const [draftOrientation, setDraftOrientation] = useState<Orientation>(config.orientation);
   const [draftColor, setDraftColor] = useState(config.color);
   const [draftThickness, setDraftThickness] = useState(String(config.thickness));
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
@@ -89,25 +81,16 @@ export default function WidgetDivider({
 
   useEffect(() => {
     if (open) {
-      setDraftOrientation(config.orientation);
       setDraftColor(config.color);
       setDraftThickness(String(config.thickness));
       setDraftShowBorder(config.showBorder);
       setDraftBackgroundColor(config.backgroundColor ?? '');
     }
-  }, [
-    open,
-    config.orientation,
-    config.color,
-    config.thickness,
-    config.showBorder,
-    config.backgroundColor,
-  ]);
+  }, [open, config.color, config.thickness, config.showBorder, config.backgroundColor]);
 
   function handleApply(): void {
     const parsedThickness = Number.parseInt(draftThickness, 10);
     const next: DividerConfig = {
-      orientation: draftOrientation,
       color: draftColor.trim(),
       thickness: Number.isFinite(parsedThickness) && parsedThickness > 0 ? parsedThickness : DEFAULT_THICKNESS,
       showBorder: draftShowBorder,
@@ -115,13 +98,10 @@ export default function WidgetDivider({
         ? { backgroundColor: draftBackgroundColor.trim() }
         : {}),
     };
-    // Grid-Größe folgt der Orientierung: vertikal = 1 Spalte breit (dünne Linie zwischen
-    // Widgets), horizontal = volle Breite. User-Resize der Breite wird dadurch überschrieben.
-    const size = next.orientation === 'vertical' ? DIVIDER_VERTICAL_SIZE : DIVIDER_HORIZONTAL_SIZE;
     onChange({
       ...widget,
-      width: size.width,
-      height: size.height,
+      width: DIVIDER_HORIZONTAL_SIZE.width,
+      height: DIVIDER_HORIZONTAL_SIZE.height,
       config: JSON.stringify(next),
     });
     setOpen(false);
@@ -143,8 +123,7 @@ export default function WidgetDivider({
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        px: isHorizontal ? 1 : 0,
-        py: isHorizontal ? 0 : 1,
+        px: 1,
         ...surface.sx,
       }}
     >
@@ -177,9 +156,7 @@ export default function WidgetDivider({
         aria-label="Trennlinie"
         sx={(theme) => {
           const c = config.color.trim() !== '' ? config.color : theme.palette.divider;
-          return isHorizontal
-            ? { width: '100%', borderTop: `${config.thickness}px solid ${c}` }
-            : { height: '100%', borderLeft: `${config.thickness}px solid ${c}` };
+          return { width: '100%', borderTop: `${config.thickness}px solid ${c}` };
         }}
       />
 
@@ -195,18 +172,6 @@ export default function WidgetDivider({
             Trennlinie bearbeiten
           </Typography>
           <Stack spacing={2}>
-            <FormControl fullWidth>
-              <InputLabel id="divider-orientation-label">Orientierung</InputLabel>
-              <Select
-                labelId="divider-orientation-label"
-                label="Orientierung"
-                value={draftOrientation}
-                onChange={(e) => setDraftOrientation(e.target.value as Orientation)}
-              >
-                <MenuItem value="horizontal">Horizontal</MenuItem>
-                <MenuItem value="vertical">Vertikal</MenuItem>
-              </Select>
-            </FormControl>
             <TextField
               label="Linienfarbe (leer = Theme-Standard)"
               value={draftColor}

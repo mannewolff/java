@@ -198,7 +198,15 @@ export default function WidgetTextbox({
         </Stack>
       )}
 
-      <Box sx={{ mt: 0.5, pr: readOnly ? 0 : 6 }}>
+      <Box
+        sx={{
+          pr: readOnly ? 0 : 6,
+          // #171: Eigen-Margins des ersten/letzten Markdown-Blocks (z. B. h1 margin-block-start)
+          // neutralisieren, damit paddingTop/paddingBottom = 0 die Linie wirklich bündig macht.
+          '& > :first-of-type': { mt: 0 },
+          '& > :last-of-type': { mb: 0 },
+        }}
+      >
         <ReactMarkdown>{config.markdown}</ReactMarkdown>
       </Box>
 

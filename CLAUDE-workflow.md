@@ -180,6 +180,17 @@ Lokale Kontrolle vor jedem Push. Production ausschließlich via Pull Request.
 7. **Eine Push-Freigabe gilt pro Commit-Batch, nicht pro Session.** Folge-Commits (auch winzige) brauchen eine neue Freigabe.
 8. **Kein `git commit … && git push` in einer Bash-Zeile**, ausser der User hat den Push gerade in dieser Antwort explizit freigegeben. Default ist: commit, dann im Antwort-Text „Push?" anbieten und warten.
 
+### Branch-Strategie (verbindlich)
+
+- **Lokaler Arbeits-Branch ist immer `main`.** Claude checked `main` aus, arbeitet darauf, committed darauf.
+- `git checkout main` ist der Standard zu Beginn jeder Session / nach jedem Merge.
+- Vor der ersten Änderung in einer Session: `git pull --ff-only` um `main` mit `origin/main` zu synchronisieren.
+- **Workflow-Reihenfolge:**
+  1. Lokale Commits auf `main`
+  2. `push main` (auf explizite User-Freigabe) → `origin/main`
+  3. PR `main → production` (Claude erstellt, User oder Claude merged)
+- Es gibt **keinen** lokalen `production`-Branch für Entwicklungsarbeit. Der `production`-Branch existiert nur auf GitHub (Branch-Protection) und wird ausschließlich via PR befüllt.
+
 ### Warnsignale (nicht ignorieren)
 
 - Fehlgeschlagene Branch-Protection-Regeln

@@ -70,7 +70,14 @@ describe('WidgetTextbox', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        config: JSON.stringify({ markdown: 'Neuer Inhalt', showBorder: false }),
+        config: JSON.stringify({
+          markdown: 'Neuer Inhalt',
+          paddingTop: 2,
+          paddingLeft: 2,
+          paddingRight: 2,
+          paddingBottom: 2,
+          showBorder: false,
+        }),
       }),
     );
   });
@@ -268,5 +275,67 @@ describe('WidgetTextbox', () => {
 
     // Edit-Button bleibt erreichbar — Komponente ist nicht gecrasht.
     expect(screen.getByRole('button', { name: 'Textbox bearbeiten' })).toBeInTheDocument();
+  });
+});
+
+describe('WidgetTextbox Abstände (#171)', () => {
+  afterEach(() => cleanup());
+
+  it('Drawer-Felder zeigen Default-Padding 2 bei Config ohne Padding', async () => {
+    const user = userEvent.setup();
+    render(
+      <WidgetTextbox widget={makeWidget('x')} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Textbox bearbeiten' }));
+    expect(screen.getByLabelText('Abstand oben')).toHaveValue(2);
+    expect(screen.getByLabelText('Abstand links')).toHaveValue(2);
+    expect(screen.getByLabelText('Abstand rechts')).toHaveValue(2);
+    expect(screen.getByLabelText('Abstand unten')).toHaveValue(2);
+  });
+
+  it('speichert die vier Abstände aus dem Drawer', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetTextbox widget={makeWidget('x')} onChange={onChange} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Textbox bearbeiten' }));
+
+    const top = screen.getByLabelText('Abstand oben');
+    await user.clear(top);
+    await user.type(top, '0');
+    const right = screen.getByLabelText('Abstand rechts');
+    await user.clear(right);
+    await user.type(right, '4');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as {
+      paddingTop: number;
+      paddingRight: number;
+      paddingLeft: number;
+      paddingBottom: number;
+    };
+    expect(parsed.paddingTop).toBe(0);
+    expect(parsed.paddingRight).toBe(4);
+    expect(parsed.paddingLeft).toBe(2);
+    expect(parsed.paddingBottom).toBe(2);
+  });
+
+  it('klemmt zu große Werte auf das Maximum (8)', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetTextbox widget={makeWidget('x')} onChange={onChange} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Textbox bearbeiten' }));
+    const top = screen.getByLabelText('Abstand oben');
+    await user.clear(top);
+    await user.type(top, '99');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as {
+      paddingTop: number;
+    };
+    expect(parsed.paddingTop).toBe(8);
   });
 });

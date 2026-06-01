@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import {
   Alert,
@@ -28,6 +28,7 @@ import {
   generate,
   hashBcrypt,
 } from '../../lib/password';
+import { loadPasswordSettings, savePasswordSettings } from '../../lib/passwordSettings';
 
 const MIN_LENGTH = 8;
 const MAX_LENGTH = 64;
@@ -63,16 +64,19 @@ function alphabetSize(
 }
 
 export default function PasswordPage() {
+  // Beim ersten Render einmalig die persistierten Einstellungen laden (#178).
+  const initial = useMemo(() => loadPasswordSettings(), []);
+
   // Applied state — used by the Generate button
-  const [length, setLength] = useState(DEFAULT_LENGTH);
-  const [useUpper, setUseUpper] = useState(true);
-  const [useLower, setUseLower] = useState(true);
-  const [useDigits, setUseDigits] = useState(true);
+  const [length, setLength] = useState(initial.length);
+  const [useUpper, setUseUpper] = useState(initial.useUpper);
+  const [useLower, setUseLower] = useState(initial.useLower);
+  const [useDigits, setUseDigits] = useState(initial.useDigits);
   const [specials, setSpecials] = useState<SpecialsSelection>({
-    active: true,
-    picked: DEFAULT_SPECIALS_SET,
+    active: initial.specialsActive,
+    picked: new Set(initial.specialsPicked),
   });
-  const [costFactor, setCostFactor] = useState(DEFAULT_COST);
+  const [costFactor, setCostFactor] = useState(initial.costFactor);
 
   // Outputs
   const [password, setPassword] = useState<string>('');
@@ -177,6 +181,18 @@ export default function PasswordPage() {
     setUseDigits(draftDigits);
     setSpecials(draftSpecials);
     setCostFactor(draftCost);
+    // #178: Übernommene Einstellungen in localStorage persistieren. specialsPicked in
+    // kanonischer Reihenfolge (DEFAULT_SPECIALS) speichern — auch deaktivierte Auswahl bleibt
+    // erhalten, sodass erneutes Aktivieren von Sonderzeichen die Auswahl wiederherstellt.
+    savePasswordSettings({
+      length: draftLength,
+      useUpper: draftUpper,
+      useLower: draftLower,
+      useDigits: draftDigits,
+      specialsActive: draftSpecials.active,
+      specialsPicked: DEFAULT_SPECIALS.filter((c) => draftSpecials.picked.has(c)),
+      costFactor: draftCost,
+    });
     setDrawerOpen(false);
   };
 

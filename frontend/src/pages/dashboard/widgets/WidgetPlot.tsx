@@ -68,10 +68,15 @@ export const MAX_SERIES = 3;
 /** Default-Farben für neue Serien (Blau, Rot, Grün — analog matplotlib-Stil). */
 export const DEFAULT_SERIES_COLORS: readonly string[] = ['#1976d2', '#d32f2f', '#2e7d32'];
 
+/** Y-Achsen-Seite einer Serie. */
+type AxisSide = 'left' | 'right';
+
 /** Eine konfigurierte Zeitreihe im Plot. */
 interface PlotSeries {
   timeSeriesId: number;
   color: string;
+  /** Welche Y-Achse die Serie nutzt. Default `'left'`. */
+  yAxis: AxisSide;
 }
 
 interface PlotConfig {
@@ -140,14 +145,20 @@ export function parseSeries(parsed: Record<string, unknown>): PlotSeries[] {
           typeof s.color === 'string' && s.color.trim() !== ''
             ? s.color
             : DEFAULT_SERIES_COLORS[i % DEFAULT_SERIES_COLORS.length],
+        yAxis: s.yAxis === 'right' ? ('right' as AxisSide) : ('left' as AxisSide),
       }))
       .filter((s) => s.timeSeriesId >= 0)
       .slice(0, MAX_SERIES);
   }
   if (typeof parsed.timeSeriesId === 'number') {
-    return [{ timeSeriesId: parsed.timeSeriesId, color: DEFAULT_SERIES_COLORS[0] }];
+    return [{ timeSeriesId: parsed.timeSeriesId, color: DEFAULT_SERIES_COLORS[0], yAxis: 'left' }];
   }
   return [];
+}
+
+/** Wird mindestens eine Serie an der rechten Y-Achse dargestellt? */
+export function usesRightAxis(series: ReadonlyArray<{ yAxis: AxisSide }>): boolean {
+  return series.some((s) => s.yAxis === 'right');
 }
 
 function parseConfig(raw: string): PlotConfig {
@@ -463,7 +474,11 @@ export default function WidgetPlot({
       const firstId = seriesList?.[0]?.id ?? -1;
       return [
         ...prev,
-        { timeSeriesId: firstId, color: DEFAULT_SERIES_COLORS[prev.length % DEFAULT_SERIES_COLORS.length] },
+        {
+          timeSeriesId: firstId,
+          color: DEFAULT_SERIES_COLORS[prev.length % DEFAULT_SERIES_COLORS.length],
+          yAxis: 'left',
+        },
       ];
     });
   }
@@ -599,12 +614,20 @@ export default function WidgetPlot({
             <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 4 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis domain={computeYDomain(config.yMin, config.yMax)} tick={{ fontSize: 11 }} />
+              <YAxis
+                yAxisId="left"
+                domain={computeYDomain(config.yMin, config.yMax)}
+                tick={{ fontSize: 11 }}
+              />
+              {usesRightAxis(config.series) && (
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+              )}
               <Tooltip />
               {config.showLegend && <Legend />}
               {overlayLines.map((ol) => (
                 <ReferenceLine
                   key={ol.overlay}
+                  yAxisId="left"
                   y={ol.y}
                   stroke={ol.color}
                   strokeDasharray="4 4"
@@ -619,6 +642,7 @@ export default function WidgetPlot({
               {config.series.map((s, i) => (
                 <Line
                   key={i}
+                  yAxisId={s.yAxis}
                   type="monotone"
                   dataKey={`s${i}`}
                   name={seriesName(s.timeSeriesId)}
@@ -630,6 +654,7 @@ export default function WidgetPlot({
               ))}
               {showRegressionLine && (
                 <Line
+                  yAxisId="left"
                   type="linear"
                   dataKey="regression"
                   name="Trend"
@@ -656,9 +681,9 @@ export default function WidgetPlot({
               <Typography variant="caption" color="text.secondary">
                 Zeitreihen (max {MAX_SERIES})
               </Typography>
-              <Stack spacing={1} sx={{ mt: 0.5 }}>
+              <Stack spacing={1.5} sx={{ mt: 0.5 }}>
                 {draftSeries.map((s, i) => (
-                  <Stack key={i} direction="row" spacing={1} alignItems="center">
+                  <Stack key={i} spacing={0.5}>
                     <TextField
                       select
                       size="small"
@@ -675,20 +700,34 @@ export default function WidgetPlot({
                         </MenuItem>
                       ))}
                     </TextField>
-                    <TextField
-                      size="small"
-                      label="Farbe"
-                      value={s.color}
-                      onChange={(e) => updateSeries(i, { color: e.target.value })}
-                      sx={{ width: 96 }}
-                    />
-                    <IconButton
-                      size="small"
-                      aria-label={`Serie ${i + 1} entfernen`}
-                      onClick={() => removeSeries(i)}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <TextField
+                        size="small"
+                        label="Farbe"
+                        value={s.color}
+                        onChange={(e) => updateSeries(i, { color: e.target.value })}
+                        sx={{ width: 96 }}
+                      />
+                      <TextField
+                        select
+                        size="small"
+                        label="Achse"
+                        value={s.yAxis}
+                        onChange={(e) => updateSeries(i, { yAxis: e.target.value as AxisSide })}
+                        sx={{ minWidth: 96 }}
+                      >
+                        <MenuItem value="left">Links</MenuItem>
+                        <MenuItem value="right">Rechts</MenuItem>
+                      </TextField>
+                      <IconButton
+                        size="small"
+                        aria-label={`Serie ${i + 1} entfernen`}
+                        onClick={() => removeSeries(i)}
+                        sx={{ ml: 'auto' }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
                   </Stack>
                 ))}
               </Stack>

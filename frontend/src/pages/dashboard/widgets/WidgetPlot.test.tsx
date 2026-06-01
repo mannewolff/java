@@ -9,6 +9,7 @@ import WidgetPlot, {
   linearRegression,
   mergeSeries,
   overlayValue,
+  usesRightAxis,
 } from './WidgetPlot';
 import type { WidgetDto } from '../../../api/dashboard';
 
@@ -385,6 +386,23 @@ describe('mergeSeries', () => {
   });
 });
 
+describe('usesRightAxis', () => {
+  it('true wenn mindestens eine Serie rechts', () => {
+    expect(
+      usesRightAxis([
+        { yAxis: 'left' },
+        { yAxis: 'right' },
+      ]),
+    ).toBe(true);
+  });
+  it('false wenn alle links', () => {
+    expect(usesRightAxis([{ yAxis: 'left' }, { yAxis: 'left' }])).toBe(false);
+  });
+  it('false bei leerer Liste', () => {
+    expect(usesRightAxis([])).toBe(false);
+  });
+});
+
 describe('computeYDomain', () => {
   it('beide gesetzt → [min, max]', () => {
     expect(computeYDomain(80, 85)).toEqual([80, 85]);
@@ -606,5 +624,83 @@ describe('WidgetPlot Multi-Serie (#156)', () => {
     await screen.findByText('Plot bearbeiten');
     // 2 Serien → kein Overlay-Block
     expect(screen.queryByText('Overlay-Linien')).not.toBeInTheDocument();
+  });
+});
+
+describe('WidgetPlot getrennte Y-Achsen (#157)', () => {
+  beforeEach(() => {
+    aggregate.mockReset();
+    entries.mockReset();
+    list.mockReset();
+    list.mockResolvedValue([]);
+  });
+  afterEach(() => cleanup());
+
+  it('rendert zwei Achsen-Serien ohne Crash', async () => {
+    aggregate.mockResolvedValue([
+      { bucketStart: '2026-05-27T00:00:00Z', count: 1, min: 1, max: 1, avg: 80, last: 1 },
+    ]);
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [
+            { timeSeriesId: 1, color: '#111', yAxis: 'left' },
+            { timeSeriesId: 2, color: '#222', yAxis: 'right' },
+          ],
+          defaultGranularity: 'DAILY',
+        })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY'));
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
+  });
+
+  it('Drawer: Achsen-Zuweisung wird gespeichert', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValue([
+      { id: 1, name: 'Gewicht', unit: 'kg', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+    ]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({
+          series: [{ timeSeriesId: 1, color: '#111', yAxis: 'left' }],
+          defaultGranularity: 'DAILY',
+        })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.click(await screen.findByLabelText('Achse'));
+    await user.click(screen.getByRole('option', { name: 'Rechts' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { series: { yAxis: string }[] };
+    expect(parsed.series[0].yAxis).toBe('right');
+  });
+
+  it('Legacy-Serie ohne yAxis-Feld → links (Abwärtskompatibilität)', async () => {
+    aggregate.mockResolvedValue([]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    list.mockResolvedValue([
+      { id: 5, name: 'X', unit: 'u', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+    ]);
+    render(
+      <WidgetPlot
+        widget={widget({ series: [{ timeSeriesId: 5, color: '#111' }], defaultGranularity: 'DAILY' })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { series: { yAxis: string }[] };
+    expect(parsed.series[0].yAxis).toBe('left');
   });
 });

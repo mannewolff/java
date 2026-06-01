@@ -575,4 +575,111 @@ describe('WidgetKpi', () => {
       );
     });
   });
+
+  // ----- Gauge Mittelanzeige Wert/Einheit (#154) -------------------------
+
+  describe('Gauge Mittelanzeige', () => {
+    function gaugeDisplayWidget(
+      over: Partial<{
+        value: number;
+        unit: string;
+        display: string;
+        timeSeriesId: number;
+      }> = {},
+    ): WidgetDto {
+      const base: Record<string, unknown> = {
+        style: 'gauge',
+        value: over.value ?? 80,
+        label: '',
+        min: 0,
+        max: 100,
+        lowEnd: 33,
+        mediumEnd: 66,
+        rangeLabel: '',
+        display: over.display ?? 'value',
+        unit: over.unit ?? '',
+      };
+      if (over.timeSeriesId !== undefined) base.timeSeriesId = over.timeSeriesId;
+      return {
+        id: 1,
+        type: 'KPI',
+        posX: 0,
+        posY: 0,
+        width: 2,
+        height: 2,
+        config: JSON.stringify(base),
+      };
+    }
+
+    it('statischer Wert-Modus zeigt Wert + Einheit statt Prozent', () => {
+      render(
+        <WidgetKpi
+          widget={gaugeDisplayWidget({ value: 80, unit: 'kg', display: 'value' })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      expect(screen.getByText('80 kg')).toBeInTheDocument();
+      expect(screen.queryByText('80%')).not.toBeInTheDocument();
+    });
+
+    it('Wert-Modus ohne Einheit zeigt nur die Zahl', () => {
+      render(
+        <WidgetKpi
+          widget={gaugeDisplayWidget({ value: 80, unit: '', display: 'value' })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      expect(screen.getByText('80')).toBeInTheDocument();
+    });
+
+    it('percent-Modus zeigt weiterhin Prozent (Abwärtskompatibilität)', () => {
+      render(
+        <WidgetKpi
+          widget={gaugeDisplayWidget({ value: 80, display: 'percent' })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      expect(screen.getByText('80%')).toBeInTheDocument();
+    });
+
+    it('Zeitreihen-Gauge im Wert-Modus zeigt geladenen Wert + Serien-Einheit', async () => {
+      latest.mockResolvedValue({ id: 1, timestamp: '2026-01-01T00:00:00Z', value: 72 });
+      getTs.mockResolvedValue({ id: 5, name: 'Gewicht', unit: 'kg' });
+      render(
+        <WidgetKpi
+          widget={gaugeDisplayWidget({ display: 'value', timeSeriesId: 5 })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      await waitFor(() => expect(screen.getByText('72 kg')).toBeInTheDocument());
+    });
+
+    it('Drawer: Mittelanzeige "Wert" + Einheit wird gespeichert', async () => {
+      listTs.mockResolvedValue([]);
+      const onChange = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <WidgetKpi
+          widget={gaugeDisplayWidget({ value: 80, display: 'percent', unit: '' })}
+          onChange={onChange}
+          onDelete={vi.fn()}
+        />,
+      );
+      await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+      await user.click(screen.getByLabelText('Mittelanzeige'));
+      await user.click(screen.getByRole('option', { name: 'Wert' }));
+      const unitInput = await screen.findByLabelText('Einheit');
+      await user.type(unitInput, 'kg');
+      await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+      const next = onChange.mock.calls[0][0] as WidgetDto;
+      const parsed = JSON.parse(next.config) as { display: string; unit: string };
+      expect(parsed.display).toBe('value');
+      expect(parsed.unit).toBe('kg');
+    });
+  });
 });

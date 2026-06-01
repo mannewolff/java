@@ -45,7 +45,7 @@ Wenn das Projekt ein Kanban-Board nutzt, dient die **Ready**-Spalte als generell
 
 - Das **Issue** ist die Quelle der Wahrheit, nicht der Chat.
 - Bei Java: striktes TDD pro [CLAUDE-java.md](CLAUDE-java.md) §8.
-- Nach jedem fertigen Issue: lokaler Commit mit Bezug `Closes #N`.
+- Nach jedem fertigen Issue: lokaler Commit, der das Issue mit **`Refs #N`** referenziert — **niemals** `Closes/Fixes/Resolves #N`. Begründung siehe [Issue-Schließ-Konvention](#-issue-schließ-konvention).
 - **Niemals automatisch pushen.**
 
 ### 6. Lokale Prüfung (Claude + User)
@@ -190,6 +190,18 @@ Lokale Kontrolle vor jedem Push. Production ausschließlich via Pull Request.
   2. `push main` (auf explizite User-Freigabe) → `origin/main`
   3. PR `main → production` (Claude erstellt, User oder Claude merged)
 - Es gibt **keinen** lokalen `production`-Branch für Entwicklungsarbeit. Der `production`-Branch existiert nur auf GitHub (Branch-Protection) und wird ausschließlich via PR befüllt.
+
+### 🔖 Issue-Schließ-Konvention (verbindlich)
+
+**`main` ist der Default-Branch.** GitHub schließt ein Issue **automatisch**, sobald ein Commit mit `Closes #N` / `Fixes #N` / `Resolves #N` auf dem Default-Branch landet. Die Projekt-Automatik verschiebt geschlossene Items danach nach **Done** — das umgeht die Regel „**Done bewegt nur der User**".
+
+**Regel:**
+
+- In Commit-Messages **immer `Refs #N`** (oder schlicht `#N`) verwenden, **nie** `Closes/Fixes/Resolves #N`. So bleibt das Issue beim `main`-Push offen und in **In review**.
+- Das Issue wird erst geschlossen, wenn es in **production** ist: `Closes #N` gehört frühestens in den **PR-Body von `main → production`** — oder der User schließt manuell.
+- Der Übergang nach **Done** bleibt damit ausschließlich beim User (bzw. am production-Merge), nie am `main`-Push.
+
+Vorfall 01.06.2026: #153–#157 wurden durch `Closes #N`-Commits beim `main`-Push verfrüht geschlossen und automatisch nach Done geschoben, obwohl sie nur auf dem Testserver (`main`) lagen. Seitdem gilt obige Konvention.
 
 ### Warnsignale (nicht ignorieren)
 

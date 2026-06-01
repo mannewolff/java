@@ -143,6 +143,11 @@ export default function WidgetImage({
   const [draftFormat, setDraftFormat] = useState<ExportFormat>('png');
   const [draftQuality, setDraftQuality] = useState(90);
 
+  // Live-Pixel-Overlay beim Resizen der Kachel (#192-Folge): Größe + kurzes Einblenden.
+  const [liveSize, setLiveSize] = useState<{ w: number; h: number } | null>(null);
+  const [showLiveSize, setShowLiveSize] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+
   const [open, setOpen] = useState(false);
   const [draftImageId, setDraftImageId] = useState<number | null>(config.imageId);
   const [draftMode, setDraftMode] = useState<ImageMode>(config.mode);
@@ -232,6 +237,29 @@ export default function WidgetImage({
     imageElRef.current = el;
     setNaturalSize({ width: el.naturalWidth, height: el.naturalHeight });
   }
+
+  // ResizeObserver auf der Bildfläche: blendet beim Resizen der Kachel kurz die Pixelgröße ein.
+  useEffect(() => {
+    if (readOnly) return undefined;
+    const el = displayRef.current;
+    if (el == null || typeof ResizeObserver === 'undefined') return undefined;
+    let first = true;
+    const observer = new ResizeObserver(() => {
+      setLiveSize({ w: el.clientWidth, h: el.clientHeight });
+      if (first) {
+        first = false; // erstes Messen (Mount) nicht als Resize einblenden
+        return;
+      }
+      setShowLiveSize(true);
+      if (hideTimerRef.current != null) window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = window.setTimeout(() => setShowLiveSize(false), 1200);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (hideTimerRef.current != null) window.clearTimeout(hideTimerRef.current);
+    };
+  }, [readOnly]);
 
   useEffect(() => {
     if (open) {
@@ -359,6 +387,27 @@ export default function WidgetImage({
             <DeleteOutlineIcon fontSize="small" />
           </IconButton>
         </Stack>
+      )}
+
+      {!readOnly && showLiveSize && liveSize != null && config.imageId != null && (
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 4,
+            left: 4,
+            zIndex: 1,
+            px: 0.75,
+            py: 0.25,
+            borderRadius: 1,
+            pointerEvents: 'none',
+            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.7),
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          <Typography variant="caption">
+            {liveSize.w} × {liveSize.h} px
+          </Typography>
+        </Box>
       )}
 
       <Box ref={displayRef} sx={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>

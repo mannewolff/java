@@ -43,7 +43,9 @@ class OpenApiSchemaIT extends AbstractIntegrationTest {
   }
 
   @Test
-  void schemaIs401WithoutAuth() throws Exception {
-    mockMvc.perform(get("/api/openapi")).andExpect(status().is4xxClientError());
+  void schemaIsPublicWithoutAuth() throws Exception {
+    // OpenAPI-Schema + Swagger-UI sind seit #166 bewusst oeffentlich (permitAll), damit
+    // Entwickler ohne Token darauf zugreifen koennen — daher 200 auch ohne Auth.
+    mockMvc.perform(get("/api/openapi")).andExpect(status().isOk());
   }
 }

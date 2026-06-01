@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Import;
 class JpaTimeSeriesAdapterIT extends AbstractIntegrationTest {
 
   @Autowired private JpaTimeSeriesAdapter adapter;
+  @Autowired private org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager em;
 
   private static final String USER_A = "user-a";
   private static final String USER_B = "user-b";
@@ -69,11 +70,18 @@ class JpaTimeSeriesAdapterIT extends AbstractIntegrationTest {
     final TimeSeries ts =
         adapter.save(
             TimeSeries.newInstance(USER_A, "to delete", null, "kg", TimeSeriesDataType.DECIMAL));
-    adapter.save(TimeSeriesEntry.newInstance(ts.id(), Instant.EPOCH, new BigDecimal("1.0")));
     adapter.save(
-        TimeSeriesEntry.newInstance(ts.id(), Instant.EPOCH.plusSeconds(60), new BigDecimal("2.0")));
+        TimeSeriesEntry.newInstance(
+            ts.id(), Instant.parse("2026-05-27T10:00:00Z"), new BigDecimal("1.0")));
+    adapter.save(
+        TimeSeriesEntry.newInstance(
+            ts.id(), Instant.parse("2026-05-27T10:00:00Z").plusSeconds(60), new BigDecimal("2.0")));
 
     adapter.deleteById(ts.id());
+    // Delete flushen + Context leeren, damit der DB-seitige ON DELETE CASCADE auf die Entries
+    // sichtbar wird (sonst zählt die Query den noch nicht geflushten/gecachten Stand).
+    em.flush();
+    em.clear();
 
     assertThat(adapter.findById(ts.id())).isEmpty();
     assertThat(adapter.countEntries(ts.id())).isZero();
@@ -104,9 +112,12 @@ class JpaTimeSeriesAdapterIT extends AbstractIntegrationTest {
     final TimeSeries ts =
         adapter.save(
             TimeSeries.newInstance(USER_A, "counted", null, "kg", TimeSeriesDataType.DECIMAL));
-    adapter.save(TimeSeriesEntry.newInstance(ts.id(), Instant.EPOCH, BigDecimal.ONE));
     adapter.save(
-        TimeSeriesEntry.newInstance(ts.id(), Instant.EPOCH.plusSeconds(60), BigDecimal.TEN));
+        TimeSeriesEntry.newInstance(
+            ts.id(), Instant.parse("2026-05-27T10:00:00Z"), BigDecimal.ONE));
+    adapter.save(
+        TimeSeriesEntry.newInstance(
+            ts.id(), Instant.parse("2026-05-27T10:00:00Z").plusSeconds(60), BigDecimal.TEN));
 
     assertThat(adapter.countEntries(ts.id())).isEqualTo(2L);
   }

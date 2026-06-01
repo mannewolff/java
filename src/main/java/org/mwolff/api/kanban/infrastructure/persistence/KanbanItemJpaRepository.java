@@ -32,19 +32,22 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
   @Query("select max(i.number) from KanbanItemEntity i where i.userSub = :userSub")
   Optional<Integer> findMaxNumberByUserSub(@Param("userSub") String userSub);
 
-  @Modifying
+  // clearAutomatically: nach dem Bulk-Update den Persistence-Context leeren, damit ein
+  // anschließendes findById in derselben Transaktion den frischen Stand liest (nicht die
+  // veraltete First-Level-Cache-Entity). Sonst sieht der Leser die Änderung nicht.
+  @Modifying(clearAutomatically = true)
   @Query("update KanbanItemEntity i set i.positionInColumn = :newPosition where i.id = :id")
   void updatePosition(@Param("id") long id, @Param("newPosition") int newPosition);
 
-  @Modifying
+  @Modifying(clearAutomatically = true)
   @Query("update KanbanItemEntity i set i.archived = true where i.id = :id")
   void archiveById(@Param("id") long id);
 
-  @Modifying
+  @Modifying(clearAutomatically = true)
   @Query("update KanbanItemEntity i set i.archived = false where i.id = :id")
   void restoreById(@Param("id") long id);
 
-  @Modifying
+  @Modifying(clearAutomatically = true)
   @Query(
       "delete from KanbanItemEntity i where i.userSub = :userSub "
           + "and i.columnName = org.mwolff.api.kanban.domain.KanbanColumn.DONE "

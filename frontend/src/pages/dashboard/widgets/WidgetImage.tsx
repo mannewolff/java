@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   Alert,
   Box,
@@ -6,10 +7,15 @@ import {
   CircularProgress,
   Divider,
   Drawer,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   IconButton,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
+  Slider,
   Stack,
   Switch,
   TextField,
@@ -51,8 +57,23 @@ function parseObjectFit(v: unknown): ImageObjectFit {
   return v === 'cover' || v === 'fill' ? v : 'contain';
 }
 
+/** Klemmt einen Offset auf [0, 1]. */
+export function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v));
+}
+
+/**
+ * Neuer Pan-Offset (0..1) nach einer Maus-Verschiebung um `deltaPx` in einem `containerPx` breiten
+ * Container. Ein Zug nach rechts (positives delta) verschiebt den sichtbaren Ausschnitt nach links,
+ * daher das Minus. Limits sind inhärent [0, 1] (objectPosition-Prozent) — resize-unabhängig (#186).
+ */
+export function panBy(current: number, deltaPx: number, containerPx: number): number {
+  if (containerPx <= 0) return current;
+  return clamp01(current - deltaPx / containerPx);
+}
+
 function parseOffset(v: unknown): number {
-  return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+  return typeof v === 'number' && Number.isFinite(v) ? clamp01(v) : 0;
 }
 
 /** Defensiv parsen; fehlende/ungültige Felder fallen auf Defaults (rückwärtskompatibel). */
@@ -103,11 +124,56 @@ export default function WidgetImage({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
+  // Live-Pan im Crop-Modus: lokal während des Ziehens, persistiert beim Loslassen.
+  const [liveOffset, setLiveOffset] = useState({ x: config.cropOffsetX, y: config.cropOffsetY });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+
   const [open, setOpen] = useState(false);
   const [draftImageId, setDraftImageId] = useState<number | null>(config.imageId);
+  const [draftMode, setDraftMode] = useState<ImageMode>(config.mode);
   const [draftObjectFit, setDraftObjectFit] = useState<ImageObjectFit>(config.objectFit);
+  const [draftCropX, setDraftCropX] = useState(config.cropOffsetX);
+  const [draftCropY, setDraftCropY] = useState(config.cropOffsetY);
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
+
+  useEffect(() => {
+    setLiveOffset({ x: config.cropOffsetX, y: config.cropOffsetY });
+  }, [config.cropOffsetX, config.cropOffsetY]);
+
+  function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>): void {
+    if (config.mode !== 'crop') return;
+    e.stopPropagation(); // Drag-Guard gegen react-grid-layout
+    dragRef.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>): void {
+    if (dragRef.current === null) return;
+    const container = containerRef.current;
+    if (container === null) return;
+    const dx = e.clientX - dragRef.current.x;
+    const dy = e.clientY - dragRef.current.y;
+    dragRef.current = { x: e.clientX, y: e.clientY };
+    setLiveOffset((o) => ({
+      x: panBy(o.x, dx, container.clientWidth),
+      y: panBy(o.y, dy, container.clientHeight),
+    }));
+  }
+
+  function handlePointerUp(): void {
+    if (dragRef.current === null) return;
+    dragRef.current = null;
+    onChange({
+      ...widget,
+      config: JSON.stringify({
+        ...config,
+        cropOffsetX: liveOffset.x,
+        cropOffsetY: liveOffset.y,
+      }),
+    });
+  }
 
   // Bild authentifiziert als Object-URL laden, wenn sich die imageId ändert; URL aufräumen.
   useEffect(() => {
@@ -141,17 +207,32 @@ export default function WidgetImage({
   useEffect(() => {
     if (open) {
       setDraftImageId(config.imageId);
+      setDraftMode(config.mode);
       setDraftObjectFit(config.objectFit);
+      setDraftCropX(config.cropOffsetX);
+      setDraftCropY(config.cropOffsetY);
       setDraftShowBorder(config.showBorder);
       setDraftBackgroundColor(config.backgroundColor ?? '');
     }
-  }, [open, config.imageId, config.objectFit, config.showBorder, config.backgroundColor]);
+  }, [
+    open,
+    config.imageId,
+    config.mode,
+    config.objectFit,
+    config.cropOffsetX,
+    config.cropOffsetY,
+    config.showBorder,
+    config.backgroundColor,
+  ]);
 
   function handleApply(): void {
     const next: ImageConfig = {
       ...config,
       imageId: draftImageId,
+      mode: draftMode,
       objectFit: draftObjectFit,
+      cropOffsetX: draftCropX,
+      cropOffsetY: draftCropY,
       showBorder: draftShowBorder,
     };
     if (draftBackgroundColor.trim() !== '') {
@@ -223,6 +304,29 @@ export default function WidgetImage({
           <Stack alignItems="center" justifyContent="center" sx={{ flex: 1 }}>
             <CircularProgress size={24} aria-label="Bild wird geladen" />
           </Stack>
+        ) : config.mode === 'crop' ? (
+          <Box
+            ref={containerRef}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            sx={{ width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab', touchAction: 'none' }}
+          >
+            <Box
+              component="img"
+              src={imageUrl}
+              alt="Widget-Bild"
+              draggable={false}
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'none',
+                objectPosition: `${liveOffset.x * 100}% ${liveOffset.y * 100}%`,
+                display: 'block',
+                userSelect: 'none',
+              }}
+            />
+          </Box>
         ) : (
           <Box
             component="img"
@@ -259,17 +363,57 @@ export default function WidgetImage({
                 Bild entfernen
               </Button>
             )}
-            <TextField
-              label="Anpassung"
-              select
-              value={draftObjectFit}
-              onChange={(e) => setDraftObjectFit(e.target.value as ImageObjectFit)}
-              helperText="Wie das Bild in die Kachel eingepasst wird."
-            >
-              <MenuItem value="contain">Einpassen (vollständig sichtbar)</MenuItem>
-              <MenuItem value="cover">Füllen (Kachel ausfüllen, ggf. beschnitten)</MenuItem>
-              <MenuItem value="fill">Strecken (verzerrt auf Kachelmaß)</MenuItem>
-            </TextField>
+            <FormControl>
+              <FormLabel id="image-mode-label">Anzeigemodus</FormLabel>
+              <RadioGroup
+                row
+                aria-labelledby="image-mode-label"
+                value={draftMode}
+                onChange={(e) => setDraftMode(e.target.value as ImageMode)}
+              >
+                <FormControlLabel value="resize" control={<Radio />} label="Skalieren" />
+                <FormControlLabel value="crop" control={<Radio />} label="Ausschnitt" />
+              </RadioGroup>
+            </FormControl>
+
+            {draftMode === 'resize' ? (
+              <TextField
+                label="Anpassung"
+                select
+                value={draftObjectFit}
+                onChange={(e) => setDraftObjectFit(e.target.value as ImageObjectFit)}
+                helperText="Wie das Bild in die Kachel eingepasst wird."
+              >
+                <MenuItem value="contain">Einpassen (vollständig sichtbar)</MenuItem>
+                <MenuItem value="cover">Füllen (Kachel ausfüllen, ggf. beschnitten)</MenuItem>
+                <MenuItem value="fill">Strecken (verzerrt auf Kachelmaß)</MenuItem>
+              </TextField>
+            ) : (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Ausschnitt verschieben (oder das Bild im Widget direkt ziehen)
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Horizontal
+                </Typography>
+                <Slider
+                  value={Math.round(draftCropX * 100)}
+                  onChange={(_, v) => setDraftCropX((v as number) / 100)}
+                  min={0}
+                  max={100}
+                  aria-label="Ausschnitt horizontal"
+                />
+                <Typography variant="body2">Vertikal</Typography>
+                <Slider
+                  value={Math.round(draftCropY * 100)}
+                  onChange={(_, v) => setDraftCropY((v as number) / 100)}
+                  min={0}
+                  max={100}
+                  aria-label="Ausschnitt vertikal"
+                />
+              </Box>
+            )}
+
             {imageUrl != null && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
@@ -283,9 +427,14 @@ export default function WidgetImage({
                     mt: 0.5,
                     width: '100%',
                     height: 140,
-                    objectFit: draftObjectFit,
+                    objectFit: draftMode === 'crop' ? 'none' : draftObjectFit,
+                    objectPosition:
+                      draftMode === 'crop'
+                        ? `${draftCropX * 100}% ${draftCropY * 100}%`
+                        : undefined,
                     display: 'block',
                     borderRadius: 1,
+                    overflow: 'hidden',
                     border: (theme) => `1px solid ${theme.palette.divider}`,
                   }}
                 />

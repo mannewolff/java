@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import WidgetImage, { parseImageConfig } from './WidgetImage';
+import WidgetImage, { clamp01, panBy, parseImageConfig } from './WidgetImage';
 import type { WidgetDto } from '../../../api/dashboard';
 
 vi.mock('../../../api/images', async () => {
@@ -132,6 +132,59 @@ describe('WidgetImage (#183)', () => {
 
     const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { imageId: number | null };
     expect(parsed.imageId).toBeNull();
+  });
+});
+
+describe('WidgetImage Crop-Modus (#186)', () => {
+  afterEach(() => {
+    cleanup();
+    fetchUrl.mockClear();
+  });
+
+  it('speichert den Modus "crop" aus dem Drawer', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<WidgetImage widget={widget({ imageId: 5 })} onChange={onChange} onDelete={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Bild bearbeiten' }));
+    await user.click(await screen.findByRole('radio', { name: 'Ausschnitt' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { mode: string };
+    expect(parsed.mode).toBe('crop');
+  });
+
+  it('rendert im Crop-Modus mit objectFit none + objectPosition', async () => {
+    render(
+      <WidgetImage
+        widget={widget({ imageId: 5, mode: 'crop', cropOffsetX: 0.5, cropOffsetY: 0.25 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const img = (await screen.findByAltText('Widget-Bild')) as HTMLImageElement;
+    expect(img).toHaveStyle('object-fit: none');
+    expect(img).toHaveStyle('object-position: 50% 25%');
+  });
+});
+
+describe('panBy / clamp01 (#186)', () => {
+  it('clamp01 begrenzt auf [0,1]', () => {
+    expect(clamp01(-0.5)).toBe(0);
+    expect(clamp01(0.4)).toBe(0.4);
+    expect(clamp01(2)).toBe(1);
+  });
+
+  it('panBy verschiebt gegenläufig und klemmt', () => {
+    // 200px breiter Container, 50px nach rechts ziehen → Offset -0.25, von 0.5 → 0.25.
+    expect(panBy(0.5, 50, 200)).toBeCloseTo(0.25);
+    // Klemmt bei 0 und 1.
+    expect(panBy(0.1, 1000, 200)).toBe(0);
+    expect(panBy(0.9, -1000, 200)).toBe(1);
+  });
+
+  it('panBy ohne Container-Breite lässt den Offset unverändert', () => {
+    expect(panBy(0.5, 50, 0)).toBe(0.5);
   });
 });
 

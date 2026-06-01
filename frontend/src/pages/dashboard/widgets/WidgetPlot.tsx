@@ -69,6 +69,9 @@ interface PlotConfig {
   overlays: PlotOverlay[];
   /** Lineare Trend-/Regressionslinie mit Zukunfts-Extrapolation (nur aggregierter Modus). */
   regression: boolean;
+  /** Feste Y-Achsen-Grenzen. `null` = automatisch (recharts-Default). */
+  yMin: number | null;
+  yMax: number | null;
   showBorder: boolean;
   backgroundColor?: string;
 }
@@ -112,6 +115,8 @@ function parseConfig(raw: string): PlotConfig {
       defaultGranularity: parseGranularity(parsed.defaultGranularity),
       overlays: parseOverlays(parsed.overlays),
       regression: typeof parsed.regression === 'boolean' ? parsed.regression : false,
+      yMin: typeof parsed.yMin === 'number' ? parsed.yMin : null,
+      yMax: typeof parsed.yMax === 'number' ? parsed.yMax : null,
       ...parseSurfaceConfig(parsed),
     };
   } catch {
@@ -120,6 +125,8 @@ function parseConfig(raw: string): PlotConfig {
       defaultGranularity: null,
       overlays: [],
       regression: false,
+      yMin: null,
+      yMax: null,
       showBorder: false,
     };
   }
@@ -212,6 +219,18 @@ export function forecastHorizon(n: number): number {
   return Math.max(1, Math.round(n * 0.3));
 }
 
+/**
+ * recharts-Y-Achsen-Domain aus optionalen Grenzen. Beide `null` → `undefined`
+ * (kein domain-Prop, Default-Verhalten). Einzelne Grenze → die andere Seite `'auto'`.
+ */
+export function computeYDomain(
+  yMin: number | null,
+  yMax: number | null,
+): [number | 'auto', number | 'auto'] | undefined {
+  if (yMin === null && yMax === null) return undefined;
+  return [yMin ?? 'auto', yMax ?? 'auto'];
+}
+
 /** ISO-Datum `n` Perioden nach `iso`, je Granularität (UTC-basiert wie weekNumber). */
 export function addPeriod(iso: string, granularity: Granularity, n: number): string {
   const d = new Date(iso);
@@ -265,6 +284,8 @@ export default function WidgetPlot({
   );
   const [draftOverlays, setDraftOverlays] = useState<PlotOverlay[]>(config.overlays);
   const [draftRegression, setDraftRegression] = useState(config.regression);
+  const [draftYMin, setDraftYMin] = useState(config.yMin == null ? '' : String(config.yMin));
+  const [draftYMax, setDraftYMax] = useState(config.yMax == null ? '' : String(config.yMax));
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
@@ -312,6 +333,8 @@ export default function WidgetPlot({
     setDraftGranularity(config.defaultGranularity ?? '');
     setDraftOverlays(config.overlays);
     setDraftRegression(config.regression);
+    setDraftYMin(config.yMin == null ? '' : String(config.yMin));
+    setDraftYMax(config.yMax == null ? '' : String(config.yMax));
     setDraftShowBorder(config.showBorder);
     setDraftBackgroundColor(config.backgroundColor ?? '');
     if (seriesList === null) {
@@ -333,11 +356,15 @@ export default function WidgetPlot({
   function handleApply(): void {
     const nextGranularity: Granularity | null =
       draftGranularity === '' ? null : (draftGranularity as Granularity);
+    const parsedYMin = Number.parseFloat(draftYMin);
+    const parsedYMax = Number.parseFloat(draftYMax);
     const next: PlotConfig = {
       timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
       defaultGranularity: nextGranularity,
       overlays: nextGranularity === null ? [] : draftOverlays,
       regression: nextGranularity === null ? false : draftRegression,
+      yMin: draftYMin.trim() === '' || !Number.isFinite(parsedYMin) ? null : parsedYMin,
+      yMax: draftYMax.trim() === '' || !Number.isFinite(parsedYMax) ? null : parsedYMax,
       showBorder: draftShowBorder,
       ...(draftBackgroundColor.trim() !== ''
         ? { backgroundColor: draftBackgroundColor.trim() }
@@ -444,7 +471,7 @@ export default function WidgetPlot({
             <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 4 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <YAxis domain={computeYDomain(config.yMin, config.yMax)} tick={{ fontSize: 11 }} />
               <Tooltip />
               {overlayLines.map((ol) => (
                 <ReferenceLine
@@ -552,6 +579,26 @@ export default function WidgetPlot({
               </Box>
             )}
             <Divider textAlign="left">Darstellung</Divider>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                label="Y-Achse Min"
+                type="number"
+                value={draftYMin}
+                onChange={(e) => setDraftYMin(e.target.value)}
+                fullWidth
+                inputProps={{ step: 'any' }}
+                helperText="leer = automatisch"
+              />
+              <TextField
+                label="Y-Achse Max"
+                type="number"
+                value={draftYMax}
+                onChange={(e) => setDraftYMax(e.target.value)}
+                fullWidth
+                inputProps={{ step: 'any' }}
+                helperText="leer = automatisch"
+              />
+            </Stack>
             <FormControlLabel
               control={
                 <Switch

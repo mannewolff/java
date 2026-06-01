@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import WidgetPlot, {
   addPeriod,
+  computeYDomain,
   forecastHorizon,
   linearRegression,
   overlayValue,
@@ -346,6 +347,21 @@ describe('forecastHorizon', () => {
   });
 });
 
+describe('computeYDomain', () => {
+  it('beide gesetzt → [min, max]', () => {
+    expect(computeYDomain(80, 85)).toEqual([80, 85]);
+  });
+  it('nur Min → [min, auto]', () => {
+    expect(computeYDomain(80, null)).toEqual([80, 'auto']);
+  });
+  it('nur Max → [auto, max]', () => {
+    expect(computeYDomain(null, 85)).toEqual(['auto', 85]);
+  });
+  it('keiner gesetzt → undefined (kein domain-Prop)', () => {
+    expect(computeYDomain(null, null)).toBeUndefined();
+  });
+});
+
 describe('addPeriod', () => {
   it('DAILY addiert Tage', () => {
     expect(addPeriod('2026-05-28T00:00:00Z', 'DAILY', 2)).toBe('2026-05-30T00:00:00.000Z');
@@ -403,5 +419,27 @@ describe('WidgetPlot Regression', () => {
     await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY'));
     // Kein Throw, Plot-Bereich vorhanden.
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
+  });
+
+  it('Drawer: Y-Achse Min/Max werden in der Config gespeichert', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY' })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.type(await screen.findByLabelText('Y-Achse Min'), '80');
+    await user.type(screen.getByLabelText('Y-Achse Max'), '85');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { yMin: number; yMax: number };
+    expect(parsed.yMin).toBe(80);
+    expect(parsed.yMax).toBe(85);
   });
 });

@@ -21,11 +21,10 @@ export function pxToRows(pxHeight: number): number {
  * fühlt sich KPI 2×2 wie ein Sechstel der Breite und Textbox 4×3 wie ein Drittel an.
  */
 /**
- * Grid-Größen des Divider-Widgets je Orientierung. Vertikal ist nur 1 Spalte breit (dünne Linie,
- * passt zwischen zwei 6-Spalten-Widgets) und etwas höher; horizontal nimmt die volle Breite ein.
+ * Grid-Größe des Divider-Widgets: halbe Breite, eine Zeile hoch. Der Divider ist horizontal-only
+ * (vertikale Variante in #176 verworfen — im 12-Spalten-Grid nicht sauber zwischen Widgets platzierbar).
  */
 export const DIVIDER_HORIZONTAL_SIZE = { width: 6, height: 1 } as const;
-export const DIVIDER_VERTICAL_SIZE = { width: 1, height: 3 } as const;
 
 export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number }> = {
   KPI: { width: 2, height: 2 },
@@ -54,7 +53,7 @@ export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
     overlays: [],
   }),
   KANBAN_LIST: JSON.stringify({ column: 'BACKLOG', limit: 5 }),
-  DIVIDER: JSON.stringify({ orientation: 'horizontal', color: '', thickness: 2 }),
+  DIVIDER: JSON.stringify({ color: '', thickness: 2 }),
 };
 
 /** Erzeugt ein neues Widget mit Default-Größe und -Config an Position (0, 0). */

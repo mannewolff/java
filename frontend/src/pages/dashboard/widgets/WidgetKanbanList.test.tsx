@@ -369,6 +369,63 @@ describe('WidgetKanbanList Inline-Layout (#172)', () => {
   });
 });
 
+describe('WidgetKanbanList Striped-Rows (#173)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('rendert benachbarte Items unterschiedlich, jedes zweite gleich (Zebra)', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [
+      makeItem(1, 'A', 0),
+      makeItem(2, 'B', 1),
+      makeItem(3, 'C', 2),
+      makeItem(4, 'D', 3),
+    ];
+    listItems.mockResolvedValue(board);
+
+    const { container } = render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'A' });
+    const lis = Array.from(container.querySelectorAll('li'));
+    expect(lis).toHaveLength(4);
+    // Gerade vs. ungerade Zeilen tragen unterschiedliche Hintergrund-Klassen (Emotion-Hash),
+    // jede zweite Zeile teilt sich die Klasse → alternierendes Muster.
+    expect(lis[0].className).toBe(lis[2].className);
+    expect(lis[1].className).toBe(lis[3].className);
+    expect(lis[0].className).not.toBe(lis[1].className);
+  });
+
+  it('rendert ein einzelnes Item ohne Crash', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [makeItem(1, 'Solo', 0)];
+    listItems.mockResolvedValue(board);
+
+    const { container } = render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Solo' });
+    expect(container.querySelectorAll('li')).toHaveLength(1);
+  });
+});
+
 describe('WidgetKanbanList Multi-Spalten (#168)', () => {
   beforeEach(() => {
     listItems.mockReset();

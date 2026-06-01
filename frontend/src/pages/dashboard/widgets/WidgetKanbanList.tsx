@@ -248,8 +248,19 @@ export default function WidgetKanbanList({
           </Typography>
         ) : (
           <Stack component="ul" spacing={0.5} sx={{ listStyle: 'none', m: 0, p: 0 }}>
-            {items.map((item) => (
-              <Box component="li" key={item.id}>
+            {items.map((item, i) => (
+              <Box
+                component="li"
+                key={item.id}
+                sx={{
+                  px: 0.75,
+                  py: 0.25,
+                  borderRadius: 1,
+                  // #173: alternierend gefärbte Zeilen (Zebra) über Theme-Tokens, kein Hex.
+                  backgroundColor: i % 2 === 0 ? 'action.hover' : 'transparent',
+                  '&:hover': { backgroundColor: 'action.selected' },
+                }}
+              >
                 {/* #172: "Spalte – Titel" inline auf einer Zeile, Spalte grau, Titel als Link. */}
                 <Stack direction="row" spacing={0.5} alignItems="baseline" sx={{ minWidth: 0 }}>
                   <Typography

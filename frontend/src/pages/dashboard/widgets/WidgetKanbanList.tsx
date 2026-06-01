@@ -3,13 +3,14 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
   Drawer,
   FormControlLabel,
+  FormGroup,
   IconButton,
   Link,
-  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -47,7 +48,8 @@ const DEFAULT_LIMIT = 5;
 const FALLBACK_RETENTION_DAYS = 5;
 
 interface KanbanWidgetConfig {
-  column: KanbanColumn;
+  /** Anzuzeigende Spalten (≥ 1, in KANBAN_COLUMNS-Reihenfolge). */
+  columns: KanbanColumn[];
   limit: number;
   showBorder: boolean;
   backgroundColor?: string;
@@ -63,16 +65,30 @@ function clampLimit(value: unknown): number {
   return Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, Math.round(n)));
 }
 
+/**
+ * Liest die Spaltenliste. Migriert Legacy-Single-Config (`column`) zu `columns`. Dedupliziert und
+ * sortiert nach KANBAN_COLUMNS-Reihenfolge; faellt bei leerer/ungueltiger Auswahl auf `['BACKLOG']`.
+ */
+export function parseColumns(parsed: Record<string, unknown>): KanbanColumn[] {
+  if (Array.isArray(parsed.columns)) {
+    const chosen = parsed.columns.filter(isColumn);
+    const ordered = KANBAN_COLUMNS.filter((c) => chosen.includes(c));
+    if (ordered.length > 0) return ordered;
+  }
+  if (isColumn(parsed.column)) return [parsed.column];
+  return ['BACKLOG'];
+}
+
 function parseConfig(raw: string): KanbanWidgetConfig {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
-      column: isColumn(parsed.column) ? parsed.column : 'BACKLOG',
+      columns: parseColumns(parsed),
       limit: clampLimit(parsed.limit),
       ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { column: 'BACKLOG', limit: DEFAULT_LIMIT, showBorder: false };
+    return { columns: ['BACKLOG'], limit: DEFAULT_LIMIT, showBorder: false };
   }
 }
 
@@ -103,22 +119,31 @@ export default function WidgetKanbanList({
   const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
 
   const [open, setOpen] = useState(false);
-  const [draftColumn, setDraftColumn] = useState<KanbanColumn>(config.column);
+  const [draftColumns, setDraftColumns] = useState<KanbanColumn[]>(config.columns);
   const [draftLimit, setDraftLimit] = useState(String(config.limit));
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
+
+  const columnsKey = config.columns.join(',');
 
   const reload = useCallback(async (): Promise<void> => {
     setLoadError(null);
     try {
       const board = await listKanbanItems();
-      const column = [...(board[config.column] ?? [])].sort((a, b) => a.position - b.position);
-      setItems(column.slice(0, config.limit));
+      const colIndex = (c: KanbanColumn): number => KANBAN_COLUMNS.indexOf(c);
+      // Items aller gewählten Spalten zusammenführen, nach Spalten-Reihenfolge + Position
+      // sortieren und auf das Gesamt-Limit kürzen.
+      const merged = config.columns
+        .flatMap((c) => board[c] ?? [])
+        .sort((a, b) => colIndex(a.column) - colIndex(b.column) || a.position - b.position);
+      setItems(merged.slice(0, config.limit));
     } catch (e) {
       setLoadError(e instanceof ApiError ? e.message : 'Laden fehlgeschlagen');
       setItems([]);
     }
-  }, [config.column, config.limit]);
+    // columnsKey ist die stabile String-Quelle der Spaltenliste (Array pro Render neu).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnsKey, config.limit]);
 
   useEffect(() => {
     void reload();
@@ -132,16 +157,28 @@ export default function WidgetKanbanList({
 
   useEffect(() => {
     if (open) {
-      setDraftColumn(config.column);
+      setDraftColumns(config.columns);
       setDraftLimit(String(config.limit));
       setDraftShowBorder(config.showBorder);
       setDraftBackgroundColor(config.backgroundColor ?? '');
     }
-  }, [open, config.column, config.limit, config.showBorder, config.backgroundColor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, columnsKey, config.limit, config.showBorder, config.backgroundColor]);
+
+  function toggleColumn(column: KanbanColumn): void {
+    setDraftColumns((prev) => {
+      const nextSet = prev.includes(column)
+        ? prev.filter((c) => c !== column)
+        : [...prev, column];
+      // In KANBAN_COLUMNS-Reihenfolge halten (Dedupe inklusive).
+      return KANBAN_COLUMNS.filter((c) => nextSet.includes(c));
+    });
+  }
 
   function handleApply(): void {
+    if (draftColumns.length === 0) return;
     const next: KanbanWidgetConfig = {
-      column: draftColumn,
+      columns: draftColumns,
       limit: clampLimit(draftLimit),
       showBorder: draftShowBorder,
       ...(draftBackgroundColor.trim() !== ''
@@ -174,7 +211,7 @@ export default function WidgetKanbanList({
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
         <Typography variant="subtitle2" noWrap>
-          {COLUMN_LABELS[config.column]}
+          {config.columns.map((c) => COLUMN_LABELS[c]).join(', ')}
         </Typography>
         {!readOnly && (
           <Stack direction="row" spacing={0.5}>
@@ -270,19 +307,30 @@ export default function WidgetKanbanList({
             Kanban-Liste bearbeiten
           </Typography>
           <Stack spacing={3}>
-            <TextField
-              label="Spalte"
-              select
-              value={draftColumn}
-              onChange={(e) => setDraftColumn(e.target.value as KanbanColumn)}
-              fullWidth
-            >
-              {KANBAN_COLUMNS.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {COLUMN_LABELS[c]}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Spalten (mindestens eine)
+              </Typography>
+              <FormGroup>
+                {KANBAN_COLUMNS.map((c) => (
+                  <FormControlLabel
+                    key={c}
+                    control={
+                      <Checkbox
+                        checked={draftColumns.includes(c)}
+                        onChange={() => toggleColumn(c)}
+                      />
+                    }
+                    label={COLUMN_LABELS[c]}
+                  />
+                ))}
+              </FormGroup>
+              {draftColumns.length === 0 && (
+                <Typography variant="caption" color="error">
+                  Bitte mindestens eine Spalte auswählen.
+                </Typography>
+              )}
+            </Box>
             <TextField
               label="Anzahl (1–20)"
               type="number"
@@ -311,7 +359,11 @@ export default function WidgetKanbanList({
             <Divider />
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button onClick={() => setOpen(false)}>Abbrechen</Button>
-              <Button variant="contained" onClick={handleApply}>
+              <Button
+                variant="contained"
+                onClick={handleApply}
+                disabled={draftColumns.length === 0}
+              >
                 Übernehmen
               </Button>
             </Stack>

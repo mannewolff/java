@@ -181,8 +181,9 @@ describe('WidgetKanbanList', () => {
     render(<WidgetKanbanList widget={widget({ column: 'BACKLOG', limit: 5 })} onChange={onChange} onDelete={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: 'Kanban-Liste bearbeiten' }));
-    await user.click(screen.getByRole('combobox', { name: 'Spalte' }));
-    await user.click(screen.getByRole('option', { name: 'Done' }));
+    // Backlog (Default) abwählen, Done anwählen.
+    await user.click(screen.getByRole('checkbox', { name: 'Done' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Backlog' }));
 
     const limitInput = screen.getByLabelText('Anzahl');
     await user.clear(limitInput);
@@ -190,8 +191,8 @@ describe('WidgetKanbanList', () => {
     await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
 
     const next = onChange.mock.calls[0][0] as WidgetDto;
-    const parsed = JSON.parse(next.config) as { column: string; limit: number };
-    expect(parsed.column).toBe('DONE');
+    const parsed = JSON.parse(next.config) as { columns: string[]; limit: number };
+    expect(parsed.columns).toEqual(['DONE']);
     expect(parsed.limit).toBe(8);
   });
 
@@ -311,5 +312,79 @@ describe('WidgetKanbanList Body-Vorschau (#167)', () => {
     const li = title.closest('li');
     expect(li).not.toBeNull();
     expect(li?.querySelectorAll('p').length).toBe(0);
+  });
+});
+
+describe('WidgetKanbanList Multi-Spalten (#168)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('Legacy-Config {column} wird migriert und lädt die Spalte', async () => {
+    const board = emptyBoard();
+    board.DONE = [{ ...makeItem(1, 'Fertig', 0), column: 'DONE' }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList widget={widget({ column: 'DONE', limit: 5 })} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Fertig' })).toBeInTheDocument();
+  });
+
+  it('zeigt Items aus mehreren Spalten, sortiert nach Spalte+Position, auf Gesamt-Limit', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'B0', 0), column: 'BACKLOG' }];
+    board.IN_REVIEW = [
+      { ...makeItem(2, 'R0', 0), column: 'IN_REVIEW' },
+      { ...makeItem(3, 'R1', 1), column: 'IN_REVIEW' },
+    ];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG', 'IN_REVIEW'], limit: 2 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    // Gesamt-Limit 2: BACKLOG vor IN_REVIEW (Spalten-Reihenfolge) → B0, R0; R1 fällt raus.
+    expect(await screen.findByRole('button', { name: 'B0' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'R0' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'R1' })).not.toBeInTheDocument();
+  });
+
+  it('Drawer: mehrere Spalten ankreuzen wird als columns-Array gespeichert', async () => {
+    listItems.mockResolvedValue(emptyBoard());
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetKanbanList widget={widget({ columns: ['BACKLOG'], limit: 5 })} onChange={onChange} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Kanban-Liste bearbeiten' }));
+    await user.click(screen.getByRole('checkbox', { name: 'In Review' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { columns: string[] };
+    expect(parsed.columns).toEqual(['BACKLOG', 'IN_REVIEW']);
+  });
+
+  it('Drawer: ohne ausgewählte Spalte ist Übernehmen deaktiviert', async () => {
+    listItems.mockResolvedValue(emptyBoard());
+    const user = userEvent.setup();
+    render(
+      <WidgetKanbanList widget={widget({ columns: ['BACKLOG'], limit: 5 })} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Kanban-Liste bearbeiten' }));
+    // Die einzige Spalte abwählen → Übernehmen disabled.
+    await user.click(screen.getByRole('checkbox', { name: 'Backlog' }));
+    expect(screen.getByRole('button', { name: 'Übernehmen' })).toBeDisabled();
   });
 });

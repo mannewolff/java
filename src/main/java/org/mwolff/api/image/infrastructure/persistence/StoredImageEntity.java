@@ -7,9 +7,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /** JPA-Entity für {@code stored_image} (#181). Nur via Testcontainers-IT sinnvoll testbar. */
 @Entity
@@ -26,8 +28,10 @@ class StoredImageEntity {
   @Column(name = "size_bytes", nullable = false)
   private int sizeBytes;
 
-  @Lob
-  @Column(name = "data", nullable = false)
+  // LONGVARBINARY passt zur LONGBLOB-Spalte (V15). Ohne expliziten JdbcTypeCode mappt Hibernate 6
+  // byte[]/@Lob auf MariaDB auf einen kleineren BLOB-Typ → Schema-Validierung schlägt fehl.
+  @JdbcTypeCode(SqlTypes.LONGVARBINARY)
+  @Column(name = "data", nullable = false, columnDefinition = "LONGBLOB")
   private byte[] data;
 
   @Column(name = "created_at", nullable = false)

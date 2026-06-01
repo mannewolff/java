@@ -315,6 +315,117 @@ describe('WidgetKanbanList Body-Vorschau (#167)', () => {
   });
 });
 
+describe('WidgetKanbanList Inline-Layout (#172)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('zeigt das Spalten-Label inline vor dem Titel', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'Erstes', 0), column: 'BACKLOG' }];
+    board.IN_REVIEW = [{ ...makeItem(2, 'Zweites', 0), column: 'IN_REVIEW' }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG', 'IN_REVIEW'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const titleLink = await screen.findByRole('button', { name: 'Erstes' });
+    const li = titleLink.closest('li');
+    expect(li).not.toBeNull();
+    // Spalten-Label "Backlog" steht in derselben Zeile (li) wie der Titel-Link.
+    expect(li?.textContent).toContain('Backlog');
+    expect(li?.textContent).toContain('Erstes');
+    // Zweites Item zeigt sein eigenes Spalten-Label.
+    const li2 = screen.getByRole('button', { name: 'Zweites' }).closest('li');
+    expect(li2?.textContent).toContain('In Review');
+  });
+
+  it('der Titel bleibt die zugängliche Beschriftung des Links (nicht das Spalten-Label)', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'Nur Titel', 0), column: 'BACKLOG' }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    // Accessible name = Titel, nicht "Backlog – Nur Titel".
+    expect(await screen.findByRole('button', { name: 'Nur Titel' })).toBeInTheDocument();
+  });
+});
+
+describe('WidgetKanbanList Striped-Rows (#173)', () => {
+  beforeEach(() => {
+    listItems.mockReset();
+    settings.mockReset();
+    updateItem.mockReset();
+    listItems.mockResolvedValue(emptyBoard());
+    settings.mockResolvedValue({ doneRetentionDays: 5 });
+    updateItem.mockResolvedValue(makeItem(1, 'x', 0));
+  });
+  afterEach(() => cleanup());
+
+  it('rendert benachbarte Items unterschiedlich, jedes zweite gleich (Zebra)', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [
+      makeItem(1, 'A', 0),
+      makeItem(2, 'B', 1),
+      makeItem(3, 'C', 2),
+      makeItem(4, 'D', 3),
+    ];
+    listItems.mockResolvedValue(board);
+
+    const { container } = render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'A' });
+    const lis = Array.from(container.querySelectorAll('li'));
+    expect(lis).toHaveLength(4);
+    // Gerade vs. ungerade Zeilen tragen unterschiedliche Hintergrund-Klassen (Emotion-Hash),
+    // jede zweite Zeile teilt sich die Klasse → alternierendes Muster.
+    expect(lis[0].className).toBe(lis[2].className);
+    expect(lis[1].className).toBe(lis[3].className);
+    expect(lis[0].className).not.toBe(lis[1].className);
+  });
+
+  it('rendert ein einzelnes Item ohne Crash', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [makeItem(1, 'Solo', 0)];
+    listItems.mockResolvedValue(board);
+
+    const { container } = render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Solo' });
+    expect(container.querySelectorAll('li')).toHaveLength(1);
+  });
+});
+
 describe('WidgetKanbanList Multi-Spalten (#168)', () => {
   beforeEach(() => {
     listItems.mockReset();

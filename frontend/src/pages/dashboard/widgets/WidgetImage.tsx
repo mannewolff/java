@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
+  CircularProgress,
   Divider,
   Drawer,
   FormControlLabel,
@@ -18,7 +20,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 
 import type { WidgetDto } from '../../../api/dashboard';
+import { fetchImageObjectUrl } from '../../../api/images';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
+import ImageUploader from './ImageUploader';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 export type ImageMode = 'crop' | 'resize';
@@ -82,9 +86,9 @@ interface Props {
 }
 
 /**
- * Bild-Widget (#183, Skeleton). Zeigt aktuell einen Platzhalter — Upload (#184) sowie
- * Resize- (#185) und Crop-Modus (#186) folgen. Erfüllt den Widget-Props-Vertrag und das
- * Config-Muster inkl. Darstellung-Abschnitt.
+ * Bild-Widget. Lädt das Bild authentifiziert als Blob (#182/#184) und zeigt es an. Upload und
+ * Entfernen laufen über den Bearbeiten-Drawer. Resize-Feinheiten (#185) und Crop-Modus (#186)
+ * folgen; aktuell wird das Bild mit `objectFit` dargestellt.
  */
 export default function WidgetImage({
   widget,
@@ -94,26 +98,61 @@ export default function WidgetImage({
 }: Props): JSX.Element {
   const config = parseImageConfig(widget.config);
   const surface = widgetSurface(readOnly, config);
+
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+
   const [open, setOpen] = useState(false);
+  const [draftImageId, setDraftImageId] = useState<number | null>(config.imageId);
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
+  // Bild authentifiziert als Object-URL laden, wenn sich die imageId ändert; URL aufräumen.
+  useEffect(() => {
+    if (config.imageId == null) {
+      setImageUrl(null);
+      setImageError(false);
+      return;
+    }
+    let revoked = false;
+    let url: string | null = null;
+    setImageError(false);
+    setImageUrl(null);
+    fetchImageObjectUrl(config.imageId)
+      .then((objectUrl) => {
+        if (revoked) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        url = objectUrl;
+        setImageUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!revoked) setImageError(true);
+      });
+    return () => {
+      revoked = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [config.imageId]);
+
   useEffect(() => {
     if (open) {
+      setDraftImageId(config.imageId);
       setDraftShowBorder(config.showBorder);
       setDraftBackgroundColor(config.backgroundColor ?? '');
     }
-  }, [open, config.showBorder, config.backgroundColor]);
+  }, [open, config.imageId, config.showBorder, config.backgroundColor]);
 
   function handleApply(): void {
     const next: ImageConfig = {
       ...config,
+      imageId: draftImageId,
       showBorder: draftShowBorder,
-      ...(draftBackgroundColor.trim() !== ''
-        ? { backgroundColor: draftBackgroundColor.trim() }
-        : {}),
     };
-    if (draftBackgroundColor.trim() === '') {
+    if (draftBackgroundColor.trim() !== '') {
+      next.backgroundColor = draftBackgroundColor.trim();
+    } else {
       delete next.backgroundColor;
     }
     onChange({ ...widget, config: JSON.stringify(next) });
@@ -159,17 +198,36 @@ export default function WidgetImage({
         </Stack>
       )}
 
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        spacing={1}
-        sx={{ flex: 1, color: 'text.secondary', textAlign: 'center', px: 2 }}
-      >
-        <ImageOutlinedIcon fontSize="large" />
-        <Typography variant="body2" color="text.secondary">
-          Kein Bild — im Bearbeiten-Drawer hochladen
-        </Typography>
-      </Stack>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+        {config.imageId == null ? (
+          <Stack
+            alignItems="center"
+            justifyContent="center"
+            spacing={1}
+            sx={{ flex: 1, color: 'text.secondary', textAlign: 'center', px: 2 }}
+          >
+            <ImageOutlinedIcon fontSize="large" />
+            <Typography variant="body2" color="text.secondary">
+              Kein Bild — im Bearbeiten-Drawer hochladen
+            </Typography>
+          </Stack>
+        ) : imageError ? (
+          <Alert severity="error" sx={{ m: 'auto' }}>
+            Bild konnte nicht geladen werden.
+          </Alert>
+        ) : imageUrl == null ? (
+          <Stack alignItems="center" justifyContent="center" sx={{ flex: 1 }}>
+            <CircularProgress size={24} aria-label="Bild wird geladen" />
+          </Stack>
+        ) : (
+          <Box
+            component="img"
+            src={imageUrl}
+            alt="Widget-Bild"
+            sx={{ width: '100%', height: '100%', objectFit: config.objectFit, display: 'block' }}
+          />
+        )}
+      </Box>
 
       <Drawer
         anchor="right"
@@ -183,6 +241,20 @@ export default function WidgetImage({
             Bild bearbeiten
           </Typography>
           <Stack spacing={2}>
+            <ImageUploader
+              label={draftImageId == null ? 'Bild hochladen' : 'Bild ersetzen'}
+              onUploaded={(info) => setDraftImageId(info.id)}
+            />
+            {draftImageId != null && (
+              <Button
+                size="small"
+                color="error"
+                onClick={() => setDraftImageId(null)}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Bild entfernen
+              </Button>
+            )}
             <Divider textAlign="left">Darstellung</Divider>
             <FormControlLabel
               control={

@@ -99,6 +99,28 @@ describe('WidgetImage (#183)', () => {
     expect(await screen.findByText(/konnte nicht geladen/)).toBeInTheDocument();
   });
 
+  it('speichert objectFit aus dem Drawer (#185)', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<WidgetImage widget={widget({ imageId: 5 })} onChange={onChange} onDelete={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Bild bearbeiten' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Anpassung' }));
+    await user.click(await screen.findByRole('option', { name: /Füllen/ }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { objectFit: string };
+    expect(parsed.objectFit).toBe('cover');
+  });
+
+  it('rendert das Bild mit dem konfigurierten objectFit (#185)', async () => {
+    render(
+      <WidgetImage widget={widget({ imageId: 5, objectFit: 'cover' })} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+    const img = (await screen.findByAltText('Widget-Bild')) as HTMLImageElement;
+    expect(img).toHaveStyle('object-fit: cover');
+  });
+
   it('persistiert die imageId nach Entfernen (#184)', async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();

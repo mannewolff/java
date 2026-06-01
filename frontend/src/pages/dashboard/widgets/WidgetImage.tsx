@@ -8,6 +8,7 @@ import {
   Drawer,
   FormControlLabel,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -104,6 +105,7 @@ export default function WidgetImage({
 
   const [open, setOpen] = useState(false);
   const [draftImageId, setDraftImageId] = useState<number | null>(config.imageId);
+  const [draftObjectFit, setDraftObjectFit] = useState<ImageObjectFit>(config.objectFit);
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
@@ -139,15 +141,17 @@ export default function WidgetImage({
   useEffect(() => {
     if (open) {
       setDraftImageId(config.imageId);
+      setDraftObjectFit(config.objectFit);
       setDraftShowBorder(config.showBorder);
       setDraftBackgroundColor(config.backgroundColor ?? '');
     }
-  }, [open, config.imageId, config.showBorder, config.backgroundColor]);
+  }, [open, config.imageId, config.objectFit, config.showBorder, config.backgroundColor]);
 
   function handleApply(): void {
     const next: ImageConfig = {
       ...config,
       imageId: draftImageId,
+      objectFit: draftObjectFit,
       showBorder: draftShowBorder,
     };
     if (draftBackgroundColor.trim() !== '') {
@@ -254,6 +258,38 @@ export default function WidgetImage({
               >
                 Bild entfernen
               </Button>
+            )}
+            <TextField
+              label="Anpassung"
+              select
+              value={draftObjectFit}
+              onChange={(e) => setDraftObjectFit(e.target.value as ImageObjectFit)}
+              helperText="Wie das Bild in die Kachel eingepasst wird."
+            >
+              <MenuItem value="contain">Einpassen (vollständig sichtbar)</MenuItem>
+              <MenuItem value="cover">Füllen (Kachel ausfüllen, ggf. beschnitten)</MenuItem>
+              <MenuItem value="fill">Strecken (verzerrt auf Kachelmaß)</MenuItem>
+            </TextField>
+            {imageUrl != null && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Live-Vorschau
+                </Typography>
+                <Box
+                  component="img"
+                  src={imageUrl}
+                  alt="Live-Vorschau"
+                  sx={{
+                    mt: 0.5,
+                    width: '100%',
+                    height: 140,
+                    objectFit: draftObjectFit,
+                    display: 'block',
+                    borderRadius: 1,
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                  }}
+                />
+              </Box>
             )}
             <Divider textAlign="left">Darstellung</Divider>
             <FormControlLabel

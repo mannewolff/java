@@ -207,6 +207,34 @@ describe('panBy / clamp01 (#186)', () => {
   });
 });
 
+describe('WidgetImage Download (#192)', () => {
+  afterEach(() => {
+    cleanup();
+    fetchUrl.mockClear();
+  });
+
+  it('zeigt die Download-Sektion; Button ist ohne Bild deaktiviert', async () => {
+    const user = userEvent.setup();
+    render(<WidgetImage widget={widget({ imageId: null })} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Bild bearbeiten' }));
+    expect(screen.getByRole('radio', { name: 'PNG' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'JPEG' })).toBeInTheDocument();
+    expect(screen.getByText('Export-Größe: –')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bild herunterladen/ })).toBeDisabled();
+  });
+
+  it('blendet den Qualitäts-Slider nur bei JPEG ein', async () => {
+    const user = userEvent.setup();
+    render(<WidgetImage widget={widget({ imageId: null })} onChange={vi.fn()} onDelete={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Bild bearbeiten' }));
+    expect(screen.queryByRole('slider', { name: 'JPEG-Qualität' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'JPEG' }));
+    expect(screen.getByRole('slider', { name: 'JPEG-Qualität' })).toBeInTheDocument();
+  });
+});
+
 describe('parseImageConfig (#183)', () => {
   it('liefert Defaults bei invalider Config', () => {
     expect(parseImageConfig('nope')).toEqual({

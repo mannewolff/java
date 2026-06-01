@@ -23,14 +23,18 @@ import {
   Typography,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 
 import type { WidgetDto } from '../../../api/dashboard';
 import { fetchImageObjectUrl } from '../../../api/images';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
+import { cropSourceRect, exportFilename, exportSize } from './imageExport';
 import ImageUploader from './ImageUploader';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
+
+type ExportFormat = 'png' | 'jpeg';
 
 export type ImageMode = 'crop' | 'resize';
 export type ImageObjectFit = 'contain' | 'cover' | 'fill';
@@ -127,7 +131,16 @@ export default function WidgetImage({
   // Live-Pan im Crop-Modus: lokal während des Ziehens, persistiert beim Loslassen.
   const [liveOffset, setLiveOffset] = useState({ x: config.cropOffsetX, y: config.cropOffsetY });
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const displayRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Geladenes Bild-Element + Naturgröße für den Canvas-Export (#192).
+  const imageElRef = useRef<HTMLImageElement | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  // Sichtbarer Bereich (Widget-Kachel) für die Crop-Export-Größe; beim Drawer-Öffnen gemessen.
+  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  const [draftFormat, setDraftFormat] = useState<ExportFormat>('png');
+  const [draftQuality, setDraftQuality] = useState(90);
 
   const [open, setOpen] = useState(false);
   const [draftImageId, setDraftImageId] = useState<number | null>(config.imageId);
@@ -204,8 +217,25 @@ export default function WidgetImage({
     };
   }, [config.imageId]);
 
+  // Naturgröße + dekodiertes Bild-Element für den Export (#192) laden.
+  useEffect(() => {
+    if (imageUrl == null) {
+      imageElRef.current = null;
+      setNaturalSize(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      imageElRef.current = img;
+      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.src = imageUrl;
+  }, [imageUrl]);
+
   useEffect(() => {
     if (open) {
+      const el = displayRef.current;
+      if (el != null) setViewport({ width: el.clientWidth, height: el.clientHeight });
       setDraftImageId(config.imageId);
       setDraftMode(config.mode);
       setDraftObjectFit(config.objectFit);
@@ -242,6 +272,43 @@ export default function WidgetImage({
     }
     onChange({ ...widget, config: JSON.stringify(next) });
     setOpen(false);
+  }
+
+  // Tatsächliche Export-Größe aus Draft-Modus + Naturgröße + gemessenem Bereich (#192).
+  const exportDim =
+    naturalSize == null ? null : exportSize(draftMode, naturalSize, viewport ?? naturalSize);
+
+  function handleDownload(): void {
+    const img = imageElRef.current;
+    if (img == null || naturalSize == null) return;
+    const out = exportSize(draftMode, naturalSize, viewport ?? naturalSize);
+    const canvas = document.createElement('canvas');
+    canvas.width = out.width;
+    canvas.height = out.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx == null) return;
+    if (draftMode === 'crop') {
+      const src = cropSourceRect(naturalSize, out, draftCropX, draftCropY);
+      ctx.drawImage(img, src.x, src.y, src.width, src.height, 0, 0, out.width, out.height);
+    } else {
+      // Resize-Export: ganzes Bild in Naturgröße.
+      ctx.drawImage(img, 0, 0, out.width, out.height);
+    }
+    const mime = draftFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const quality = draftFormat === 'jpeg' ? draftQuality / 100 : undefined;
+    canvas.toBlob(
+      (blob) => {
+        if (blob == null) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = exportFilename(draftFormat, Date.now());
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      mime,
+      quality,
+    );
   }
 
   return (
@@ -283,7 +350,7 @@ export default function WidgetImage({
         </Stack>
       )}
 
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+      <Box ref={displayRef} sx={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
         {config.imageId == null ? (
           <Stack
             alignItems="center"
@@ -449,6 +516,43 @@ export default function WidgetImage({
                 />
               </Box>
             )}
+            <Divider textAlign="left">Herunterladen</Divider>
+            <FormControl>
+              <FormLabel id="image-format-label">Format</FormLabel>
+              <RadioGroup
+                row
+                aria-labelledby="image-format-label"
+                value={draftFormat}
+                onChange={(e) => setDraftFormat(e.target.value as ExportFormat)}
+              >
+                <FormControlLabel value="png" control={<Radio />} label="PNG" />
+                <FormControlLabel value="jpeg" control={<Radio />} label="JPEG" />
+              </RadioGroup>
+            </FormControl>
+            {draftFormat === 'jpeg' && (
+              <Box>
+                <Typography variant="body2">Qualität: {draftQuality}</Typography>
+                <Slider
+                  value={draftQuality}
+                  onChange={(_, v) => setDraftQuality(v as number)}
+                  min={50}
+                  max={100}
+                  aria-label="JPEG-Qualität"
+                />
+              </Box>
+            )}
+            <Typography variant="caption" color="text.secondary">
+              Export-Größe: {exportDim ? `${exportDim.width}×${exportDim.height}px` : '–'}
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownload}
+              disabled={draftImageId == null || naturalSize == null}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              Bild herunterladen
+            </Button>
             <Divider textAlign="left">Darstellung</Divider>
             <FormControlLabel
               control={

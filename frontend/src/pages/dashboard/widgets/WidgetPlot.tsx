@@ -23,10 +23,15 @@ import {
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import {
+  Area,
+  Bar,
   CartesianGrid,
+  Cell,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
+  Pie,
+  PieChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -46,6 +51,32 @@ import { ApiError } from '../../../api/client';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 export type PlotOverlay = 'mean' | 'median' | 'min' | 'max';
+
+/** Unterstützte Diagrammtypen (#180). `line` ist der Default (Rückwärtskompatibilität). */
+export type ChartType = 'line' | 'area' | 'bar' | 'pie';
+
+const CHART_TYPES: ReadonlyArray<{ value: ChartType; label: string }> = [
+  { value: 'line', label: 'Linie' },
+  { value: 'area', label: 'Fläche' },
+  { value: 'bar', label: 'Balken' },
+  { value: 'pie', label: 'Kuchen' },
+];
+
+/** Farbpalette für Pie-Slices, wenn die einzelnen Punkte keine eigene Farbe haben. */
+const PIE_COLORS: readonly string[] = [
+  '#1976d2',
+  '#d32f2f',
+  '#2e7d32',
+  '#ed6c02',
+  '#9c27b0',
+  '#0288d1',
+  '#c2185b',
+];
+
+/** Liest den Diagrammtyp defensiv; fehlend/ungültig → `'line'` (alte Plots bleiben Linien). */
+export function parseChartType(value: unknown): ChartType {
+  return value === 'area' || value === 'bar' || value === 'pie' ? value : 'line';
+}
 
 const GRANULARITIES: ReadonlyArray<{ value: Granularity; label: string }> = [
   { value: 'DAILY', label: 'Täglich' },
@@ -88,6 +119,8 @@ interface PlotSeries {
 }
 
 interface PlotConfig {
+  /** Diagrammtyp (#180). Default `'line'`. */
+  chartType: ChartType;
   /** Bis zu {@link MAX_SERIES} Zeitreihen. Leer = nichts konfiguriert. */
   series: PlotSeries[];
   /** `null` = Rohwerte-Modus (neuer Default), sonst aggregierter Modus mit Tabs. */
@@ -174,6 +207,7 @@ function parseConfig(raw: string): PlotConfig {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const series = parseSeries(parsed);
     return {
+      chartType: parseChartType(parsed.chartType),
       series,
       defaultGranularity: parseGranularity(parsed.defaultGranularity),
       overlays: parseOverlays(parsed.overlays),
@@ -186,6 +220,7 @@ function parseConfig(raw: string): PlotConfig {
     };
   } catch {
     return {
+      chartType: 'line',
       series: [],
       defaultGranularity: null,
       overlays: [],
@@ -371,6 +406,7 @@ export default function WidgetPlot({
 
   const [open, setOpen] = useState(false);
   const [seriesList, setSeriesList] = useState<TimeSeriesSummary[] | null>(null);
+  const [draftChartType, setDraftChartType] = useState<ChartType>(config.chartType);
   const [draftSeries, setDraftSeries] = useState<PlotSeries[]>(config.series);
   const [draftGranularity, setDraftGranularity] = useState<string>(
     config.defaultGranularity ?? '',
@@ -447,6 +483,7 @@ export default function WidgetPlot({
 
   useEffect(() => {
     if (!open) return;
+    setDraftChartType(config.chartType);
     setDraftSeries(config.series);
     setDraftGranularity(config.defaultGranularity ?? '');
     setDraftOverlays(config.overlays);
@@ -504,6 +541,7 @@ export default function WidgetPlot({
     // Overlays/Regression nur bei genau 1 Serie im aggregierten Modus sinnvoll.
     const singleAggregated = cleanSeries.length === 1 && nextGranularity !== null;
     const next: PlotConfig = {
+      chartType: draftChartType,
       series: cleanSeries,
       defaultGranularity: nextGranularity,
       overlays: singleAggregated ? draftOverlays : [],
@@ -559,6 +597,49 @@ export default function WidgetPlot({
       ...OVERLAY_META[overlay],
     }));
   }, [isSingleSeries, isRawMode, perSeriesData, config.overlays]);
+
+  // Pie nutzt die erste Serie: ein Slice je Datenpunkt (Label → Wert).
+  const pieData = useMemo(
+    () => (perSeriesData?.[0] ?? []).map((p) => ({ name: p.label, value: p.value })),
+    [perSeriesData],
+  );
+
+  /** Rendert die kartesische Darstellung einer Serie passend zum Diagrammtyp. */
+  function renderSeriesElement(s: PlotSeries, i: number): JSX.Element {
+    const name = seriesName(s.timeSeriesId);
+    if (config.chartType === 'bar') {
+      return <Bar key={i} yAxisId={s.yAxis} dataKey={`s${i}`} name={name} fill={s.color} isAnimationActive={false} />;
+    }
+    if (config.chartType === 'area') {
+      return (
+        <Area
+          key={i}
+          yAxisId={s.yAxis}
+          type="monotone"
+          dataKey={`s${i}`}
+          name={name}
+          stroke={s.color}
+          fill={s.color}
+          fillOpacity={0.3}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      );
+    }
+    return (
+      <Line
+        key={i}
+        yAxisId={s.yAxis}
+        type="monotone"
+        dataKey={`s${i}`}
+        name={name}
+        stroke={s.color}
+        dot={{ r: 3 }}
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    );
+  }
 
   const noConfiguredSeries = config.series.length === 0;
   const noData =
@@ -619,61 +700,68 @@ export default function WidgetPlot({
           </Stack>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis
-                yAxisId="left"
-                domain={computeYDomain(config.yMin, config.yMax)}
-                tick={{ fontSize: 11 }}
-              />
-              {usesRightAxis(config.series) && (
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
-              )}
-              <Tooltip />
-              {config.showLegend && <Legend />}
-              {overlayLines.map((ol) => (
-                <ReferenceLine
-                  key={ol.overlay}
-                  yAxisId="left"
-                  y={ol.y}
-                  stroke={ol.color}
-                  strokeDasharray="4 4"
-                  label={{
-                    value: `${ol.prefix} ${formatOverlayNumber(ol.y)}`,
-                    position: 'right',
-                    fontSize: 10,
-                    fill: ol.color,
-                  }}
-                />
-              ))}
-              {config.series.map((s, i) => (
-                <Line
-                  key={i}
-                  yAxisId={s.yAxis}
-                  type="monotone"
-                  dataKey={`s${i}`}
-                  name={seriesName(s.timeSeriesId)}
-                  stroke={s.color}
-                  dot={{ r: 3 }}
-                  connectNulls={false}
+            {config.chartType === 'pie' ? (
+              <PieChart>
+                <Tooltip />
+                {config.showLegend && <Legend />}
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius="80%"
+                  label
                   isAnimationActive={false}
-                />
-              ))}
-              {showRegressionLine && (
-                <Line
+                >
+                  {pieData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            ) : (
+              <ComposedChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis
                   yAxisId="left"
-                  type="linear"
-                  dataKey="regression"
-                  name="Trend"
-                  stroke="#9c27b0"
-                  strokeDasharray="5 5"
-                  dot={false}
-                  connectNulls
-                  isAnimationActive={false}
+                  domain={computeYDomain(config.yMin, config.yMax)}
+                  tick={{ fontSize: 11 }}
                 />
-              )}
-            </LineChart>
+                {usesRightAxis(config.series) && (
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+                )}
+                <Tooltip />
+                {config.showLegend && <Legend />}
+                {overlayLines.map((ol) => (
+                  <ReferenceLine
+                    key={ol.overlay}
+                    yAxisId="left"
+                    y={ol.y}
+                    stroke={ol.color}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `${ol.prefix} ${formatOverlayNumber(ol.y)}`,
+                      position: 'right',
+                      fontSize: 10,
+                      fill: ol.color,
+                    }}
+                  />
+                ))}
+                {config.series.map((s, i) => renderSeriesElement(s, i))}
+                {showRegressionLine && (
+                  <Line
+                    yAxisId="left"
+                    type="linear"
+                    dataKey="regression"
+                    name="Trend"
+                    stroke="#9c27b0"
+                    strokeDasharray="5 5"
+                    dot={false}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
+                )}
+              </ComposedChart>
+            )}
           </ResponsiveContainer>
         )}
       </Box>
@@ -685,6 +773,18 @@ export default function WidgetPlot({
           </Toolbar>
           <Divider />
           <Stack spacing={2} sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+            <TextField
+              label="Diagrammtyp"
+              select
+              value={draftChartType}
+              onChange={(e) => setDraftChartType(e.target.value as ChartType)}
+            >
+              {CHART_TYPES.map((c) => (
+                <MenuItem key={c.value} value={c.value}>
+                  {c.label}
+                </MenuItem>
+              ))}
+            </TextField>
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Zeitreihen (max {MAX_SERIES})

@@ -9,6 +9,7 @@ import WidgetPlot, {
   linearRegression,
   mergeSeries,
   overlayValue,
+  parseChartType,
   usesRightAxis,
 } from './WidgetPlot';
 import type { WidgetDto } from '../../../api/dashboard';
@@ -762,5 +763,104 @@ describe('WidgetPlot Farb-Swatches (#165)', () => {
       'aria-pressed',
       'false',
     );
+  });
+});
+
+describe('WidgetPlot Chart-Typen (#180)', () => {
+  beforeEach(() => {
+    aggregate.mockReset();
+    entries.mockReset();
+    list.mockReset();
+    list.mockResolvedValue([]);
+  });
+  afterEach(() => cleanup());
+
+  const SUMMARIES = [
+    { id: 1, name: 'Gewicht', unit: 'kg', dataType: 'DECIMAL', entryCount: 1, createdAt: 'x', updatedAt: 'x' },
+  ];
+  const ONE_BUCKET = [
+    { bucketStart: '2026-05-27T00:00:00Z', count: 1, min: 1, max: 1, avg: 80, last: 1 },
+    { bucketStart: '2026-05-28T00:00:00Z', count: 1, min: 1, max: 1, avg: 82, last: 1 },
+  ];
+
+  it('parseChartType: fehlend/unbekannt → line, gültige Werte bleiben', () => {
+    expect(parseChartType(undefined)).toBe('line');
+    expect(parseChartType('quatsch')).toBe('line');
+    expect(parseChartType('line')).toBe('line');
+    expect(parseChartType('area')).toBe('area');
+    expect(parseChartType('bar')).toBe('bar');
+    expect(parseChartType('pie')).toBe('pie');
+  });
+
+  it('alte Config ohne chartType rendert ohne Crash (Default Linie)', async () => {
+    aggregate.mockResolvedValue(ONE_BUCKET);
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 1, defaultGranularity: 'DAILY' })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
+  });
+
+  it('Drawer: chartType wird in der Config gespeichert', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValue(SUMMARIES);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 1, defaultGranularity: 'DAILY' })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Diagrammtyp' }));
+    await user.click(await screen.findByRole('option', { name: 'Balken' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    expect((JSON.parse(next.config) as { chartType: string }).chartType).toBe('bar');
+  });
+
+  it('BarChart rendert ohne Crash', async () => {
+    aggregate.mockResolvedValue(ONE_BUCKET);
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 1, defaultGranularity: 'DAILY', chartType: 'bar' })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
+  });
+
+  it('PieChart rendert ohne Crash', async () => {
+    aggregate.mockResolvedValue(ONE_BUCKET);
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 1, defaultGranularity: 'DAILY', chartType: 'pie' })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
+  });
+
+  it('AreaChart rendert ohne Crash', async () => {
+    aggregate.mockResolvedValue(ONE_BUCKET);
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 1, defaultGranularity: 'DAILY', chartType: 'area' })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 });

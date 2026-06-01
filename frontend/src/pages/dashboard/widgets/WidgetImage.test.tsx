@@ -173,6 +173,15 @@ describe('WidgetImage Crop-Modus (#186)', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('zeigt die Aktions-Icons auch im Crop-Modus mit geladenem Bild', async () => {
+    render(
+      <WidgetImage widget={widget({ imageId: 5, mode: 'crop' })} onChange={vi.fn()} onDelete={vi.fn()} />,
+    );
+    await screen.findByAltText('Widget-Bild');
+    expect(screen.getByRole('button', { name: 'Bild bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bild löschen' })).toBeInTheDocument();
+  });
+
   it('rendert im Crop-Modus mit objectFit none + objectPosition', async () => {
     render(
       <WidgetImage

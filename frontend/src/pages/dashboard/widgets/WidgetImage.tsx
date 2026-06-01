@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { alpha } from '@mui/material/styles';
 import {
   Alert,
   Box,
@@ -329,7 +330,17 @@ export default function WidgetImage({
         <Stack
           direction="row"
           spacing={0.5}
-          sx={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+          sx={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            zIndex: 1,
+            // Halbtransparente Pille, damit die Icons auch über randlosen Bildern (Crop/Cover)
+            // sichtbar bleiben (#192-Folgefix).
+            borderRadius: 1,
+            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.7),
+            backdropFilter: 'blur(2px)',
+          }}
         >
           <IconButton
             size="small"

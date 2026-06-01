@@ -18,8 +18,14 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
+import type { ComponentType } from 'react';
+import type { SvgIconProps } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
+import InboxIcon from '@mui/icons-material/Inbox';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 import type { WidgetDto } from '../../../api/dashboard';
 import {
@@ -40,6 +46,14 @@ const COLUMN_LABELS: Record<KanbanColumn, string> = {
   IN_PROGRESS: 'In Progress',
   IN_REVIEW: 'In Review',
   DONE: 'Done',
+};
+
+/** Status-Icon + Akzentfarbe je Spalte (#191), konsistent mit dem Board-Header (#189). */
+const COLUMN_ICON: Record<KanbanColumn, { Icon: ComponentType<SvgIconProps>; color: string }> = {
+  BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
+  IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
+  IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
+  DONE: { Icon: CheckCircleIcon, color: 'success.main' },
 };
 
 const MIN_LIMIT = 1;
@@ -261,16 +275,24 @@ export default function WidgetKanbanList({
                   '&:hover': { backgroundColor: 'action.selected' },
                 }}
               >
-                {/* #172: "Spalte – Titel" inline auf einer Zeile, Spalte grau, Titel als Link. */}
-                <Stack direction="row" spacing={0.5} alignItems="baseline" sx={{ minWidth: 0 }}>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    color="text.secondary"
-                    noWrap
-                    sx={{ flexShrink: 0 }}
-                  >
-                    {COLUMN_LABELS[item.column]} –
+                {/* #191: 4-Spalten-Layout Icon | #Nr | Titel | Body. */}
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '24px 44px 1fr 2fr',
+                    columnGap: 1,
+                    alignItems: 'center',
+                    minWidth: 0,
+                  }}
+                >
+                  {(() => {
+                    const { Icon, color } = COLUMN_ICON[item.column];
+                    return (
+                      <Icon fontSize="small" sx={{ color, justifySelf: 'center' }} aria-label={COLUMN_LABELS[item.column]} />
+                    );
+                  })()}
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ textAlign: 'right' }}>
+                    {item.number > 0 ? `#${item.number}` : ''}
                   </Typography>
                   <Link
                     component="button"
@@ -280,29 +302,40 @@ export default function WidgetKanbanList({
                     noWrap
                     onClick={() => setDetailItem(item)}
                     onMouseDown={(e) => e.stopPropagation()}
-                    sx={{ textAlign: 'left', display: 'block', flex: 1, minWidth: 0 }}
+                    sx={{
+                      textAlign: 'left',
+                      display: 'block',
+                      fontWeight: 500,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
                   >
                     {item.title}
                   </Link>
-                </Stack>
-                {item.body && (
-                  <Typography
-                    component="p"
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{
-                      // Body-Vorschau: max. 2 Zeilen, danach "…" (CSS-Ellipsis).
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {item.body}
-                  </Typography>
-                )}
+                  {item.body ? (
+                    <Typography
+                      component="p"
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        // Body-Vorschau: max. 2 Zeilen, danach "…" (CSS-Ellipsis).
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        minWidth: 0,
+                      }}
+                    >
+                      {item.body}
+                    </Typography>
+                  ) : (
+                    <Box />
+                  )}
+                </Box>
               </Box>
             ))}
           </Stack>

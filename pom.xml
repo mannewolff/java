@@ -360,6 +360,14 @@
                                 -->
                                 <exclude>org/mwolff/api/appversion/infrastructure/persistence/AppVersionEntity.class</exclude>
                                 <exclude>org/mwolff/api/appversion/infrastructure/persistence/AppVersionJpaRepository.class</exclude>
+                                <!--
+                                  Image-Persistence (#181): JPA-Entity und Spring-Data-Repository
+                                  sind nur via Testcontainers-MariaDB sinnvoll testbar. Der Adapter
+                                  (JpaStoredImageAdapter) wird mit gemocktem Repo unit-getestet und
+                                  bleibt daher in der Coverage.
+                                -->
+                                <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageEntity.class</exclude>
+                                <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageJpaRepository.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>

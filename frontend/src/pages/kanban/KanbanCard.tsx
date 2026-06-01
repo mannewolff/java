@@ -97,6 +97,11 @@ export default function KanbanCard({
               cursor: 'pointer',
             }}
           >
+            {item.number > 0 && (
+              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
+                #{item.number} –{' '}
+              </Box>
+            )}
             {item.title}
           </Typography>
         </Tooltip>

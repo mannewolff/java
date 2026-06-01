@@ -32,7 +32,8 @@ public record KanbanItem(
     Instant createdAt,
     Instant updatedAt,
     Instant movedToDoneAt,
-    boolean archived) {
+    boolean archived,
+    int number) {
 
   /** Maximale Länge des Titels — entspricht dem Schema. */
   public static final int MAX_TITLE_LENGTH = 200;
@@ -63,6 +64,9 @@ public record KanbanItem(
     if (column != KanbanColumn.DONE && movedToDoneAt != null) {
       throw new IllegalArgumentException("movedToDoneAt must be null outside DONE");
     }
+    if (number < 0) {
+      throw new IllegalArgumentException("number must be >= 0");
+    }
   }
 
   /**
@@ -72,8 +76,25 @@ public record KanbanItem(
   public static KanbanItem newInstance(
       String userSub, String title, String body, KanbanColumn column, int position, Instant now) {
     final Instant movedToDone = column == KanbanColumn.DONE ? now : null;
+    // number = 0: noch nicht vergeben; der Create-Use-Case setzt sie via withNumber (#187).
     return new KanbanItem(
-        null, userSub, title, body, column, position, null, null, movedToDone, false);
+        null, userSub, title, body, column, position, null, null, movedToDone, false, 0);
+  }
+
+  /** Kopie mit gesetzter Anzeige-Nummer (#187). Alle anderen Felder bleiben unverändert. */
+  public KanbanItem withNumber(int newNumber) {
+    return new KanbanItem(
+        id,
+        userSub,
+        title,
+        body,
+        column,
+        position,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived,
+        newNumber);
   }
 
   /** Kopie mit neuem Titel und neuem Body. Alle anderen Felder bleiben unverändert. */
@@ -88,7 +109,8 @@ public record KanbanItem(
         createdAt,
         updatedAt,
         movedToDoneAt,
-        archived);
+        archived,
+        number);
   }
 
   /**
@@ -109,7 +131,8 @@ public record KanbanItem(
         createdAt,
         updatedAt,
         nextMovedToDone,
-        archived);
+        archived,
+        number);
   }
 
   /** Kopie mit neuer Position (gleiche Spalte). */
@@ -124,6 +147,7 @@ public record KanbanItem(
         createdAt,
         updatedAt,
         movedToDoneAt,
-        archived);
+        archived,
+        number);
   }
 }

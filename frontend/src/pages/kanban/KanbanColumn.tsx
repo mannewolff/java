@@ -1,10 +1,24 @@
+import type { ComponentType } from 'react';
 import { Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import type { SvgIconProps } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import InboxIcon from '@mui/icons-material/Inbox';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 
 import type { KanbanColumn as KanbanColumnId, KanbanItem } from '../../api/kanban';
 import KanbanCard from './KanbanCard';
+
+/** Icon + Akzentfarbe je Spalte (#189). Icons sind dekorativ — das Label liefert den Text. */
+const COLUMN_HEADER: Record<KanbanColumnId, { Icon: ComponentType<SvgIconProps>; color: string }> = {
+  BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
+  IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
+  IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
+  DONE: { Icon: CheckCircleIcon, color: 'success.main' },
+};
 
 interface KanbanColumnProps {
   column: KanbanColumnId;
@@ -51,6 +65,10 @@ export default function KanbanColumnView({
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
+          {(() => {
+            const { Icon, color } = COLUMN_HEADER[column];
+            return <Icon fontSize="small" sx={{ color }} aria-hidden />;
+          })()}
           <Typography variant="subtitle1" fontWeight={600}>
             {label}
           </Typography>

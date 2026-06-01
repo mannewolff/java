@@ -2,6 +2,7 @@ package org.mwolff.api.kanban.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,6 +27,10 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
       "select i from KanbanItemEntity i where i.userSub = :userSub "
           + "order by i.columnName asc, i.positionInColumn asc")
   List<KanbanItemEntity> findAllByUserSubIncludingArchived(@Param("userSub") String userSub);
+
+  // Max über ALLE Items des Users (auch archivierte), damit neue Nummern nie kollidieren (#187).
+  @Query("select max(i.number) from KanbanItemEntity i where i.userSub = :userSub")
+  Optional<Integer> findMaxNumberByUserSub(@Param("userSub") String userSub);
 
   @Modifying
   @Query("update KanbanItemEntity i set i.positionInColumn = :newPosition where i.id = :id")

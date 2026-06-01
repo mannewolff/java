@@ -1,0 +1,59 @@
+package org.mwolff.api.image.web;
+
+import java.io.IOException;
+import java.net.URI;
+
+import org.mwolff.api.image.application.GetImageUseCase;
+import org.mwolff.api.image.application.UploadImageUseCase;
+import org.mwolff.api.image.domain.InvalidImageUploadException;
+import org.mwolff.api.image.domain.StoredImage;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+/** Upload + Auslieferung gespeicherter Bilder (#182). */
+@RestController
+@RequestMapping("/api/images")
+public class ImageController {
+
+  private final UploadImageUseCase uploadUseCase;
+  private final GetImageUseCase getUseCase;
+
+  public ImageController(final UploadImageUseCase uploadUseCase, final GetImageUseCase getUseCase) {
+    this.uploadUseCase = uploadUseCase;
+    this.getUseCase = getUseCase;
+  }
+
+  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<ImageUploadResponse> upload(
+      @RequestParam("file") final MultipartFile file) {
+    if (file == null || file.isEmpty()) {
+      throw new InvalidImageUploadException("EMPTY_FILE", "Uploaded file is empty.");
+    }
+    final byte[] bytes;
+    try {
+      bytes = file.getBytes();
+    } catch (final IOException ex) {
+      throw new InvalidImageUploadException("READ_FAILED", "Could not read uploaded file.");
+    }
+    final StoredImage saved = uploadUseCase.execute(file.getContentType(), bytes);
+    final ImageUploadResponse response = ImageUploadResponse.from(saved);
+    return ResponseEntity.created(URI.create(response.url())).body(response);
+  }
+
+  @GetMapping("/{id}")
+  public ResponseEntity<byte[]> get(@PathVariable final long id) {
+    final StoredImage image = getUseCase.execute(id);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(image.contentType()))
+        .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePrivate())
+        .body(image.data());
+  }
+}

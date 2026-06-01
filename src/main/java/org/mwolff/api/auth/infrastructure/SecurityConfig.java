@@ -56,6 +56,11 @@ public class SecurityConfig {
                     // Ingest-Token-Verwaltung: JWT-User legt Tokens fuer Maschinen an (#92).
                     .requestMatchers("/api/ingest-tokens/**")
                     .hasRole("USER")
+                    // Image-Store (#182): Upload UND Auslieferung nur fuer authentifizierte USER.
+                    // Die Auslieferung ist bewusst auth-pflichtig — das Frontend laedt Bilder ueber
+                    // den authentifizierten API-Client als Blob (kein direktes <img src>).
+                    .requestMatchers("/api/images/**")
+                    .hasRole("USER")
                     // OpenAPI-Doku (#166): Schema + Swagger-UI oeffentlich, damit Entwickler
                     // ohne Token-Fummelei darauf zugreifen koennen. Es wird nur die
                     // Dokumentation (Endpoint-Liste + Schemas) oeffentlich — die Endpoints

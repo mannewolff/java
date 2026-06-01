@@ -6,6 +6,7 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
+import ImageIcon from '@mui/icons-material/Image';
 
 import type { WidgetType } from '../../api/dashboard';
 
@@ -25,6 +26,7 @@ const PALETTE_ENTRIES: ReadonlyArray<PaletteEntry> = [
   { type: 'PLOT', label: 'Plot', icon: ShowChartIcon },
   { type: 'KANBAN_LIST', label: 'Kanban-Liste', icon: ViewListIcon },
   { type: 'DIVIDER', label: 'Trennlinie', icon: HorizontalRuleIcon },
+  { type: 'IMAGE', label: 'Bild', icon: ImageIcon },
 ];
 
 interface Props {

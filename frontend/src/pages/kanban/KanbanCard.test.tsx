@@ -17,6 +17,7 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     archived: false,
+    number: 1,
     ...overrides,
   };
 }
@@ -47,6 +48,19 @@ function renderCard(item: KanbanItem, handlers: {
 
 describe('KanbanCard', () => {
   afterEach(() => cleanup());
+
+  it('zeigt die Item-Nummer vor dem Titel (#188)', () => {
+    renderCard(makeItem({ number: 42, title: 'Mein Titel' }));
+    const heading = screen.getByRole('button', { name: 'Detail öffnen: Mein Titel' });
+    expect(heading).toHaveTextContent('#42');
+    expect(heading).toHaveTextContent('Mein Titel');
+  });
+
+  it('blendet die Nummer aus, wenn sie 0 ist (Legacy/unvergeben)', () => {
+    renderCard(makeItem({ number: 0, title: 'Ohne Nummer' }));
+    const heading = screen.getByRole('button', { name: 'Detail öffnen: Ohne Nummer' });
+    expect(heading).not.toHaveTextContent('#');
+  });
 
   it('öffnet das Detail-Modal (onOpenDetail) bei Klick auf den Titel', async () => {
     const onOpenDetail = vi.fn();

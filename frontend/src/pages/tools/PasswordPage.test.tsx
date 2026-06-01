@@ -15,6 +15,7 @@ describe('PasswordPage', () => {
   let writeText: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    localStorage.clear();
     writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
@@ -158,5 +159,51 @@ describe('PasswordPage', () => {
       const passwordField = screen.getByLabelText('Passwort') as HTMLInputElement;
       expect(passwordField.value).toMatch(/[A-Z]/);
     });
+  });
+
+  // --- #178: localStorage-Persistenz ---
+
+  it('First Visit (localStorage leer) nutzt die Default-Länge 20', async () => {
+    render(<PasswordPage />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Passwort generieren/i }));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Passwort') as HTMLInputElement).value).toHaveLength(20),
+    );
+  });
+
+  it('Second Visit lädt gespeicherte Länge aus localStorage', async () => {
+    localStorage.setItem('password-generator-length', JSON.stringify(12));
+    render(<PasswordPage />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Passwort generieren/i }));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Passwort') as HTMLInputElement).value).toHaveLength(12),
+    );
+  });
+
+  it('Invalid JSON in localStorage fällt auf die Default-Länge zurück', async () => {
+    localStorage.setItem('password-generator-length', 'kaputt');
+    render(<PasswordPage />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Passwort generieren/i }));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Passwort') as HTMLInputElement).value).toHaveLength(20),
+    );
+  });
+
+  it('persistiert geänderte Einstellungen nach Übernehmen in localStorage', async () => {
+    render(<PasswordPage />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Einstellungen öffnen/i }));
+
+    // Ziffern abwählen, dann übernehmen.
+    await user.click(screen.getByLabelText(/Ziffern/));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    expect(JSON.parse(localStorage.getItem('password-generator-useDigits')!)).toBe(false);
+    // Andere Keys werden ebenfalls geschrieben (Default-Werte).
+    expect(JSON.parse(localStorage.getItem('password-generator-length')!)).toBe(20);
+    expect(JSON.parse(localStorage.getItem('password-generator-useUpper')!)).toBe(true);
   });
 });

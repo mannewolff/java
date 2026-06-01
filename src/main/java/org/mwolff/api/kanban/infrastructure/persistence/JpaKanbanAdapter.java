@@ -61,6 +61,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
               item.column(),
               item.position(),
               item.movedToDoneAt());
+      // Anzeige-Nummer (#187) wird vom Use-Case berechnet und nur beim Neuanlegen geschrieben.
+      entity.setNumber(item.number());
     } else {
       entity =
           itemRepo
@@ -77,6 +79,11 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
       entity.setArchived(item.archived());
     }
     return toDomain(itemRepo.save(entity));
+  }
+
+  @Override
+  public Optional<Integer> getMaxNumberForUser(String userSub) {
+    return itemRepo.findMaxNumberByUserSub(userSub);
   }
 
   @Override
@@ -140,7 +147,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
         entity.getCreatedAt(),
         entity.getUpdatedAt(),
         entity.getMovedToDoneAt(),
-        entity.isArchived());
+        entity.isArchived(),
+        entity.getNumber());
   }
 
   private static KanbanSettings toDomain(KanbanSettingsEntity entity) {

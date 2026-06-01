@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, SyntheticEvent } from 'react';
 import { alpha } from '@mui/material/styles';
 import {
   Alert,
@@ -218,20 +218,20 @@ export default function WidgetImage({
     };
   }, [config.imageId]);
 
-  // Naturgröße + dekodiertes Bild-Element für den Export (#192) laden.
+  // Naturgröße zurücksetzen, sobald kein Bild geladen ist; ansonsten liefert das angezeigte
+  // <img> sie zuverlässig per onLoad (siehe handleImageLoad), inkl. Element für den Canvas-Export.
   useEffect(() => {
     if (imageUrl == null) {
       imageElRef.current = null;
       setNaturalSize(null);
-      return;
     }
-    const img = new Image();
-    img.onload = () => {
-      imageElRef.current = img;
-      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.src = imageUrl;
   }, [imageUrl]);
+
+  function handleImageLoad(e: SyntheticEvent<HTMLImageElement>): void {
+    const el = e.currentTarget;
+    imageElRef.current = el;
+    setNaturalSize({ width: el.naturalWidth, height: el.naturalHeight });
+  }
 
   useEffect(() => {
     if (open) {
@@ -404,6 +404,7 @@ export default function WidgetImage({
               src={imageUrl}
               alt="Widget-Bild"
               draggable={false}
+              onLoad={handleImageLoad}
               sx={{
                 width: '100%',
                 height: '100%',
@@ -419,6 +420,7 @@ export default function WidgetImage({
             component="img"
             src={imageUrl}
             alt="Widget-Bild"
+            onLoad={handleImageLoad}
             sx={{ width: '100%', height: '100%', objectFit: config.objectFit, display: 'block' }}
           />
         )}

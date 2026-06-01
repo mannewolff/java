@@ -67,6 +67,8 @@ interface PlotConfig {
   /** `null` = Rohwerte-Modus (neuer Default), sonst aggregierter Modus mit Tabs. */
   defaultGranularity: Granularity | null;
   overlays: PlotOverlay[];
+  /** Lineare Trend-/Regressionslinie mit Zukunfts-Extrapolation (nur aggregierter Modus). */
+  regression: boolean;
   showBorder: boolean;
   backgroundColor?: string;
 }
@@ -74,6 +76,15 @@ interface PlotConfig {
 interface ChartPoint {
   label: string;
   value: number;
+  /** Bucket-Start (ISO) im aggregierten Modus — Basis für Zukunfts-Labels der Regression. */
+  iso?: string;
+}
+
+/** Render-Datum: Zukunftspunkte haben `value: null`, alle Punkte ggf. einen Regressionswert. */
+interface PlotDatum {
+  label: string;
+  value: number | null;
+  regression?: number;
 }
 
 function isGranularity(v: unknown): v is Granularity {
@@ -100,10 +111,17 @@ function parseConfig(raw: string): PlotConfig {
       timeSeriesId: typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
       defaultGranularity: parseGranularity(parsed.defaultGranularity),
       overlays: parseOverlays(parsed.overlays),
+      regression: typeof parsed.regression === 'boolean' ? parsed.regression : false,
       ...parseSurfaceConfig(parsed),
     };
   } catch {
-    return { timeSeriesId: null, defaultGranularity: null, overlays: [], showBorder: false };
+    return {
+      timeSeriesId: null,
+      defaultGranularity: null,
+      overlays: [],
+      regression: false,
+      showBorder: false,
+    };
   }
 }
 
@@ -163,6 +181,57 @@ function formatOverlayNumber(value: number): string {
   return value.toLocaleString('de-DE', { maximumFractionDigits: 1 });
 }
 
+export interface LinearFit {
+  slope: number;
+  intercept: number;
+}
+
+/** Least-Squares-Trendgerade über Index x = 0..n-1 gegen y = values. `n < 2` → `null`. */
+export function linearRegression(values: number[]): LinearFit | null {
+  const n = values.length;
+  if (n < 2) return null;
+  let sumX = 0;
+  let sumY = 0;
+  let sumXy = 0;
+  let sumXx = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += values[i];
+    sumXy += i * values[i];
+    sumXx += i * i;
+  }
+  // Nenner ist für n >= 2 mit ganzzahligen, paarweise verschiedenen x niemals 0.
+  const denom = n * sumXx - sumX * sumX;
+  const slope = (n * sumXy - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  return { slope, intercept };
+}
+
+/** Zukunfts-Horizont: ~30 % der Punktanzahl, mindestens 1 Bucket. */
+export function forecastHorizon(n: number): number {
+  return Math.max(1, Math.round(n * 0.3));
+}
+
+/** ISO-Datum `n` Perioden nach `iso`, je Granularität (UTC-basiert wie weekNumber). */
+export function addPeriod(iso: string, granularity: Granularity, n: number): string {
+  const d = new Date(iso);
+  switch (granularity) {
+    case 'DAILY':
+      d.setUTCDate(d.getUTCDate() + n);
+      break;
+    case 'WEEKLY':
+      d.setUTCDate(d.getUTCDate() + n * 7);
+      break;
+    case 'MONTHLY':
+      d.setUTCMonth(d.getUTCMonth() + n);
+      break;
+    case 'YEARLY':
+      d.setUTCFullYear(d.getUTCFullYear() + n);
+      break;
+  }
+  return d.toISOString();
+}
+
 interface Props {
   widget: WidgetDto;
   onChange: (next: WidgetDto) => void;
@@ -195,6 +264,7 @@ export default function WidgetPlot({
     config.defaultGranularity ?? '',
   );
   const [draftOverlays, setDraftOverlays] = useState<PlotOverlay[]>(config.overlays);
+  const [draftRegression, setDraftRegression] = useState(config.regression);
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
 
@@ -216,7 +286,11 @@ export default function WidgetPlot({
           entries.map((e) => ({ label: formatEntryLabel(e.timestamp), value: e.value })),
         )
       : aggregateTimeSeries(id, granularity).then((buckets) =>
-          buckets.map((b) => ({ label: formatBucketLabel(b.bucketStart, granularity), value: b.avg })),
+          buckets.map((b) => ({
+            label: formatBucketLabel(b.bucketStart, granularity),
+            value: b.avg,
+            iso: b.bucketStart,
+          })),
         );
     request
       .then((data) => {
@@ -237,6 +311,7 @@ export default function WidgetPlot({
     setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
     setDraftGranularity(config.defaultGranularity ?? '');
     setDraftOverlays(config.overlays);
+    setDraftRegression(config.regression);
     setDraftShowBorder(config.showBorder);
     setDraftBackgroundColor(config.backgroundColor ?? '');
     if (seriesList === null) {
@@ -262,6 +337,7 @@ export default function WidgetPlot({
       timeSeriesId: draftSeriesId === '' ? null : Number.parseInt(draftSeriesId, 10),
       defaultGranularity: nextGranularity,
       overlays: nextGranularity === null ? [] : draftOverlays,
+      regression: nextGranularity === null ? false : draftRegression,
       showBorder: draftShowBorder,
       ...(draftBackgroundColor.trim() !== ''
         ? { backgroundColor: draftBackgroundColor.trim() }
@@ -271,7 +347,31 @@ export default function WidgetPlot({
     setOpen(false);
   }
 
-  const chartData = points ?? [];
+  const chartData = useMemo<PlotDatum[]>(() => {
+    const base = points ?? [];
+    const plain = base.map((p) => ({ label: p.label, value: p.value }));
+    if (isRawMode || !config.regression) return plain;
+    const fit = linearRegression(base.map((p) => p.value));
+    if (fit === null) return plain;
+    const hist: PlotDatum[] = base.map((p, i) => ({
+      label: p.label,
+      value: p.value,
+      regression: fit.slope * i + fit.intercept,
+    }));
+    const lastIso = base[base.length - 1]?.iso;
+    const horizon = forecastHorizon(base.length);
+    const future: PlotDatum[] = [];
+    for (let k = 1; k <= horizon; k++) {
+      const idx = base.length - 1 + k;
+      const label = lastIso
+        ? formatBucketLabel(addPeriod(lastIso, granularity, k), granularity)
+        : `+${k}`;
+      future.push({ label, value: null, regression: fit.slope * idx + fit.intercept });
+    }
+    return [...hist, ...future];
+  }, [points, isRawMode, config.regression, granularity]);
+
+  const showRegressionLine = chartData.some((d) => d.regression !== undefined);
 
   const overlayLines = useMemo(() => {
     const data = points ?? [];
@@ -367,6 +467,17 @@ export default function WidgetPlot({
                 dot={{ r: 3 }}
                 isAnimationActive={false}
               />
+              {showRegressionLine && (
+                <Line
+                  type="linear"
+                  dataKey="regression"
+                  stroke="#9c27b0"
+                  strokeDasharray="5 5"
+                  dot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -428,6 +539,15 @@ export default function WidgetPlot({
                       label={OVERLAY_META[overlay].label}
                     />
                   ))}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={draftRegression}
+                        onChange={(e) => setDraftRegression(e.target.checked)}
+                      />
+                    }
+                    label="Trend / Regression"
+                  />
                 </FormGroup>
               </Box>
             )}

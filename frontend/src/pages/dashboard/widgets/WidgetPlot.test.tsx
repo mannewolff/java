@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import WidgetPlot, { overlayValue } from './WidgetPlot';
+import WidgetPlot, {
+  addPeriod,
+  forecastHorizon,
+  linearRegression,
+  overlayValue,
+} from './WidgetPlot';
 import type { WidgetDto } from '../../../api/dashboard';
 
 vi.mock('../../../api/timeseries', () => ({
@@ -306,5 +311,97 @@ describe('overlayValue', () => {
 
   it('Median bei ungerader Anzahl ist der mittlere Wert (sortiert)', () => {
     expect(overlayValue('median', [5, 1, 3])).toBe(3);
+  });
+});
+
+describe('linearRegression', () => {
+  it('flache Daten → slope 0, Vorhersage bleibt konstant', () => {
+    const reg = linearRegression([80, 80, 80]);
+    expect(reg).not.toBeNull();
+    expect(reg?.slope).toBeCloseTo(0);
+    expect(reg?.intercept).toBeCloseTo(80);
+    // predict(3) = slope*3 + intercept = 80
+    expect((reg?.slope ?? 0) * 3 + (reg?.intercept ?? 0)).toBeCloseTo(80);
+  });
+
+  it('steigende Daten → positive slope, Extrapolation steigt', () => {
+    const reg = linearRegression([10, 20, 30]);
+    expect(reg?.slope).toBeCloseTo(10);
+    expect(reg?.intercept).toBeCloseTo(10);
+    expect((reg?.slope ?? 0) * 3 + (reg?.intercept ?? 0)).toBeCloseTo(40);
+  });
+
+  it('weniger als 2 Punkte → null', () => {
+    expect(linearRegression([])).toBeNull();
+    expect(linearRegression([42])).toBeNull();
+  });
+});
+
+describe('forecastHorizon', () => {
+  it('rund 30% der Punktanzahl, mindestens 1', () => {
+    expect(forecastHorizon(10)).toBe(3);
+    expect(forecastHorizon(3)).toBe(1);
+    expect(forecastHorizon(2)).toBe(1);
+    expect(forecastHorizon(20)).toBe(6);
+  });
+});
+
+describe('addPeriod', () => {
+  it('DAILY addiert Tage', () => {
+    expect(addPeriod('2026-05-28T00:00:00Z', 'DAILY', 2)).toBe('2026-05-30T00:00:00.000Z');
+  });
+  it('WEEKLY addiert Wochen (7 Tage)', () => {
+    expect(addPeriod('2026-05-01T00:00:00Z', 'WEEKLY', 1)).toBe('2026-05-08T00:00:00.000Z');
+  });
+  it('MONTHLY addiert Monate', () => {
+    expect(addPeriod('2026-01-15T00:00:00Z', 'MONTHLY', 2)).toBe('2026-03-15T00:00:00.000Z');
+  });
+  it('YEARLY addiert Jahre', () => {
+    expect(addPeriod('2026-06-01T00:00:00Z', 'YEARLY', 3)).toBe('2029-06-01T00:00:00.000Z');
+  });
+});
+
+describe('WidgetPlot Regression', () => {
+  beforeEach(() => {
+    aggregate.mockReset();
+    entries.mockReset();
+    list.mockReset();
+  });
+  afterEach(() => cleanup());
+
+  it('Drawer: Regression-Checkbox wird in der Config gespeichert', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY', regression: false })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Trend / Regression' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { regression: boolean };
+    expect(parsed.regression).toBe(true);
+  });
+
+  it('aktivierte Regression mit nur 1 Bucket rendert ohne Crash', async () => {
+    aggregate.mockResolvedValueOnce([
+      { bucketStart: '2026-05-27T00:00:00Z', count: 1, min: 80, max: 80, avg: 80, last: 80 },
+    ]);
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY', regression: true })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY'));
+    // Kein Throw, Plot-Bereich vorhanden.
+    expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 });

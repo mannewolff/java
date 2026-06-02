@@ -8,6 +8,7 @@ import ColorizeIcon from '@mui/icons-material/Colorize';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ImageIcon from '@mui/icons-material/Image';
 import BuildIcon from '@mui/icons-material/Build';
+import ApiIcon from '@mui/icons-material/Api';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
@@ -60,6 +61,7 @@ export const navItems: NavNode[] = [
       // #33 -> #34 sauber funktioniert.
       { kind: 'link', label: 'Passwortgenerator', path: '/tools/password', icon: VpnKeyIcon },
       { kind: 'link', label: 'Bilder verwalten', path: '/tools/images', icon: PhotoLibraryIcon },
+      { kind: 'link', label: 'API-Konsole', path: '/tools/api-console', icon: ApiIcon },
     ],
   },
   { kind: 'link', label: 'Dashboards', path: '/dashboards', icon: DashboardCustomizeIcon },

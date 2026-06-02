@@ -419,6 +419,15 @@
                       False-Positive-Violations.
                     -->
                     <configLocation>google_checks.xml</configLocation>
+                    <!--
+                      Suppressions (#204): unterdrueckt die gegenueber Spotless redundante
+                      CustomImportOrder-Regel projektweit. google_checks.xml enthaelt einen
+                      SuppressionFilter, der die Datei ueber die Property
+                      org.checkstyle.google.suppressionfilter.config liest — daher der
+                      passende suppressionsFileExpression.
+                    -->
+                    <suppressionsLocation>infra/checkstyle-suppressions.xml</suppressionsLocation>
+                    <suppressionsFileExpression>org.checkstyle.google.suppressionfilter.config</suppressionsFileExpression>
                     <failOnViolation>true</failOnViolation>
                     <failsOnError>true</failsOnError>
                     <logViolationsToConsole>true</logViolationsToConsole>

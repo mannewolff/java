@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<suppressions>
+  <!--
+    #204: Spotless (google-java-format + importOrder) ist die alleinige Quelle der Wahrheit
+    fuer Import-Reihenfolge und -Gruppierung und wird bei jedem Build via spotless:check
+    erzwungen. Die CustomImportOrder-Regel aus google_checks.xml widerspricht dem im Projekt
+    gewuenschten, durch Leerzeilen gruppierten Import-Stil (java/jakarta vs. org/com) und
+    erzeugt ~230 reine Warnungen ueber das ganze Codebase. Da sie gegenueber Spotless redundant
+    ist, wird sie hier projektweit unterdrueckt.
+  -->
+  <suppress checks="CustomImportOrder" files=".*"/>
+</suppressions>

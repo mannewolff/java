@@ -77,6 +77,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:8080/*"
       },
+      "optionalClientScopes": ["offline_access"],
       "protocolMappers": [
         {
           "name": "toolbox-api-audience",

@@ -75,6 +75,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "https://toolbox.mwolff.org/*"
       },
+      "optionalClientScopes": ["offline_access"],
       "protocolMappers": [
         {
           "name": "toolbox-api-audience",

@@ -73,4 +73,15 @@ class JpaStoredImageAdapterIT extends AbstractIntegrationTest {
     assertThat(a.id()).isNotNull();
     assertThat(c.id()).isNotNull();
   }
+
+  @Test
+  void hashIsPersistedAndFoundByHash() {
+    final StoredImage saved = adapter.save(StoredImage.of("image/png", bytes(8), "cafebabe"));
+
+    assertThat(saved.hash()).isEqualTo("cafebabe");
+    assertThat(adapter.findById(saved.id()).orElseThrow().hash()).isEqualTo("cafebabe");
+    assertThat(adapter.findMetadata(10, 0).get(0).hash()).isEqualTo("cafebabe");
+    assertThat(adapter.findIdByHash("cafebabe")).contains(saved.id());
+    assertThat(adapter.findIdByHash("unknown")).isEmpty();
+  }
 }

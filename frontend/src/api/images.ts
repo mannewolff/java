@@ -68,6 +68,34 @@ export async function listImages(limit?: number, offset?: number): Promise<Image
   return (await response.json()) as ImageListResponse;
 }
 
+/** Ergebnis der Duplikat-Erkennung (#199). */
+export interface CheckHashResult {
+  exists: boolean;
+  id?: number | null;
+}
+
+/** Berechnet den SHA-256-Hash einer Datei client-seitig als Hex-String (#199). */
+export async function sha256Hex(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Fragt das Backend, ob bereits ein Bild mit diesem SHA-256-Hash existiert (#199). */
+export async function checkImageHash(hash: string): Promise<CheckHashResult> {
+  const response = await authedFetch('/api/images/check-hash', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hash }),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, `Hash-Prüfung fehlgeschlagen (${response.status})`, null);
+  }
+  return (await response.json()) as CheckHashResult;
+}
+
 /**
  * Lädt ein gespeichertes Bild authentifiziert als {@link File}, damit es wie ein lokaler Upload
  * weiterverarbeitet werden kann (z. B. resizeImage). Der Serve-Endpoint ist bearer-only (#182).

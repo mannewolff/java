@@ -19,4 +19,7 @@ public interface ImageRepository {
 
   /** Gesamtzahl gespeicherter Bilder — Basis für die Paginierung (#198). */
   long count();
+
+  /** Id eines existierenden Bildes mit diesem SHA-256-Hash, für die Duplikat-Erkennung (#199). */
+  Optional<Long> findIdByHash(String hash);
 }

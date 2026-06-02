@@ -2,7 +2,11 @@ package org.mwolff.api.image.web;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Optional;
 
+import jakarta.validation.Valid;
+
+import org.mwolff.api.image.application.CheckImageHashUseCase;
 import org.mwolff.api.image.application.GetImageUseCase;
 import org.mwolff.api.image.application.ListImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
@@ -14,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,14 +32,17 @@ public class ImageController {
   private final UploadImageUseCase uploadUseCase;
   private final GetImageUseCase getUseCase;
   private final ListImagesUseCase listUseCase;
+  private final CheckImageHashUseCase checkHashUseCase;
 
   public ImageController(
       final UploadImageUseCase uploadUseCase,
       final GetImageUseCase getUseCase,
-      final ListImagesUseCase listUseCase) {
+      final ListImagesUseCase listUseCase,
+      final CheckImageHashUseCase checkHashUseCase) {
     this.uploadUseCase = uploadUseCase;
     this.getUseCase = getUseCase;
     this.listUseCase = listUseCase;
+    this.checkHashUseCase = checkHashUseCase;
   }
 
   @GetMapping
@@ -42,6 +50,12 @@ public class ImageController {
       @RequestParam(required = false) final Integer limit,
       @RequestParam(required = false) final Integer offset) {
     return ImageListResponse.from(listUseCase.execute(limit, offset));
+  }
+
+  @PostMapping(path = "/check-hash", consumes = MediaType.APPLICATION_JSON_VALUE)
+  public CheckHashResponse checkHash(@Valid @RequestBody final CheckHashRequest request) {
+    final Optional<Long> existing = checkHashUseCase.execute(request.hash());
+    return new CheckHashResponse(existing.isPresent(), existing.orElse(null));
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

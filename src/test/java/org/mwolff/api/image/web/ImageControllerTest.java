@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mwolff.api.image.application.CheckImageHashUseCase;
 import org.mwolff.api.image.application.GetImageUseCase;
 import org.mwolff.api.image.application.ListImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
@@ -37,13 +39,15 @@ class ImageControllerTest {
   @Mock private UploadImageUseCase uploadUseCase;
   @Mock private GetImageUseCase getUseCase;
   @Mock private ListImagesUseCase listUseCase;
+  @Mock private CheckImageHashUseCase checkHashUseCase;
 
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new ImageController(uploadUseCase, getUseCase, listUseCase))
+        MockMvcBuilders.standaloneSetup(
+                new ImageController(uploadUseCase, getUseCase, listUseCase, checkHashUseCase))
             .setControllerAdvice(new ImageExceptionHandler())
             .build();
   }
@@ -52,7 +56,7 @@ class ImageControllerTest {
   void uploadReturns201WithIdAndUrl() throws Exception {
     final byte[] bytes = {1, 2, 3};
     when(uploadUseCase.execute(eq("image/png"), any()))
-        .thenReturn(new StoredImage(5L, "image/png", 3, bytes, Instant.now()));
+        .thenReturn(new StoredImage(5L, "image/png", 3, bytes, Instant.now(), null));
 
     mockMvc
         .perform(
@@ -90,7 +94,7 @@ class ImageControllerTest {
   @Test
   void getReturnsBytesWithContentType() throws Exception {
     final byte[] bytes = {1, 2, 3};
-    when(getUseCase.execute(5L)).thenReturn(new StoredImage(5L, "image/png", 3, bytes, null));
+    when(getUseCase.execute(5L)).thenReturn(new StoredImage(5L, "image/png", 3, bytes, null, null));
 
     mockMvc
         .perform(get("/api/images/5"))
@@ -134,5 +138,45 @@ class ImageControllerTest {
         .perform(get("/api/images?limit=10&offset=20"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.total").value(0));
+  }
+
+  private static final String HASH = "a".repeat(64);
+
+  @Test
+  void checkHashReturnsExistsTrueWithId() throws Exception {
+    when(checkHashUseCase.execute(HASH)).thenReturn(java.util.Optional.of(42L));
+
+    mockMvc
+        .perform(
+            post("/api/images/check-hash")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"hash\":\"" + HASH + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.exists").value(true))
+        .andExpect(jsonPath("$.id").value(42));
+  }
+
+  @Test
+  void checkHashReturnsExistsFalseWhenAbsent() throws Exception {
+    when(checkHashUseCase.execute(HASH)).thenReturn(java.util.Optional.empty());
+
+    mockMvc
+        .perform(
+            post("/api/images/check-hash")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"hash\":\"" + HASH + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.exists").value(false))
+        .andExpect(jsonPath("$.id").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  void checkHashRejectsInvalidHashWith400() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/images/check-hash")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"hash\":\"not-a-hash\"}"))
+        .andExpect(status().isBadRequest());
   }
 }

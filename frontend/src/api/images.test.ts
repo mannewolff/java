@@ -6,7 +6,14 @@ vi.mock('./client', async () => {
 });
 
 import { authedFetch, ApiError } from './client';
-import { fetchImageFile, fetchImageObjectUrl, listImages, uploadImage } from './images';
+import {
+  checkImageHash,
+  fetchImageFile,
+  fetchImageObjectUrl,
+  listImages,
+  sha256Hex,
+  uploadImage,
+} from './images';
 
 const fetchMock = authedFetch as ReturnType<typeof vi.fn>;
 
@@ -116,5 +123,38 @@ describe('fetchImageFile (#198)', () => {
   it('wirft ApiError bei Fehlerstatus', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 });
     await expect(fetchImageFile(9)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('checkImageHash (#199)', () => {
+  afterEach(() => fetchMock.mockReset());
+
+  it('POSTet den Hash und liefert das Ergebnis', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ exists: true, id: 3 }) });
+
+    const res = await checkImageHash('abc');
+
+    expect(res).toEqual({ exists: true, id: 3 });
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe('/api/images/check-hash');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ hash: 'abc' });
+  });
+
+  it('wirft ApiError bei Fehlerstatus', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400 });
+    await expect(checkImageHash('x')).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('sha256Hex (#199)', () => {
+  it('berechnet den bekannten SHA-256 von "abc"', async () => {
+    const bytes = new Uint8Array([0x61, 0x62, 0x63]);
+    const file = new File([bytes], 'abc.bin');
+    // jsdom-File implementiert arrayBuffer() nicht — für den Test bereitstellen.
+    Object.defineProperty(file, 'arrayBuffer', { value: async () => bytes.buffer });
+    await expect(sha256Hex(file)).resolves.toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
   });
 });

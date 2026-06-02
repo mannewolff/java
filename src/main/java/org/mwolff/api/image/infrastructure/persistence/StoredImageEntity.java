@@ -37,6 +37,10 @@ class StoredImageEntity {
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
+  // SHA-256-Hash der Binaerdaten als Hex (#199); null fuer Bestandsbilder ohne Backfill.
+  @Column(name = "sha256_hash", length = 64)
+  private String hash;
+
   @PrePersist
   void onCreate() {
     if (createdAt == null) {
@@ -82,5 +86,13 @@ class StoredImageEntity {
 
   void setCreatedAt(final Instant createdAt) {
     this.createdAt = createdAt;
+  }
+
+  String getHash() {
+    return hash;
+  }
+
+  void setHash(final String hash) {
+    this.hash = hash;
   }
 }

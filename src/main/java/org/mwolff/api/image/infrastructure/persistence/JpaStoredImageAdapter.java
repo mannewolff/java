@@ -25,6 +25,7 @@ class JpaStoredImageAdapter implements ImageRepository {
     entity.setContentType(image.contentType());
     entity.setSizeBytes((int) image.sizeBytes());
     entity.setData(image.data());
+    entity.setHash(image.hash());
     return toDomain(repository.save(entity));
   }
 
@@ -47,10 +48,18 @@ class JpaStoredImageAdapter implements ImageRepository {
     return repository.count();
   }
 
-  // hash bleibt bis zur Duplikat-Erkennung (#199) null.
+  @Override
+  public Optional<Long> findIdByHash(final String hash) {
+    return repository.findIdsByHash(hash).stream().findFirst();
+  }
+
   private static ImageMetadata toMetadata(final StoredImageMetadataView view) {
     return new ImageMetadata(
-        view.getId(), view.getContentType(), view.getSizeBytes(), view.getCreatedAt(), null);
+        view.getId(),
+        view.getContentType(),
+        view.getSizeBytes(),
+        view.getCreatedAt(),
+        view.getHash());
   }
 
   private StoredImage toDomain(final StoredImageEntity entity) {
@@ -59,6 +68,7 @@ class JpaStoredImageAdapter implements ImageRepository {
         entity.getContentType(),
         entity.getSizeBytes(),
         entity.getData(),
-        entity.getCreatedAt());
+        entity.getCreatedAt(),
+        entity.getHash());
   }
 }

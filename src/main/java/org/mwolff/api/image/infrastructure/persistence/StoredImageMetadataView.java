@@ -15,4 +15,6 @@ interface StoredImageMetadataView {
   int getSizeBytes();
 
   Instant getCreatedAt();
+
+  String getHash();
 }

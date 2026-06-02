@@ -35,20 +35,20 @@ class StoredImageTest {
   @Test
   void rejectsNullContentType() {
     assertThatNullPointerException()
-        .isThrownBy(() -> new StoredImage(null, null, 1, new byte[] {1}, null))
+        .isThrownBy(() -> new StoredImage(null, null, 1, new byte[] {1}, null, null))
         .withMessageContaining("contentType");
   }
 
   @Test
   void rejectsNullData() {
     assertThatNullPointerException()
-        .isThrownBy(() -> new StoredImage(null, "image/png", 0, null, null))
+        .isThrownBy(() -> new StoredImage(null, "image/png", 0, null, null, null))
         .withMessageContaining("data");
   }
 
   @Test
   void rejectsEmptyData() {
-    assertThatThrownBy(() -> new StoredImage(null, "image/png", 0, new byte[0], null))
+    assertThatThrownBy(() -> new StoredImage(null, "image/png", 0, new byte[0], null, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("empty");
   }

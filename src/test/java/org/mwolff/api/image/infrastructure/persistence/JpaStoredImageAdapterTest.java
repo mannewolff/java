@@ -100,7 +100,7 @@ class JpaStoredImageAdapterTest {
     assertThat(result.get(0).contentType()).isEqualTo("image/png");
     assertThat(result.get(0).sizeBytes()).isEqualTo(123L);
     assertThat(result.get(0).createdAt()).isEqualTo(now);
-    // hash erst mit #199 befüllt.
+    // getHash() der Projektion ist hier nicht gestubbt → null.
     assertThat(result.get(0).hash()).isNull();
   }
 
@@ -110,5 +110,21 @@ class JpaStoredImageAdapterTest {
     when(repository.count()).thenReturn(7L);
 
     assertThat(adapter.count()).isEqualTo(7L);
+  }
+
+  @Test
+  void findIdByHashReturnsFirstMatch() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+    when(repository.findIdsByHash("h")).thenReturn(List.of(3L, 9L));
+
+    assertThat(adapter.findIdByHash("h")).contains(3L);
+  }
+
+  @Test
+  void findIdByHashEmptyWhenNoMatch() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+    when(repository.findIdsByHash("h")).thenReturn(List.of());
+
+    assertThat(adapter.findIdByHash("h")).isEmpty();
   }
 }

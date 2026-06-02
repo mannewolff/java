@@ -259,6 +259,7 @@ describe('WidgetKpi', () => {
     max: number;
     lowEnd: number;
     mediumEnd: number;
+    invert: boolean;
     rangeLabel: string;
   }> = {}): WidgetDto {
     return {
@@ -276,6 +277,7 @@ describe('WidgetKpi', () => {
         max: over.max ?? 100,
         lowEnd: over.lowEnd ?? 33,
         mediumEnd: over.mediumEnd ?? 66,
+        invert: over.invert ?? false,
         rangeLabel: over.rangeLabel ?? '',
       }),
     };
@@ -295,6 +297,50 @@ describe('WidgetKpi', () => {
     const svg = screen.getByRole('img', { name: 'Gauge' });
     expect(svg.querySelectorAll('path').length).toBe(3);
     expect(screen.getByText('50%')).toBeInTheDocument();
+  });
+
+  it('Gauge: invertiert die Farbzonen wenn invert=true (niedrig = gut, #220)', () => {
+    // Default (invert=false): links Rot (niedrig=schlecht) … rechts Grün (hoch=gut).
+    const normal = render(
+      <WidgetKpi
+        widget={gaugeWidget({ min: 0, max: 100, lowEnd: 33, mediumEnd: 66, invert: false })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const normalArcs = normal.container.querySelectorAll('svg[role="img"] path');
+    const leftNormal = normalArcs[0].getAttribute('stroke');
+    const rightNormal = normalArcs[2].getAttribute('stroke');
+    expect(leftNormal).not.toBe(rightNormal);
+    cleanup();
+
+    // invert=true (wie für Gewicht): links Grün (niedrig=gut) … rechts Rot (hoch=schlecht).
+    const inverted = render(
+      <WidgetKpi
+        widget={gaugeWidget({ value: 81.6, min: 0, max: 120, lowEnd: 33, mediumEnd: 66, invert: true })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const invArcs = inverted.container.querySelectorAll('svg[role="img"] path');
+    expect(invArcs.length).toBe(3);
+    // Linke Zone trägt nun die Farbe der vormals rechten (Grün), rechte die vormals linke (Rot).
+    expect(invArcs[0].getAttribute('stroke')).toBe(rightNormal);
+    expect(invArcs[2].getAttribute('stroke')).toBe(leftNormal);
+  });
+
+  it('Gauge: Drawer speichert invert-Flag (#220)', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetKpi widget={gaugeWidget({ value: 50 })} onChange={onChange} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Niedrig ist gut (Farben umkehren)' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const passed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { invert: boolean };
+    expect(passed.invert).toBe(true);
   });
 
   it('Gauge: hoher Wert ergibt 100% Anzeige', () => {

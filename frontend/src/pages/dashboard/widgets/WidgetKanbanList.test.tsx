@@ -99,16 +99,43 @@ describe('WidgetKanbanList', () => {
     expect(screen.getByRole('button', { name: 'Zweites' })).toBeInTheDocument();
   });
 
-  it('sortiert nach position und begrenzt auf limit', async () => {
+  it('sortiert absteigend nach Issue-Nummer und begrenzt auf limit (#221)', async () => {
     const board = emptyBoard();
-    // Absichtlich verdrehte Array-Reihenfolge: position 1 vor position 0.
-    board.BACKLOG = [makeItem(2, 'Zweites', 1), makeItem(1, 'Erstes', 0)];
+    // number = id; bewusst verdrehte Array-Reihenfolge. Höhere Nummer muss oben stehen.
+    board.BACKLOG = [makeItem(1, 'Niedrig', 0), makeItem(2, 'Hoch', 1)];
     listItems.mockResolvedValue(board);
 
     render(<WidgetKanbanList widget={widget({ column: 'BACKLOG', limit: 1 })} onChange={vi.fn()} onDelete={vi.fn()} />);
 
-    expect(await screen.findByRole('button', { name: 'Erstes' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Zweites' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Hoch' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Niedrig' })).not.toBeInTheDocument();
+  });
+
+  it('ordnet Spalten In Review → In Progress → Backlog, je Spalte Nummer absteigend (#221)', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [
+      { ...makeItem(10, 'Backlog-10', 0), column: 'BACKLOG', number: 10 },
+      { ...makeItem(20, 'Backlog-20', 1), column: 'BACKLOG', number: 20 },
+    ];
+    board.IN_PROGRESS = [{ ...makeItem(5, 'Progress-5', 0), column: 'IN_PROGRESS', number: 5 }];
+    board.IN_REVIEW = [{ ...makeItem(1, 'Review-1', 0), column: 'IN_REVIEW', number: 1 }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW'], limit: 10 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Review-1' });
+    const titles = screen
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+      .filter((t): t is string => t != null && /(Review|Progress|Backlog)-/.test(t));
+    // In Review zuerst, dann In Progress, dann Backlog (innerhalb Backlog: 20 vor 10).
+    expect(titles).toEqual(['Review-1', 'Progress-5', 'Backlog-20', 'Backlog-10']);
   });
 
   it('zeigt "Keine Einträge" bei leerer Spalte', async () => {
@@ -500,12 +527,12 @@ describe('WidgetKanbanList Multi-Spalten (#168)', () => {
     expect(await screen.findByRole('button', { name: 'Fertig' })).toBeInTheDocument();
   });
 
-  it('zeigt Items aus mehreren Spalten, sortiert nach Spalte+Position, auf Gesamt-Limit', async () => {
+  it('zeigt Items aus mehreren Spalten, sortiert nach Anzeige-Reihenfolge + Nummer, auf Gesamt-Limit (#221)', async () => {
     const board = emptyBoard();
-    board.BACKLOG = [{ ...makeItem(1, 'B0', 0), column: 'BACKLOG' }];
+    board.BACKLOG = [{ ...makeItem(1, 'B0', 0), column: 'BACKLOG', number: 1 }];
     board.IN_REVIEW = [
-      { ...makeItem(2, 'R0', 0), column: 'IN_REVIEW' },
-      { ...makeItem(3, 'R1', 1), column: 'IN_REVIEW' },
+      { ...makeItem(2, 'R0', 0), column: 'IN_REVIEW', number: 2 },
+      { ...makeItem(3, 'R1', 1), column: 'IN_REVIEW', number: 3 },
     ];
     listItems.mockResolvedValue(board);
 
@@ -517,10 +544,10 @@ describe('WidgetKanbanList Multi-Spalten (#168)', () => {
       />,
     );
 
-    // Gesamt-Limit 2: BACKLOG vor IN_REVIEW (Spalten-Reihenfolge) → B0, R0; R1 fällt raus.
-    expect(await screen.findByRole('button', { name: 'B0' })).toBeInTheDocument();
+    // Gesamt-Limit 2: IN_REVIEW zuerst, Nummer absteigend → R1, R0; B0 (Backlog) fällt raus.
+    expect(await screen.findByRole('button', { name: 'R1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'R0' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'R1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'B0' })).not.toBeInTheDocument();
   });
 
   it('Drawer: mehrere Spalten ankreuzen wird als columns-Array gespeichert', async () => {

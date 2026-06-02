@@ -47,7 +47,15 @@ EOF
 
 echo "✓ $FE_ENV geschrieben (Dev-Keycloak-Werte)."
 
-# ---------- 3. Hinweis --------------------------------------------------------
+# ---------- 3. Git-Hooks aktivieren (#218) -----------------------------------
+
+# Pre-Push-Guard: blockt Push für Backlog-Issues. Versioniert unter scripts/githooks,
+# aktiviert über core.hooksPath (gilt nur für dieses Repo).
+git config core.hooksPath scripts/githooks
+chmod +x scripts/githooks/* 2>/dev/null || true
+echo "✓ core.hooksPath=scripts/githooks gesetzt (Pre-Push-Guard aktiv)."
+
+# ---------- 4. Hinweis --------------------------------------------------------
 
 cat <<EOF
 

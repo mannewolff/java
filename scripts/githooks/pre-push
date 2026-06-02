@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#
+# Pre-Push-Guard (#218)
+#
+# Blockt `git push`, wenn ein in den zu pushenden Commits referenziertes Issue (#N)
+# im GitHub-Project-Board auf **Backlog** liegt. Hintergrund: In langen Sessions kann
+# versehentlich Backlog-Arbeit umgesetzt werden, obwohl nur Ready/GO erlaubt ist
+# (Vorfall 02.06.2026). Dieser Hook erzwingt die Regel mechanisch — unabhängig davon,
+# wie aufmerksam Mensch oder KI gerade sind.
+#
+# Verhalten (bewusst gewählt, siehe Issue #218):
+#  - Issue auf "Backlog"             -> Push wird ABGEBROCHEN.
+#  - Issue nicht auf dem Board        -> Warnung, Push läuft (kein False-Positive-Block).
+#  - gh fehlt / Board nicht erreichbar -> Warnung, Push läuft (fail-open).
+#  - Stati Ready / In progress / In review / Done / Zurückgestellt -> erlaubt.
+#
+# Aktivierung: via `core.hooksPath=scripts/githooks` (setzt scripts/local-dev-setup.sh).
+# NICHT mit `git push --no-verify` umgehen — Ursache fixen (Issue nach Ready ziehen).
+
+set -uo pipefail
+
+PROJECT=4
+OWNER=mannewolff
+ZERO='0000000000000000000000000000000000000000'
+
+# 1. Issue-Nummern aus allen zu pushenden Commits sammeln.
+nums=""
+while read -r _local_ref local_oid _remote_ref remote_oid; do
+  [ -z "${local_oid:-}" ] && continue
+  [ "$local_oid" = "$ZERO" ] && continue   # gelöschter Ref
+  if [ "${remote_oid:-$ZERO}" = "$ZERO" ]; then
+    revs=$(git rev-list "$local_oid" --not --remotes 2>/dev/null || git rev-list "$local_oid")
+  else
+    revs=$(git rev-list "${remote_oid}..${local_oid}" 2>/dev/null)
+  fi
+  for sha in $revs; do
+    ids=$(git log -1 --format=%B "$sha" | grep -oE '#[0-9]+' | tr -d '#')
+    nums="$nums $ids"
+  done
+done
+
+nums=$(printf '%s\n' $nums | grep -E '^[0-9]+$' | sort -u || true)
+[ -z "$nums" ] && exit 0
+
+# 2. Board-Status abrufen (fail-open bei Fehler).
+if ! command -v gh >/dev/null 2>&1; then
+  echo "⚠ pre-push-guard: 'gh' nicht gefunden — Board-Check übersprungen." >&2
+  exit 0
+fi
+json=$(gh project item-list "$PROJECT" --owner "$OWNER" --limit 200 --format json 2>/dev/null) || true
+if [ -z "${json:-}" ]; then
+  echo "⚠ pre-push-guard: Board nicht erreichbar — Check übersprungen (fail-open)." >&2
+  exit 0
+fi
+
+# 3. Jedes referenzierte Issue prüfen.
+blocked=""
+for n in $nums; do
+  status=$(printf '%s' "$json" | N="$n" python3 -c '
+import json, os, sys
+n = int(os.environ["N"])
+data = json.load(sys.stdin)
+for item in data.get("items", []):
+    if (item.get("content") or {}).get("number") == n:
+        print(item.get("status", ""))
+        break
+else:
+    print("__NOTFOUND__")
+') || status="__ERROR__"
+
+  case "$status" in
+    Backlog)      blocked="$blocked #$n" ;;
+    __NOTFOUND__) echo "⚠ pre-push-guard: #$n nicht auf dem Board — übersprungen." >&2 ;;
+    __ERROR__)    echo "⚠ pre-push-guard: Status für #$n nicht lesbar — übersprungen." >&2 ;;
+  esac
+done
+
+if [ -n "$blocked" ]; then
+  echo "" >&2
+  echo "✖ Push abgebrochen — folgende Issues liegen im Backlog:$blocked" >&2
+  echo "  Backlog-Arbeit darf nicht gepusht werden. Erst nach Ready ziehen bzw. GO geben." >&2
+  echo "  (Hook: scripts/githooks/pre-push — NICHT mit --no-verify umgehen.)" >&2
+  exit 1
+fi
+
+exit 0

@@ -194,6 +194,18 @@ body.toolbox-page {
     text-decoration: none;
 }
 
+/*
+ * #219: Keycloak rendert neben dem Passwortfeld einen Show/Hide-Toggle-Button
+ * (type="button"). Da dieses Theme von parent=base erbt, fehlen das Icon-Font
+ * (FontAwesome) und die Positionierungs-CSS — der Button fällt als leeres, kleines
+ * Kästchen unter das Passwortfeld. Wir blenden ihn aus (Variante A): die
+ * Passwort-Vorschau ist für diese private Single-User-Demo verzichtbar.
+ * Der Sign-In-Button ist type="submit" und bleibt davon unberührt.
+ */
+.toolbox-card button[type="button"] {
+    display: none;
+}
+
 /* Keycloak rendert ggf. Checkboxes (z. B. "Remember me") als Wrapper. Etwas Luft. */
 .checkbox {
     display: flex;

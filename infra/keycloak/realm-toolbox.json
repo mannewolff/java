@@ -5,7 +5,7 @@
   "loginTheme": "toolbox",
   "registrationAllowed": true,
   "registrationEmailAsUsername": false,
-  "rememberMe": true,
+  "rememberMe": false,
   "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,

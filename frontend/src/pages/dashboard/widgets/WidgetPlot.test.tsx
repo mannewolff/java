@@ -10,7 +10,9 @@ import WidgetPlot, {
   mergeSeries,
   overlayValue,
   parseChartType,
+  parseLimit,
   usesRightAxis,
+  MAX_LIMIT,
 } from './WidgetPlot';
 import type { WidgetDto } from '../../../api/dashboard';
 
@@ -103,7 +105,7 @@ describe('WidgetPlot', () => {
       />,
     );
 
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY', undefined, undefined, undefined));
   });
 
   it('shows empty-state when API returns []', async () => {
@@ -148,12 +150,12 @@ describe('WidgetPlot', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY', undefined, undefined, undefined));
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('tab', { name: 'Wöchentlich' }));
 
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'WEEKLY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'WEEKLY', undefined, undefined, undefined));
   });
 
   it('opens drawer in edit mode with series dropdown', async () => {
@@ -217,7 +219,7 @@ describe('WidgetPlot', () => {
       />,
     );
 
-    await waitFor(() => expect(entries).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(entries).toHaveBeenCalledWith(42, { limit: undefined }));
     expect(aggregate).not.toHaveBeenCalled();
     expect(screen.queryByRole('tab', { name: 'Täglich' })).not.toBeInTheDocument();
   });
@@ -233,8 +235,40 @@ describe('WidgetPlot', () => {
       />,
     );
 
-    await waitFor(() => expect(entries).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(entries).toHaveBeenCalledWith(7, { limit: undefined }));
     expect(aggregate).not.toHaveBeenCalled();
+  });
+
+  // ----- Datenpunkt-Limit (#197) -----------------------------------------
+
+  it('reicht das Limit im Rohwerte-Modus an listEntries durch (#197)', async () => {
+    entries.mockResolvedValueOnce([]);
+
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: null, limit: 50 })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(entries).toHaveBeenCalledWith(42, { limit: 50 }));
+  });
+
+  it('reicht das Limit im aggregierten Modus an aggregateTimeSeries durch (#197)', async () => {
+    aggregate.mockResolvedValueOnce([]);
+
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY', limit: 10 })}
+        onChange={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(aggregate).toHaveBeenCalledWith(42, 'DAILY', undefined, undefined, 10),
+    );
   });
 
   it('Drawer: Overlay-Checkboxen nur bei gesetzter Granularität sichtbar', async () => {
@@ -434,6 +468,28 @@ describe('addPeriod', () => {
   });
 });
 
+describe('parseLimit (#197)', () => {
+  it('liefert null für nicht-numerische oder ungültige Werte', () => {
+    expect(parseLimit(undefined)).toBeNull();
+    expect(parseLimit('50')).toBeNull();
+    expect(parseLimit(Number.NaN)).toBeNull();
+    expect(parseLimit(Infinity)).toBeNull();
+  });
+  it('liefert null für nicht-positive Werte', () => {
+    expect(parseLimit(0)).toBeNull();
+    expect(parseLimit(-5)).toBeNull();
+  });
+  it('rundet ab und übernimmt gültige Werte', () => {
+    expect(parseLimit(50)).toBe(50);
+    expect(parseLimit(49.9)).toBe(49);
+    expect(parseLimit(1)).toBe(1);
+  });
+  it('klemmt auf MAX_LIMIT', () => {
+    expect(parseLimit(MAX_LIMIT + 1)).toBe(MAX_LIMIT);
+    expect(parseLimit(999999)).toBe(MAX_LIMIT);
+  });
+});
+
 describe('WidgetPlot Regression', () => {
   beforeEach(() => {
     aggregate.mockReset();
@@ -474,7 +530,7 @@ describe('WidgetPlot Regression', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(42, 'DAILY', undefined, undefined, undefined));
     // Kein Throw, Plot-Bereich vorhanden.
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
@@ -499,6 +555,52 @@ describe('WidgetPlot Regression', () => {
     const parsed = JSON.parse(next.config) as { yMin: number; yMax: number };
     expect(parsed.yMin).toBe(80);
     expect(parsed.yMax).toBe(85);
+  });
+
+  it('Drawer: Limit-Checkbox aktiviert das Feld und speichert den Wert (#197)', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY' })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    // Feld ist zunächst deaktiviert.
+    const limitField = await screen.findByLabelText('Maximale Werte');
+    expect(limitField).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'Anzahl der Werte limitieren' }));
+    expect(limitField).toBeEnabled();
+    await user.type(limitField, '50');
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { limit: number | null };
+    expect(parsed.limit).toBe(50);
+  });
+
+  it('Drawer: deaktivierte Limit-Checkbox speichert limit=null (#197)', async () => {
+    aggregate.mockResolvedValue([]);
+    list.mockResolvedValueOnce([]);
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetPlot
+        widget={widget({ timeSeriesId: 42, defaultGranularity: 'DAILY', limit: 30 })}
+        onChange={onChange}
+        onDelete={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Plot bearbeiten' }));
+    // Vorbelegt aktiviert (limit=30) → Checkbox deaktivieren.
+    await user.click(screen.getByRole('checkbox', { name: 'Anzahl der Werte limitieren' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    const next = onChange.mock.calls[0][0] as WidgetDto;
+    const parsed = JSON.parse(next.config) as { limit: number | null };
+    expect(parsed.limit).toBeNull();
   });
 });
 
@@ -533,9 +635,9 @@ describe('WidgetPlot Multi-Serie (#156)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY'));
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(3, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY', undefined, undefined, undefined));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY', undefined, undefined, undefined));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(3, 'DAILY', undefined, undefined, undefined));
   });
 
   it('Legacy-Single-Serie (timeSeriesId) wird migriert und geladen', async () => {
@@ -549,7 +651,7 @@ describe('WidgetPlot Multi-Serie (#156)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(9, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(9, 'DAILY', undefined, undefined, undefined));
   });
 
   it('zwei Serien rendern ohne Crash, Plot-Bereich vorhanden (Legende an)', async () => {
@@ -574,7 +676,7 @@ describe('WidgetPlot Multi-Serie (#156)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY', undefined, undefined, undefined));
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 
@@ -654,7 +756,7 @@ describe('WidgetPlot getrennte Y-Achsen (#157)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(2, 'DAILY', undefined, undefined, undefined));
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 
@@ -801,7 +903,7 @@ describe('WidgetPlot Chart-Typen (#180)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY', undefined, undefined, undefined));
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 
@@ -834,7 +936,7 @@ describe('WidgetPlot Chart-Typen (#180)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY', undefined, undefined, undefined));
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 
@@ -847,7 +949,7 @@ describe('WidgetPlot Chart-Typen (#180)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY', undefined, undefined, undefined));
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 
@@ -860,7 +962,7 @@ describe('WidgetPlot Chart-Typen (#180)', () => {
         onDelete={() => undefined}
       />,
     );
-    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY'));
+    await waitFor(() => expect(aggregate).toHaveBeenCalledWith(1, 'DAILY', undefined, undefined, undefined));
     expect(screen.getByLabelText('Plot-Bereich')).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -356,7 +357,12 @@ class TimeSeriesControllerTest {
   void aggregateShouldReturnBuckets() throws Exception {
     given(
             aggregateUseCase.execute(
-                eq(SUB), eq(1L), eq(Granularity.DAILY), eq(Optional.empty()), eq(Optional.empty())))
+                eq(SUB),
+                eq(1L),
+                eq(Granularity.DAILY),
+                eq(Optional.empty()),
+                eq(Optional.empty()),
+                eq(Optional.empty())))
         .willReturn(
             List.of(
                 new AggregateBucket(
@@ -380,11 +386,37 @@ class TimeSeriesControllerTest {
   void aggregateShouldReturn404ForForeign() throws Exception {
     willThrow(new TimeSeriesNotFoundException(99L))
         .given(aggregateUseCase)
-        .execute(eq(SUB), eq(99L), any(), any(), any());
+        .execute(eq(SUB), eq(99L), any(), any(), any(), any());
 
     mockMvc
         .perform(get("/api/timeseries/99/aggregate?granularity=DAILY").with(userJwt()))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void aggregateShouldForwardLimitParam() throws Exception {
+    given(
+            aggregateUseCase.execute(
+                eq(SUB),
+                eq(1L),
+                eq(Granularity.DAILY),
+                eq(Optional.empty()),
+                eq(Optional.empty()),
+                eq(Optional.of(5))))
+        .willReturn(List.of());
+
+    mockMvc
+        .perform(get("/api/timeseries/1/aggregate?granularity=DAILY&limit=5").with(userJwt()))
+        .andExpect(status().isOk());
+
+    verify(aggregateUseCase)
+        .execute(
+            eq(SUB),
+            eq(1L),
+            eq(Granularity.DAILY),
+            eq(Optional.empty()),
+            eq(Optional.empty()),
+            eq(Optional.of(5)));
   }
 
   @Test

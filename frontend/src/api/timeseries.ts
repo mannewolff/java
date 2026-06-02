@@ -136,10 +136,12 @@ export function aggregateTimeSeries(
   granularity: Granularity,
   from?: string,
   to?: string,
+  limit?: number,
 ): Promise<AggregateBucket[]> {
   const search = new URLSearchParams();
   search.set('granularity', granularity);
   if (from) search.set('from', from);
   if (to) search.set('to', to);
+  if (limit != null) search.set('limit', String(limit));
   return api.get<AggregateBucket[]>(`${PATH}/${id}/aggregate?${search.toString()}`);
 }

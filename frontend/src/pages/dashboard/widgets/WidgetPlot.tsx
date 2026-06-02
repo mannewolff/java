@@ -96,6 +96,20 @@ const OVERLAY_ORDER: readonly PlotOverlay[] = ['mean', 'median', 'min', 'max'];
 
 /** Maximale Anzahl gleichzeitig darstellbarer Zeitreihen. */
 export const MAX_SERIES = 3;
+
+/** Hartes Maximum fuer das Datenpunkt-Limit — deckt sich mit dem Backend (#197). */
+export const MAX_LIMIT = 10_000;
+
+/**
+ * Liest das optionale Datenpunkt-Limit defensiv aus einer Roh-Config. Nicht-positive oder
+ * ungueltige Werte ergeben `null` (= unbegrenzt); gueltige werden auf {@link MAX_LIMIT} geklemmt.
+ */
+export function parseLimit(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  const rounded = Math.floor(raw);
+  if (rounded < 1) return null;
+  return Math.min(rounded, MAX_LIMIT);
+}
 /** Default-Farben für neue Serien (Blau, Rot, Grün — analog matplotlib-Stil). */
 export const DEFAULT_SERIES_COLORS: readonly string[] = ['#1976d2', '#d32f2f', '#2e7d32'];
 /** Auswählbare Serien-Farben im Drawer (5 gängige, gut unterscheidbare Farben). */
@@ -131,6 +145,11 @@ interface PlotConfig {
   /** Feste Y-Achsen-Grenzen. `null` = automatisch (recharts-Default). */
   yMin: number | null;
   yMax: number | null;
+  /**
+   * Begrenzt die Anzahl angezeigter Datenpunkte auf die juengsten N (#197).
+   * `null` = unbegrenzt (altes Verhalten).
+   */
+  limit: number | null;
   /** Legende ein-/ausblenden. */
   showLegend: boolean;
   showBorder: boolean;
@@ -214,6 +233,7 @@ function parseConfig(raw: string): PlotConfig {
       regression: typeof parsed.regression === 'boolean' ? parsed.regression : false,
       yMin: typeof parsed.yMin === 'number' ? parsed.yMin : null,
       yMax: typeof parsed.yMax === 'number' ? parsed.yMax : null,
+      limit: parseLimit(parsed.limit),
       showLegend:
         typeof parsed.showLegend === 'boolean' ? parsed.showLegend : series.length > 1,
       ...parseSurfaceConfig(parsed),
@@ -227,6 +247,7 @@ function parseConfig(raw: string): PlotConfig {
       regression: false,
       yMin: null,
       yMax: null,
+      limit: null,
       showLegend: false,
       showBorder: false,
     };
@@ -415,6 +436,8 @@ export default function WidgetPlot({
   const [draftRegression, setDraftRegression] = useState(config.regression);
   const [draftYMin, setDraftYMin] = useState(config.yMin == null ? '' : String(config.yMin));
   const [draftYMax, setDraftYMax] = useState(config.yMax == null ? '' : String(config.yMax));
+  const [draftLimitEnabled, setDraftLimitEnabled] = useState(config.limit != null);
+  const [draftLimit, setDraftLimit] = useState(config.limit == null ? '' : String(config.limit));
   const [draftShowLegend, setDraftShowLegend] = useState(config.showLegend);
   const [draftShowBorder, setDraftShowBorder] = useState(config.showBorder);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(config.backgroundColor ?? '');
@@ -439,16 +462,17 @@ export default function WidgetPlot({
     let cancelled = false;
     setLoadError(null);
     setPerSeriesData(null);
+    const limit = config.limit ?? undefined;
     const fetchOne = (id: number): Promise<ChartPoint[]> =>
       isRawMode
-        ? listEntries(id).then((entries) =>
+        ? listEntries(id, { limit }).then((entries) =>
             entries.map((e) => ({
               label: formatEntryLabel(e.timestamp),
               value: e.value,
               iso: e.timestamp,
             })),
           )
-        : aggregateTimeSeries(id, granularity).then((buckets) =>
+        : aggregateTimeSeries(id, granularity, undefined, undefined, limit).then((buckets) =>
             buckets.map((b) => ({
               label: formatBucketLabel(b.bucketStart, granularity),
               value: b.avg,
@@ -469,7 +493,7 @@ export default function WidgetPlot({
     };
     // seriesIdsKey ist die stabile String-Quelle der Serien-IDs (Array ist pro Render neu).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesIdsKey, isRawMode, granularity]);
+  }, [seriesIdsKey, isRawMode, granularity, config.limit]);
 
   // Serien-Namen für Legende/Tooltip auch im Lese-Modus laden (nicht nur beim Drawer-Öffnen).
   useEffect(() => {
@@ -490,6 +514,8 @@ export default function WidgetPlot({
     setDraftRegression(config.regression);
     setDraftYMin(config.yMin == null ? '' : String(config.yMin));
     setDraftYMax(config.yMax == null ? '' : String(config.yMax));
+    setDraftLimitEnabled(config.limit != null);
+    setDraftLimit(config.limit == null ? '' : String(config.limit));
     setDraftShowLegend(config.showLegend);
     setDraftShowBorder(config.showBorder);
     setDraftBackgroundColor(config.backgroundColor ?? '');
@@ -548,6 +574,7 @@ export default function WidgetPlot({
       regression: singleAggregated ? draftRegression : false,
       yMin: draftYMin.trim() === '' || !Number.isFinite(parsedYMin) ? null : parsedYMin,
       yMax: draftYMax.trim() === '' || !Number.isFinite(parsedYMax) ? null : parsedYMax,
+      limit: draftLimitEnabled ? parseLimit(Number.parseInt(draftLimit, 10)) : null,
       showLegend: draftShowLegend,
       showBorder: draftShowBorder,
       ...(draftBackgroundColor.trim() !== ''
@@ -948,6 +975,27 @@ export default function WidgetPlot({
                 helperText="leer = automatisch"
               />
             </Stack>
+            <Box>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draftLimitEnabled}
+                    onChange={(e) => setDraftLimitEnabled(e.target.checked)}
+                  />
+                }
+                label="Anzahl der Werte limitieren"
+              />
+              <TextField
+                label="Maximale Werte"
+                type="number"
+                value={draftLimit}
+                onChange={(e) => setDraftLimit(e.target.value)}
+                disabled={!draftLimitEnabled}
+                fullWidth
+                inputProps={{ min: 1, max: MAX_LIMIT, step: 1 }}
+                helperText={`zeigt nur die juengsten N Werte (1–${MAX_LIMIT})`}
+              />
+            </Box>
             <FormControlLabel
               control={
                 <Switch

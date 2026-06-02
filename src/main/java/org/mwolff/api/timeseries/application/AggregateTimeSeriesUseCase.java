@@ -33,6 +33,9 @@ public class AggregateTimeSeriesUseCase {
   /** Hartes Maximum geladener Entries — schuetzt vor versehentlichen Vollscans. */
   public static final int MAX_ENTRIES = 100_000;
 
+  /** Hartes Maximum fuer die zurueckgegebene Bucket-Anzahl (deckt sich mit dem Frontend). */
+  public static final int MAX_LIMIT = 10_000;
+
   private final TimeSeriesPort timeSeries;
   private final TimeSeriesEntryPort entries;
   private final Clock clock;
@@ -50,7 +53,8 @@ public class AggregateTimeSeriesUseCase {
       long timeSeriesId,
       Granularity granularity,
       Optional<Instant> from,
-      Optional<Instant> to) {
+      Optional<Instant> to,
+      Optional<Integer> limit) {
     timeSeries
         .findById(timeSeriesId)
         .filter(ts -> ts.userSub().equals(userSub))
@@ -73,6 +77,13 @@ public class AggregateTimeSeriesUseCase {
     final List<AggregateBucket> result = new ArrayList<>(buckets.size());
     for (var e : buckets.entrySet()) {
       result.add(e.getValue().toBucket(e.getKey()));
+    }
+    // Limit greift auf die juengsten N Buckets — die Liste ist nach bucketStart aufsteigend.
+    if (limit.isPresent()) {
+      final int effectiveLimit = Math.min(Math.max(1, limit.get()), MAX_LIMIT);
+      if (result.size() > effectiveLimit) {
+        return new ArrayList<>(result.subList(result.size() - effectiveLimit, result.size()));
+      }
     }
     return result;
   }

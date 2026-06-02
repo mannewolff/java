@@ -27,12 +27,19 @@ jobs:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
         run: |
           set -euo pipefail
+          # #223: Ein fehlendes Secret darf NICHT mehr still uebersprungen werden,
+          # sonst bleibt die Version unbemerkt stehen. Wir setzen eine GitHub-
+          # Actions-Warnung (im Run-Summary sichtbar) und brechen den Step ab.
           if [ -z "${APP_BASE_URL:-}" ]; then
-            echo "APP_BASE_URL-Secret nicht gesetzt — Versions-Inkrement uebersprungen."
-            exit 0
+            echo "::warning title=Versions-Inkrement uebersprungen::APP_BASE_URL-Secret nicht gesetzt — Minor-Version wird nicht erhoeht (siehe #223)."
+            exit 1
           fi
           echo "Inkrementiere Minor-Version unter ${APP_BASE_URL} ..."
-          curl --fail --silent --show-error --max-time 30 \
-            -X POST "${APP_BASE_URL%/}/api/app/version/increment-minor"
+          # --fail faerbt den Step bei HTTP-Fehlern (404/502/Timeout) rot, statt sie zu schlucken.
+          if ! curl --fail --silent --show-error --max-time 30 \
+            -X POST "${APP_BASE_URL%/}/api/app/version/increment-minor"; then
+            echo "::error title=Versions-Inkrement fehlgeschlagen::POST an ${APP_BASE_URL%/}/api/app/version/increment-minor war nicht erfolgreich (Endpoint nicht erreichbar?, siehe #223)."
+            exit 1
+          fi
           echo ""
           echo "Minor-Version erhoeht."

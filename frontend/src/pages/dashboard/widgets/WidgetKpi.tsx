@@ -792,11 +792,19 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
   const valueRatio = (clampedValue - config.min) / span;
   const needleAngle = valueRatio * 180;
 
-  // Zonen-Grenzwinkel in Grad
-  const lowRatio = Math.max(0, Math.min(1, (config.lowEnd - config.min) / span));
-  const mediumRatio = Math.max(0, Math.min(1, (config.mediumEnd - config.min) / span));
+  // Zonen-Grenzwinkel in Grad. #220: Ist lowEnd > mediumEnd, signalisiert das
+  // "niedrig = gut" (z. B. Gewicht) → die Farbzonen werden umgekehrt (Grün links,
+  // Rot rechts). Damit die Arcs immer vorwärts laufen, werden die Grenzen sortiert.
+  const inverted = config.lowEnd > config.mediumEnd;
+  const lowerBound = Math.min(config.lowEnd, config.mediumEnd);
+  const upperBound = Math.max(config.lowEnd, config.mediumEnd);
+  const lowRatio = Math.max(0, Math.min(1, (lowerBound - config.min) / span));
+  const mediumRatio = Math.max(0, Math.min(1, (upperBound - config.min) / span));
   const lowAngle = lowRatio * 180;
   const mediumAngle = mediumRatio * 180;
+  // Farbe der niedrigen bzw. hohen Zone — im invertierten Fall vertauscht.
+  const lowZoneColor = inverted ? theme.palette.success.main : theme.palette.error.main;
+  const highZoneColor = inverted ? theme.palette.error.main : theme.palette.success.main;
 
   const needle = polar(cx, cy, radius - strokeWidth - 4, needleAngle);
 
@@ -842,7 +850,7 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
         <svg viewBox="0 0 200 120" width="100%" height="100%" role="img" aria-label="Gauge">
           <path
             d={arcPath(cx, cy, radius, 0, lowAngle)}
-            stroke={theme.palette.error.main}
+            stroke={lowZoneColor}
             strokeWidth={strokeWidth}
             fill="none"
             strokeLinecap="butt"
@@ -856,7 +864,7 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
           />
           <path
             d={arcPath(cx, cy, radius, mediumAngle, 180)}
-            stroke={theme.palette.success.main}
+            stroke={highZoneColor}
             strokeWidth={strokeWidth}
             fill="none"
             strokeLinecap="butt"

@@ -297,6 +297,36 @@ describe('WidgetKpi', () => {
     expect(screen.getByText('50%')).toBeInTheDocument();
   });
 
+  it('Gauge: invertiert die Farbzonen wenn lowEnd > mediumEnd (niedrig = gut, #220)', () => {
+    // Normalfall (lowEnd < mediumEnd): links Rot (niedrig=schlecht) … rechts Grün.
+    const normal = render(
+      <WidgetKpi
+        widget={gaugeWidget({ min: 0, max: 100, lowEnd: 33, mediumEnd: 66 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const normalArcs = normal.container.querySelectorAll('svg[role="img"] path');
+    const leftNormal = normalArcs[0].getAttribute('stroke');
+    const rightNormal = normalArcs[2].getAttribute('stroke');
+    expect(leftNormal).not.toBe(rightNormal);
+    cleanup();
+
+    // Invertiert (lowEnd > mediumEnd, wie für Gewicht): links Grün (niedrig=gut) … rechts Rot.
+    const inverted = render(
+      <WidgetKpi
+        widget={gaugeWidget({ value: 81.6, min: 0, max: 120, lowEnd: 80, mediumEnd: 40 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const invArcs = inverted.container.querySelectorAll('svg[role="img"] path');
+    expect(invArcs.length).toBe(3);
+    // Linke Zone trägt nun die Farbe der vormals rechten (Grün), rechte die vormals linke (Rot).
+    expect(invArcs[0].getAttribute('stroke')).toBe(rightNormal);
+    expect(invArcs[2].getAttribute('stroke')).toBe(leftNormal);
+  });
+
   it('Gauge: hoher Wert ergibt 100% Anzeige', () => {
     render(
       <WidgetKpi

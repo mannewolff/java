@@ -108,9 +108,12 @@ docker buildx prune -af
 docker compose build --no-cache --pull api
 docker compose stop api && docker compose rm -f api
 docker compose up -d --no-deps api
+./scripts/increment-version.sh    # #225: Minor-Version hochzählen (gegen localhost:8080)
 ```
 
 `./scripts/local-dev-setup.sh` erneut ausführen, um auf den lokalen Auth-Pfad zurückzukommen.
+
+> **Versions-Increment (#225):** Der letzte Deploy-Schritt `./scripts/increment-version.sh` wartet, bis `api` gesund ist, und ruft `POST /api/app/version/increment-minor` über **localhost:8080** auf. Das ersetzt den früheren GitHub-Actions-Job, der den Prod-Server von außen nicht erreichen konnte (Firewall/Geo-Filter, TCP-Timeout). Das Repository-Secret `APP_BASE_URL` wird dadurch **obsolet** und kann gelöscht werden.
 
 #### Troubleshooting
 

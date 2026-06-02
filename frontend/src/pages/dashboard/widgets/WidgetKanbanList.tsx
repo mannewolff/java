@@ -41,6 +41,12 @@ import KanbanDetailModal from '../../kanban/KanbanDetailModal';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
+/**
+ * Feste Anzeige-Reihenfolge der Spalten im Widget (#221): aktivste Spalte zuerst.
+ * Unabhängig von KANBAN_COLUMNS (Board-Reihenfolge) — Done wird ans Ende gestellt.
+ */
+const DISPLAY_ORDER: readonly KanbanColumn[] = ['IN_REVIEW', 'IN_PROGRESS', 'BACKLOG', 'DONE'];
+
 const COLUMN_LABELS: Record<KanbanColumn, string> = {
   BACKLOG: 'Backlog',
   IN_PROGRESS: 'In Progress',
@@ -144,12 +150,14 @@ export default function WidgetKanbanList({
     setLoadError(null);
     try {
       const board = await listKanbanItems();
-      const colIndex = (c: KanbanColumn): number => KANBAN_COLUMNS.indexOf(c);
-      // Items aller gewählten Spalten zusammenführen, nach Spalten-Reihenfolge + Position
-      // sortieren und auf das Gesamt-Limit kürzen.
+      const colRank = (c: KanbanColumn): number => DISPLAY_ORDER.indexOf(c);
+      // #221: Items aller gewählten Spalten zusammenführen und automatisch sortieren —
+      // erst nach fester Spalten-Reihenfolge (In Review → In Progress → Backlog → Done),
+      // innerhalb einer Spalte absteigend nach Issue-Nummer (höhere oben). Danach auf das
+      // Gesamt-Limit kürzen.
       const merged = config.columns
         .flatMap((c) => board[c] ?? [])
-        .sort((a, b) => colIndex(a.column) - colIndex(b.column) || a.position - b.position);
+        .sort((a, b) => colRank(a.column) - colRank(b.column) || b.number - a.number);
       setItems(merged.slice(0, config.limit));
     } catch (e) {
       setLoadError(e instanceof ApiError ? e.message : 'Laden fehlgeschlagen');

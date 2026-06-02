@@ -11,6 +11,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 
 type NavIcon = ComponentType<SvgIconProps>;
 
@@ -58,6 +59,7 @@ export const navItems: NavNode[] = [
       // Der Menüpunkt wird hier bereits angelegt, damit die Reihenfolge
       // #33 -> #34 sauber funktioniert.
       { kind: 'link', label: 'Passwortgenerator', path: '/tools/password', icon: VpnKeyIcon },
+      { kind: 'link', label: 'Bilder verwalten', path: '/tools/images', icon: PhotoLibraryIcon },
     ],
   },
   { kind: 'link', label: 'Dashboards', path: '/dashboards', icon: DashboardCustomizeIcon },

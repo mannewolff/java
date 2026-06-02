@@ -22,4 +22,7 @@ public interface ImageRepository {
 
   /** Id eines existierenden Bildes mit diesem SHA-256-Hash, für die Duplikat-Erkennung (#199). */
   Optional<Long> findIdByHash(String hash);
+
+  /** Löscht ein Bild endgültig (Hard-Delete, #202). No-op, wenn es nicht existiert. */
+  void delete(long id);
 }

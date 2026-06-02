@@ -7,15 +7,18 @@ import java.util.Optional;
 import jakarta.validation.Valid;
 
 import org.mwolff.api.image.application.CheckImageHashUseCase;
+import org.mwolff.api.image.application.DeleteImagesUseCase;
 import org.mwolff.api.image.application.GetImageThumbnailUseCase;
 import org.mwolff.api.image.application.GetImageUseCase;
 import org.mwolff.api.image.application.ListImagesUseCase;
+import org.mwolff.api.image.application.ListManagedImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
 import org.mwolff.api.image.domain.InvalidImageUploadException;
 import org.mwolff.api.image.domain.StoredImage;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,18 +38,24 @@ public class ImageController {
   private final ListImagesUseCase listUseCase;
   private final CheckImageHashUseCase checkHashUseCase;
   private final GetImageThumbnailUseCase thumbnailUseCase;
+  private final ListManagedImagesUseCase listManagedUseCase;
+  private final DeleteImagesUseCase deleteUseCase;
 
   public ImageController(
       final UploadImageUseCase uploadUseCase,
       final GetImageUseCase getUseCase,
       final ListImagesUseCase listUseCase,
       final CheckImageHashUseCase checkHashUseCase,
-      final GetImageThumbnailUseCase thumbnailUseCase) {
+      final GetImageThumbnailUseCase thumbnailUseCase,
+      final ListManagedImagesUseCase listManagedUseCase,
+      final DeleteImagesUseCase deleteUseCase) {
     this.uploadUseCase = uploadUseCase;
     this.getUseCase = getUseCase;
     this.listUseCase = listUseCase;
     this.checkHashUseCase = checkHashUseCase;
     this.thumbnailUseCase = thumbnailUseCase;
+    this.listManagedUseCase = listManagedUseCase;
+    this.deleteUseCase = deleteUseCase;
   }
 
   @GetMapping
@@ -54,6 +63,24 @@ public class ImageController {
       @RequestParam(required = false) final Integer limit,
       @RequestParam(required = false) final Integer offset) {
     return ImageListResponse.from(listUseCase.execute(limit, offset));
+  }
+
+  @GetMapping("/manage")
+  public ManagedImageListResponse listManaged(
+      @RequestParam(required = false) final Integer limit,
+      @RequestParam(required = false) final Integer offset) {
+    return ManagedImageListResponse.from(listManagedUseCase.execute(limit, offset));
+  }
+
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> delete(@PathVariable final long id) {
+    deleteUseCase.deleteOne(id);
+    return ResponseEntity.noContent().build();
+  }
+
+  @PostMapping(path = "/batch-delete", consumes = MediaType.APPLICATION_JSON_VALUE)
+  public BatchDeleteResponse batchDelete(@Valid @RequestBody final BatchDeleteRequest request) {
+    return BatchDeleteResponse.from(deleteUseCase.deleteBatch(request.ids()));
   }
 
   @PostMapping(path = "/check-hash", consumes = MediaType.APPLICATION_JSON_VALUE)

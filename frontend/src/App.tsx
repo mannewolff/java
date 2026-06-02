@@ -18,6 +18,7 @@ const OgImagePage = lazy(() => import('./pages/tools/OgImagePage'));
 const ResizePage = lazy(() => import('./pages/tools/ResizePage'));
 const SvgToPngPage = lazy(() => import('./pages/tools/SvgToPngPage'));
 const ColorPickerPage = lazy(() => import('./pages/tools/ColorPickerPage'));
+const ImageManagerPage = lazy(() => import('./pages/tools/ImageManagerPage'));
 const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
 const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
 const MobilePage = lazy(() => import('./pages/mobile/MobilePage'));
@@ -111,6 +112,14 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <ColorPickerPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/images"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <ImageManagerPage />
             </Suspense>
           }
         />

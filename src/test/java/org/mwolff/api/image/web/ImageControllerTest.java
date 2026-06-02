@@ -2,8 +2,10 @@ package org.mwolff.api.image.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,14 +23,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mwolff.api.image.application.CheckImageHashUseCase;
+import org.mwolff.api.image.application.DeleteImagesUseCase;
+import org.mwolff.api.image.application.DeleteImagesUseCase.DeleteResult;
+import org.mwolff.api.image.application.DeleteImagesUseCase.Failure;
 import org.mwolff.api.image.application.GetImageThumbnailUseCase;
 import org.mwolff.api.image.application.GetImageUseCase;
 import org.mwolff.api.image.application.ListImagesUseCase;
+import org.mwolff.api.image.application.ListManagedImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
+import org.mwolff.api.image.domain.ImageInUseException;
 import org.mwolff.api.image.domain.ImageMetadata;
 import org.mwolff.api.image.domain.ImageNotFoundException;
 import org.mwolff.api.image.domain.ImagePage;
 import org.mwolff.api.image.domain.InvalidImageUploadException;
+import org.mwolff.api.image.domain.ManagedImage;
+import org.mwolff.api.image.domain.ManagedImagePage;
 import org.mwolff.api.image.domain.StoredImage;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -43,6 +52,8 @@ class ImageControllerTest {
   @Mock private ListImagesUseCase listUseCase;
   @Mock private CheckImageHashUseCase checkHashUseCase;
   @Mock private GetImageThumbnailUseCase thumbnailUseCase;
+  @Mock private ListManagedImagesUseCase listManagedUseCase;
+  @Mock private DeleteImagesUseCase deleteUseCase;
 
   private MockMvc mockMvc;
 
@@ -51,7 +62,13 @@ class ImageControllerTest {
     mockMvc =
         MockMvcBuilders.standaloneSetup(
                 new ImageController(
-                    uploadUseCase, getUseCase, listUseCase, checkHashUseCase, thumbnailUseCase))
+                    uploadUseCase,
+                    getUseCase,
+                    listUseCase,
+                    checkHashUseCase,
+                    thumbnailUseCase,
+                    listManagedUseCase,
+                    deleteUseCase))
             .setControllerAdvice(new ImageExceptionHandler())
             .build();
   }
@@ -212,5 +229,88 @@ class ImageControllerTest {
     when(thumbnailUseCase.execute(9L, null)).thenThrow(new ImageNotFoundException(9));
 
     mockMvc.perform(get("/api/images/9/thumbnail")).andExpect(status().isNotFound());
+  }
+
+  // ----- GET /api/images/manage --------------------------------------------
+
+  @Test
+  void manageListReturnsImagesWithUsageCount() throws Exception {
+    when(listManagedUseCase.execute(null, null))
+        .thenReturn(
+            new ManagedImagePage(
+                List.of(
+                    new ManagedImage(
+                        new ImageMetadata(
+                            3L, "image/png", 123, Instant.parse("2026-06-01T00:00:00Z"), "abc"),
+                        2L)),
+                1L));
+
+    mockMvc
+        .perform(get("/api/images/manage"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.images[0].id").value(3))
+        .andExpect(jsonPath("$.images[0].usageCount").value(2))
+        .andExpect(jsonPath("$.images[0].hash").value("abc"));
+  }
+
+  @Test
+  void manageListForwardsLimitAndOffset() throws Exception {
+    when(listManagedUseCase.execute(10, 20)).thenReturn(new ManagedImagePage(List.of(), 0L));
+
+    mockMvc.perform(get("/api/images/manage?limit=10&offset=20")).andExpect(status().isOk());
+
+    verify(listManagedUseCase).execute(10, 20);
+  }
+
+  // ----- DELETE /api/images/{id} -------------------------------------------
+
+  @Test
+  void deleteReturns204WhenUnused() throws Exception {
+    mockMvc.perform(delete("/api/images/5")).andExpect(status().isNoContent());
+
+    verify(deleteUseCase).deleteOne(5L);
+  }
+
+  @Test
+  void deleteReturns409WhenInUse() throws Exception {
+    doThrow(new ImageInUseException(5L, 2L)).when(deleteUseCase).deleteOne(5L);
+
+    mockMvc.perform(delete("/api/images/5")).andExpect(status().isConflict());
+  }
+
+  @Test
+  void deleteReturns404WhenMissing() throws Exception {
+    doThrow(new ImageNotFoundException(9)).when(deleteUseCase).deleteOne(9L);
+
+    mockMvc.perform(delete("/api/images/9")).andExpect(status().isNotFound());
+  }
+
+  // ----- POST /api/images/batch-delete -------------------------------------
+
+  @Test
+  void batchDeleteReturnsDeletedAndFailed() throws Exception {
+    when(deleteUseCase.deleteBatch(List.of(1L, 2L)))
+        .thenReturn(new DeleteResult(List.of(1L), List.of(new Failure(2L, "IN_USE"))));
+
+    mockMvc
+        .perform(
+            post("/api/images/batch-delete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[1,2]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.deleted[0]").value(1))
+        .andExpect(jsonPath("$.failed[0].id").value(2))
+        .andExpect(jsonPath("$.failed[0].reason").value("IN_USE"));
+  }
+
+  @Test
+  void batchDeleteRejectsEmptyIdsWith400() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/images/batch-delete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[]}"))
+        .andExpect(status().isBadRequest());
   }
 }

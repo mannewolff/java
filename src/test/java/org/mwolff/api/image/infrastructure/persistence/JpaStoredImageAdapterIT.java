@@ -75,6 +75,16 @@ class JpaStoredImageAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
+  void deleteRemovesImage() {
+    final StoredImage saved = adapter.save(StoredImage.of("image/png", bytes(8)));
+    assertThat(adapter.findById(saved.id())).isPresent();
+
+    adapter.delete(saved.id());
+
+    assertThat(adapter.findById(saved.id())).isEmpty();
+  }
+
+  @Test
   void hashIsPersistedAndFoundByHash() {
     final StoredImage saved = adapter.save(StoredImage.of("image/png", bytes(8), "cafebabe"));
 

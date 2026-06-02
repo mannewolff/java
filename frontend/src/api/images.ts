@@ -20,6 +20,29 @@ export interface ImageListResponse {
   total: number;
 }
 
+/** Bild-Metadaten inkl. Verwendungszähler für den Image-Manager (#202). */
+export interface ManagedImage {
+  id: number;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  hash: string | null;
+  /** Anzahl der Widgets, die dieses Bild referenzieren; 0 = ungenutzt (löschbar). */
+  usageCount: number;
+}
+
+/** Paginierte Manager-Antwort (#202). */
+export interface ManagedImageListResponse {
+  images: ManagedImage[];
+  total: number;
+}
+
+/** Ergebnis des Batch-Löschens (#202). */
+export interface BatchDeleteResult {
+  deleted: number[];
+  failed: { id: number; reason: string }[];
+}
+
 /** Erlaubte Upload-Formate (deckt sich mit dem Backend-Whitelist, #182). */
 export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 /** Maximale Upload-Größe: 5 MB (Backend lehnt Größeres mit 413 ab). */
@@ -108,6 +131,35 @@ export async function checkImageHash(hash: string): Promise<CheckHashResult> {
     throw new ApiError(response.status, `Hash-Prüfung fehlgeschlagen (${response.status})`, null);
   }
   return (await response.json()) as CheckHashResult;
+}
+
+/** Listet Bilder inkl. Verwendungszähler für den Image-Manager (#202). */
+export async function listManagedImages(
+  limit?: number,
+  offset?: number,
+): Promise<ManagedImageListResponse> {
+  const search = new URLSearchParams();
+  if (limit != null) search.set('limit', String(limit));
+  if (offset != null) search.set('offset', String(offset));
+  const query = search.toString();
+  const response = await authedFetch(`/api/images/manage${query ? `?${query}` : ''}`);
+  if (!response.ok) {
+    throw new ApiError(response.status, `Bilder konnten nicht geladen werden (${response.status})`, null);
+  }
+  return (await response.json()) as ManagedImageListResponse;
+}
+
+/** Löscht mehrere Bilder (nur ungenutzte); liefert gelöschte Ids + Fehlschläge (#202). */
+export async function deleteImages(ids: number[]): Promise<BatchDeleteResult> {
+  const response = await authedFetch('/api/images/batch-delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, `Löschen fehlgeschlagen (${response.status})`, null);
+  }
+  return (await response.json()) as BatchDeleteResult;
 }
 
 /**

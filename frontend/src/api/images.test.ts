@@ -8,10 +8,12 @@ vi.mock('./client', async () => {
 import { authedFetch, ApiError } from './client';
 import {
   checkImageHash,
+  deleteImages,
   fetchImageFile,
   fetchImageObjectUrl,
   fetchThumbnailObjectUrl,
   listImages,
+  listManagedImages,
   sha256Hex,
   uploadImage,
 } from './images';
@@ -172,6 +174,51 @@ describe('checkImageHash (#199)', () => {
   it('wirft ApiError bei Fehlerstatus', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400 });
     await expect(checkImageHash('x')).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('listManagedImages (#202)', () => {
+  afterEach(() => fetchMock.mockReset());
+
+  it('lädt /manage mit limit/offset', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ images: [], total: 0 }),
+    });
+
+    await listManagedImages(24, 48);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/images/manage?limit=24&offset=48');
+  });
+
+  it('wirft ApiError bei Fehlerstatus', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+    await expect(listManagedImages()).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('deleteImages (#202)', () => {
+  afterEach(() => fetchMock.mockReset());
+
+  it('POSTet die Ids und liefert deleted/failed', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ deleted: [1], failed: [{ id: 2, reason: 'IN_USE' }] }),
+    });
+
+    const res = await deleteImages([1, 2]);
+
+    expect(res.deleted).toEqual([1]);
+    expect(res.failed).toEqual([{ id: 2, reason: 'IN_USE' }]);
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe('/api/images/batch-delete');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ ids: [1, 2] });
+  });
+
+  it('wirft ApiError bei Fehlerstatus', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+    await expect(deleteImages([1])).rejects.toBeInstanceOf(ApiError);
   });
 });
 

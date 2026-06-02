@@ -53,6 +53,11 @@ class JpaStoredImageAdapter implements ImageRepository {
     return repository.findIdsByHash(hash).stream().findFirst();
   }
 
+  @Override
+  public void delete(final long id) {
+    repository.deleteById(id);
+  }
+
   private static ImageMetadata toMetadata(final StoredImageMetadataView view) {
     return new ImageMetadata(
         view.getId(),

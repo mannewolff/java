@@ -2,6 +2,7 @@ package org.mwolff.api.image.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -126,5 +127,14 @@ class JpaStoredImageAdapterTest {
     when(repository.findIdsByHash("h")).thenReturn(List.of());
 
     assertThat(adapter.findIdByHash("h")).isEmpty();
+  }
+
+  @Test
+  void deleteDelegatesToRepository() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+
+    adapter.delete(5L);
+
+    verify(repository).deleteById(5L);
   }
 }

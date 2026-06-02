@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.mwolff.api.image.domain.ImageInUseException;
 import org.mwolff.api.image.domain.ImageNotFoundException;
 import org.mwolff.api.image.domain.InvalidImageUploadException;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,12 @@ public class ImageExceptionHandler {
   public ResponseEntity<Map<String, Object>> handleNotFound(final ImageNotFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(body(HttpStatus.NOT_FOUND, ex.getMessage(), null));
+  }
+
+  @ExceptionHandler(ImageInUseException.class)
+  public ResponseEntity<Map<String, Object>> handleInUse(final ImageInUseException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(body(HttpStatus.CONFLICT, ex.getMessage(), "IN_USE"));
   }
 
   @ExceptionHandler(InvalidImageUploadException.class)

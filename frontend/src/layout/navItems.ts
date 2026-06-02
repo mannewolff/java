@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import type { SvgIconProps } from '@mui/material';
-import DashboardIcon from '@mui/icons-material/Dashboard';
+import HomeIcon from '@mui/icons-material/Home';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TransformIcon from '@mui/icons-material/Transform';
@@ -33,10 +33,10 @@ export interface NavGroup {
 export type NavNode = NavLink | NavGroup;
 
 export const navItems: NavNode[] = [
-  // "Dashboard" (Singular) öffnet das Default-Dashboard direkt — der typische Einstieg
-  // nach dem Login. "Dashboards" (Plural) liegt am Ende, oberhalb der Einstellungen,
-  // und zeigt die Liste zum Verwalten/Anlegen/Löschen.
-  { kind: 'link', label: 'Dashboard', path: '/dashboards/default', icon: DashboardIcon },
+  // "Home" öffnet das Default-Dashboard direkt — der typische Einstieg nach dem Login.
+  // "Dashboards" (Plural) liegt am Ende, oberhalb der Einstellungen, und zeigt die Liste
+  // zum Verwalten/Anlegen/Löschen.
+  { kind: 'link', label: 'Home', path: '/dashboards/default', icon: HomeIcon },
   { kind: 'link', label: 'Zeitreihen', path: '/timeseries', icon: ShowChartIcon },
   { kind: 'link', label: 'Kanban', path: '/kanban', icon: ViewKanbanIcon },
   { kind: 'link', label: 'Mobile', path: '/mobile', icon: PhoneIphoneIcon },

@@ -34,6 +34,17 @@ class UploadImageUseCaseTest {
     assertThat(captor.getValue().contentType()).isEqualTo("image/png");
     assertThat(captor.getValue().data()).containsExactly(1, 2, 3);
     assertThat(result.sizeBytes()).isEqualTo(3);
+    // SHA-256 von {1,2,3} (#199) — bekannter Referenzwert.
+    assertThat(captor.getValue().hash())
+        .isEqualTo("039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81");
+    assertThat(result.hash()).isEqualTo(captor.getValue().hash());
+  }
+
+  @Test
+  void sha256HexComputesKnownDigest() {
+    // SHA-256 des leeren... nein: von {0x61,0x62,0x63} = "abc".
+    assertThat(UploadImageUseCase.sha256Hex(new byte[] {0x61, 0x62, 0x63}))
+        .isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   }
 
   @Test

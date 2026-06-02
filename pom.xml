@@ -368,6 +368,14 @@
                                 -->
                                 <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageEntity.class</exclude>
                                 <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageJpaRepository.class</exclude>
+                                <!-- Reine Spring-Data-Projektion ohne eigene Logik (#198). -->
+                                <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageMetadataView.class</exclude>
+                                <!--
+                                  Thumbnail-Skalierung (#200): die ImageIO-IOException-Pfade sind mit
+                                  In-Memory-Streams nicht erreichbar (kein 100%-Branch moeglich). Die
+                                  Skalierungslogik ist via ImageIoThumbnailerTest verifiziert.
+                                -->
+                                <exclude>org/mwolff/api/image/infrastructure/image/ImageIoThumbnailer.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>

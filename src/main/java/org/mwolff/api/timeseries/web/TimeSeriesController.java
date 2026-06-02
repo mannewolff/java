@@ -196,14 +196,16 @@ public class TimeSeriesController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
           Instant from,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-          Instant to) {
+          Instant to,
+      @RequestParam(required = false) Integer limit) {
     return aggregateUseCase
         .execute(
             auth.getToken().getSubject(),
             id,
             granularity,
             Optional.ofNullable(from),
-            Optional.ofNullable(to))
+            Optional.ofNullable(to),
+            Optional.ofNullable(limit))
         .stream()
         .map(AggregateBucketResponse::from)
         .toList();

@@ -1,9 +1,12 @@
 package org.mwolff.api.image.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -11,7 +14,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mwolff.api.image.domain.ImageMetadata;
 import org.mwolff.api.image.domain.StoredImage;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class JpaStoredImageAdapterTest {
@@ -72,5 +77,64 @@ class JpaStoredImageAdapterTest {
     when(repository.findById(99L)).thenReturn(Optional.empty());
 
     assertThat(adapter.findById(99L)).isEmpty();
+  }
+
+  @Test
+  void findMetadataPassesOffsetAndLimitAndMapsViews() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+    final Instant now = Instant.parse("2026-06-01T10:00:00Z");
+    final StoredImageMetadataView view = mock(StoredImageMetadataView.class);
+    when(view.getId()).thenReturn(42L);
+    when(view.getContentType()).thenReturn("image/png");
+    when(view.getSizeBytes()).thenReturn(123);
+    when(view.getCreatedAt()).thenReturn(now);
+    final ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+    when(repository.findAllByOrderByIdDesc(captor.capture())).thenReturn(List.of(view));
+
+    final List<ImageMetadata> result = adapter.findMetadata(10, 20);
+
+    final Pageable pageable = captor.getValue();
+    assertThat(pageable.getOffset()).isEqualTo(20L);
+    assertThat(pageable.getPageSize()).isEqualTo(10);
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).id()).isEqualTo(42L);
+    assertThat(result.get(0).contentType()).isEqualTo("image/png");
+    assertThat(result.get(0).sizeBytes()).isEqualTo(123L);
+    assertThat(result.get(0).createdAt()).isEqualTo(now);
+    // getHash() der Projektion ist hier nicht gestubbt → null.
+    assertThat(result.get(0).hash()).isNull();
+  }
+
+  @Test
+  void countDelegatesToRepository() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+    when(repository.count()).thenReturn(7L);
+
+    assertThat(adapter.count()).isEqualTo(7L);
+  }
+
+  @Test
+  void findIdByHashReturnsFirstMatch() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+    when(repository.findIdsByHash("h")).thenReturn(List.of(3L, 9L));
+
+    assertThat(adapter.findIdByHash("h")).contains(3L);
+  }
+
+  @Test
+  void findIdByHashEmptyWhenNoMatch() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+    when(repository.findIdsByHash("h")).thenReturn(List.of());
+
+    assertThat(adapter.findIdByHash("h")).isEmpty();
+  }
+
+  @Test
+  void deleteDelegatesToRepository() {
+    final JpaStoredImageAdapter adapter = new JpaStoredImageAdapter(repository);
+
+    adapter.delete(5L);
+
+    verify(repository).deleteById(5L);
   }
 }

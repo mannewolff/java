@@ -45,6 +45,7 @@ function renderShell(initialEntry = '/dashboards/default') {
               <Route path="/tools/svg-to-png" element={<div>SVG to PNG</div>} />
               <Route path="/tools/color-picker" element={<div>Color Picker</div>} />
               <Route path="/tools/password" element={<div>Password</div>} />
+              <Route path="/mobile" element={<div>Mobile-Inhalt</div>} />
             </Route>
           </Routes>
         </KioskModeProvider>
@@ -220,6 +221,47 @@ describe('AppShell collapsed sidebar', () => {
     // Icon-Buttons haben aria-label mit dem Menüpunkt-Namen
     expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Einstellungen' })).toBeInTheDocument();
+  });
+});
+
+describe('AppShell Mobile-Auto-Collapse (#195)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('klappt die Sidebar auf /mobile automatisch ein', () => {
+    renderShell('/mobile');
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
+  });
+
+  it('stellt den vorherigen (ausgeklappten) Zustand beim Verlassen wieder her', async () => {
+    renderShell('/mobile');
+    const user = userEvent.setup();
+
+    // Auf /mobile eingeklappt — Navigation erfolgt über das Icon (aria-label).
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Dashboard' }));
+
+    // Zurück auf einer normalen Route: Labels wieder sichtbar (Zustand wiederhergestellt).
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menü einklappen' })).toBeInTheDocument();
+  });
+
+  it('lässt eine bereits eingeklappte Sidebar nach dem Verlassen eingeklappt', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true');
+    renderShell('/mobile');
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Dashboard' }));
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
+    // Nutzer-Präferenz unverändert.
+    expect(localStorage.getItem('sidebar-collapsed')).toBe('true');
   });
 });
 

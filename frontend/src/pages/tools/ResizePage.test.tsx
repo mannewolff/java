@@ -59,8 +59,9 @@ describe('ResizePage', () => {
     renderResize();
     await uploadAndLoad({ w: 1600, h: 1200 });
 
-    expect(screen.getByText(/1600/)).toBeInTheDocument();
-    expect(screen.getByText(/1200/)).toBeInTheDocument();
+    // "1600×1200" erscheint sowohl in der Original-Zeile als auch im interaktiven Rahmen.
+    expect(screen.getAllByText(/1600/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1200/).length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Neue Breite')).toHaveValue(1600);
     expect(screen.getByLabelText('Neue Höhe')).toHaveValue(1200);
   });

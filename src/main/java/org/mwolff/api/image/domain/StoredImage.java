@@ -8,7 +8,7 @@ import java.util.Objects;
  * unveränderlich bleibt. {@code id} und {@code createdAt} sind erst nach dem Persistieren gesetzt.
  */
 public record StoredImage(
-    Long id, String contentType, long sizeBytes, byte[] data, Instant createdAt) {
+    Long id, String contentType, long sizeBytes, byte[] data, Instant createdAt, String hash) {
 
   public StoredImage {
     Objects.requireNonNull(contentType, "contentType must not be null");
@@ -19,9 +19,14 @@ public record StoredImage(
     data = data.clone();
   }
 
-  /** Fabrik für ein noch nicht persistiertes Bild (ohne id/createdAt). */
+  /** Fabrik für ein noch nicht persistiertes Bild (ohne id/createdAt) inkl. SHA-256-Hash (#199). */
+  public static StoredImage of(final String contentType, final byte[] data, final String hash) {
+    return new StoredImage(null, contentType, data.length, data, null, hash);
+  }
+
+  /** Fabrik ohne Hash (z. B. Tests / Bestandscode); der Hash bleibt {@code null}. */
   public static StoredImage of(final String contentType, final byte[] data) {
-    return new StoredImage(null, contentType, data.length, data, null);
+    return of(contentType, data, null);
   }
 
   @Override

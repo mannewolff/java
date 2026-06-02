@@ -55,7 +55,8 @@ class AggregateTimeSeriesUseCaseTest {
 
     final List<AggregateBucket> result =
         new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-            .execute(SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty());
+            .execute(
+                SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty(), Optional.empty());
 
     assertThat(result).hasSize(2);
     final AggregateBucket first = result.get(0);
@@ -79,7 +80,8 @@ class AggregateTimeSeriesUseCaseTest {
 
     final List<AggregateBucket> result =
         new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-            .execute(SUB, 1L, Granularity.WEEKLY, Optional.empty(), Optional.empty());
+            .execute(
+                SUB, 1L, Granularity.WEEKLY, Optional.empty(), Optional.empty(), Optional.empty());
 
     assertThat(result).isEmpty();
   }
@@ -102,7 +104,13 @@ class AggregateTimeSeriesUseCaseTest {
     assertThatThrownBy(
             () ->
                 new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-                    .execute(SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty()))
+                    .execute(
+                        SUB,
+                        1L,
+                        Granularity.DAILY,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()))
         .isInstanceOf(TimeSeriesNotFoundException.class);
   }
 
@@ -113,7 +121,13 @@ class AggregateTimeSeriesUseCaseTest {
     assertThatThrownBy(
             () ->
                 new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-                    .execute(SUB, 99L, Granularity.DAILY, Optional.empty(), Optional.empty()))
+                    .execute(
+                        SUB,
+                        99L,
+                        Granularity.DAILY,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()))
         .isInstanceOf(TimeSeriesNotFoundException.class);
   }
 
@@ -128,7 +142,8 @@ class AggregateTimeSeriesUseCaseTest {
 
     final List<AggregateBucket> result =
         new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-            .execute(SUB, 1L, Granularity.YEARLY, Optional.empty(), Optional.empty());
+            .execute(
+                SUB, 1L, Granularity.YEARLY, Optional.empty(), Optional.empty(), Optional.empty());
 
     assertThat(result).hasSize(2);
     assertThat(result.get(0).bucketStart()).isEqualTo(Instant.parse("2025-01-01T00:00:00Z"));
@@ -145,7 +160,8 @@ class AggregateTimeSeriesUseCaseTest {
 
     final List<AggregateBucket> result =
         new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-            .execute(SUB, 1L, Granularity.MONTHLY, Optional.empty(), Optional.empty());
+            .execute(
+                SUB, 1L, Granularity.MONTHLY, Optional.empty(), Optional.empty(), Optional.empty());
 
     assertThat(result).hasSize(2);
     assertThat(result.get(0).bucketStart()).isEqualTo(Instant.parse("2026-04-01T00:00:00Z"));
@@ -166,11 +182,87 @@ class AggregateTimeSeriesUseCaseTest {
 
     final List<AggregateBucket> result =
         new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
-            .execute(SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty());
+            .execute(
+                SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty(), Optional.empty());
 
     final AggregateBucket bucket = result.get(0);
     assertThat(bucket.min()).isEqualByComparingTo("10");
     assertThat(bucket.max()).isEqualByComparingTo("20");
     assertThat(bucket.last()).isEqualByComparingTo("15");
+  }
+
+  @Test
+  void limitKeepsOnlyMostRecentBuckets() {
+    given(timeSeries.findById(1L)).willReturn(Optional.of(owned(1L)));
+    given(entries.findByTimeSeries(eq(1L), any(), any(), anyInt()))
+        .willReturn(
+            List.of(
+                entry(1L, "2026-05-26T08:00:00Z", "10"),
+                entry(2L, "2026-05-27T08:00:00Z", "20"),
+                entry(3L, "2026-05-28T08:00:00Z", "30")));
+
+    final List<AggregateBucket> result =
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
+            .execute(
+                SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty(), Optional.of(2));
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(0).bucketStart()).isEqualTo(Instant.parse("2026-05-27T00:00:00Z"));
+    assertThat(result.get(1).bucketStart()).isEqualTo(Instant.parse("2026-05-28T00:00:00Z"));
+  }
+
+  @Test
+  void limitLargerThanBucketCountReturnsAll() {
+    given(timeSeries.findById(1L)).willReturn(Optional.of(owned(1L)));
+    given(entries.findByTimeSeries(eq(1L), any(), any(), anyInt()))
+        .willReturn(
+            List.of(
+                entry(1L, "2026-05-27T08:00:00Z", "10"), entry(2L, "2026-05-28T08:00:00Z", "20")));
+
+    final List<AggregateBucket> result =
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
+            .execute(
+                SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty(), Optional.of(99));
+
+    assertThat(result).hasSize(2);
+  }
+
+  @Test
+  void limitIsClampedToAtLeastOne() {
+    given(timeSeries.findById(1L)).willReturn(Optional.of(owned(1L)));
+    given(entries.findByTimeSeries(eq(1L), any(), any(), anyInt()))
+        .willReturn(
+            List.of(
+                entry(1L, "2026-05-27T08:00:00Z", "10"), entry(2L, "2026-05-28T08:00:00Z", "20")));
+
+    final List<AggregateBucket> result =
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
+            .execute(
+                SUB, 1L, Granularity.DAILY, Optional.empty(), Optional.empty(), Optional.of(0));
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).bucketStart()).isEqualTo(Instant.parse("2026-05-28T00:00:00Z"));
+  }
+
+  @Test
+  void limitIsClampedToMaxLimit() {
+    given(timeSeries.findById(1L)).willReturn(Optional.of(owned(1L)));
+    given(entries.findByTimeSeries(eq(1L), any(), any(), anyInt()))
+        .willReturn(
+            List.of(
+                entry(1L, "2026-05-27T08:00:00Z", "10"), entry(2L, "2026-05-28T08:00:00Z", "20")));
+
+    // Limit > MAX_LIMIT wird auf MAX_LIMIT geklemmt; bei nur 2 Buckets folgt: alle zurueck.
+    final List<AggregateBucket> result =
+        new AggregateTimeSeriesUseCase(timeSeries, entries, clock)
+            .execute(
+                SUB,
+                1L,
+                Granularity.DAILY,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(AggregateTimeSeriesUseCase.MAX_LIMIT + 5));
+
+    assertThat(result).hasSize(2);
   }
 }

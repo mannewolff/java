@@ -1,14 +1,18 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import CollectionsIcon from '@mui/icons-material/Collections';
 import UploadIcon from '@mui/icons-material/Upload';
 
 import {
   ACCEPTED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
+  checkImageHash,
+  sha256Hex,
   uploadImage,
   type UploadedImageInfo,
 } from '../../../api/images';
+import ImageGalleryModal from './ImageGalleryModal';
 
 interface Props {
   /** Label des Buttons — z. B. "Bild hochladen" oder "Bild ersetzen". */
@@ -25,6 +29,7 @@ export default function ImageUploader({ label, onUploaded }: Props): JSX.Element
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.target.files?.[0];
@@ -44,7 +49,21 @@ export default function ImageUploader({ label, onUploaded }: Props): JSX.Element
 
     setBusy(true);
     try {
-      const info = await uploadImage(file);
+      // Duplikat-Erkennung (#199): existiert dasselbe Bild bereits, referenziere es statt erneut
+      // hochzuladen. Schlägt die Hash-Prüfung fehl, fällt der Code auf einen normalen Upload zurück.
+      let info: UploadedImageInfo | null = null;
+      try {
+        const hash = await sha256Hex(file);
+        const check = await checkImageHash(hash);
+        if (check.exists && check.id != null) {
+          info = { id: check.id, url: `/api/images/${check.id}` };
+        }
+      } catch {
+        /* Hash-Prüfung optional — bei Fehler normal hochladen. */
+      }
+      if (!info) {
+        info = await uploadImage(file);
+      }
       // Lokale Vorschau aus der Datei (kein erneuter authentifizierter Fetch nötig).
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(URL.createObjectURL(file));
@@ -54,6 +73,13 @@ export default function ImageUploader({ label, onUploaded }: Props): JSX.Element
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleGallerySelect(id: number): void {
+    setError(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    onUploaded({ id, url: `/api/images/${id}` });
   }
 
   return (
@@ -67,18 +93,34 @@ export default function ImageUploader({ label, onUploaded }: Props): JSX.Element
         aria-label="Bilddatei auswählen"
         data-testid="image-file-input"
       />
-      <Button
-        variant="outlined"
-        startIcon={busy ? <CircularProgress size={16} /> : <UploadIcon />}
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {busy ? 'Wird hochgeladen …' : label}
-      </Button>
+      <Stack direction="row" spacing={1}>
+        <Button
+          variant="outlined"
+          startIcon={busy ? <CircularProgress size={16} /> : <UploadIcon />}
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {busy ? 'Wird hochgeladen …' : label}
+        </Button>
+        <Button
+          variant="text"
+          startIcon={<CollectionsIcon />}
+          onClick={() => setGalleryOpen(true)}
+          disabled={busy}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          Aus Datenbank laden
+        </Button>
+      </Stack>
       <Typography variant="caption" color="text.secondary">
-        JPG, PNG, WebP oder GIF · max 5 MB
+        JPG, PNG, WebP oder GIF · max 5 MB · gleiche Bilder werden automatisch wiederverwendet
       </Typography>
+      <ImageGalleryModal
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        onSelect={handleGallerySelect}
+      />
       {error && (
         <Alert severity="error" role="alert">
           {error}

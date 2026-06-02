@@ -18,8 +18,10 @@ const OgImagePage = lazy(() => import('./pages/tools/OgImagePage'));
 const ResizePage = lazy(() => import('./pages/tools/ResizePage'));
 const SvgToPngPage = lazy(() => import('./pages/tools/SvgToPngPage'));
 const ColorPickerPage = lazy(() => import('./pages/tools/ColorPickerPage'));
+const ImageManagerPage = lazy(() => import('./pages/tools/ImageManagerPage'));
 const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
 const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
+const MobilePage = lazy(() => import('./pages/mobile/MobilePage'));
 const TimeSeriesListPage = lazy(() => import('./pages/timeseries/TimeSeriesListPage'));
 const TimeSeriesDetailPage = lazy(
   () => import('./pages/timeseries/TimeSeriesDetailPage'),
@@ -114,6 +116,14 @@ export default function App() {
           }
         />
         <Route
+          path="/tools/images"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <ImageManagerPage />
+            </Suspense>
+          }
+        />
+        <Route
           path="/tools/password"
           element={
             <Suspense fallback={<PageLoader />}>
@@ -126,6 +136,14 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <KanbanPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/mobile"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <MobilePage />
             </Suspense>
           }
         />

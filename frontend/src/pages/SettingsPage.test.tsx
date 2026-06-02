@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -117,13 +117,31 @@ describe('SettingsPage — Bildverarbeitung', () => {
     cleanup();
   });
 
+  it('zeigt die Tool-Links nicht direkt, sondern erst nach Klick auf das Icon (#196)', () => {
+    render_();
+    // Standardmäßig kein Tool-Link sichtbar — Dialog ist zu.
+    expect(screen.queryByRole('link', { name: /Hintergrund entfernen/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bildtools anzeigen' })).toBeInTheDocument();
+  });
+
   it.each([
     ['Hintergrund entfernen', '/tools/remove-background'],
     ['Beitragsbild', '/tools/og-image'],
     ['Bild verkleinern', '/tools/resize'],
-  ])('verlinkt das ausgelagerte Bildtool "%s" auf %s', (label, path) => {
+  ])('verlinkt im Dialog das Bildtool "%s" auf %s', async (label, path) => {
     render_();
+    await userEvent.click(screen.getByRole('button', { name: 'Bildtools anzeigen' }));
     const link = screen.getByRole('link', { name: new RegExp(label) });
     expect(link).toHaveAttribute('href', path);
+  });
+
+  it('schließt den Dialog beim Klick auf einen Tool-Link (#196)', async () => {
+    render_();
+    await userEvent.click(screen.getByRole('button', { name: 'Bildtools anzeigen' }));
+    const link = screen.getByRole('link', { name: /Hintergrund entfernen/ });
+    await userEvent.click(link);
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: /Hintergrund entfernen/ })).not.toBeInTheDocument(),
+    );
   });
 });

@@ -3,6 +3,9 @@ import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   List,
@@ -17,6 +20,7 @@ import {
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
@@ -59,6 +63,7 @@ export default function SettingsPage() {
   const { accessToken } = useAuth();
   const notify = useNotify();
   const [copied, setCopied] = useState(false);
+  const [toolsDialogOpen, setToolsDialogOpen] = useState(false);
 
   async function handleCopy(): Promise<void> {
     if (!accessToken) return;
@@ -93,24 +98,48 @@ export default function SettingsPage() {
 
       <Divider sx={{ my: 3 }} />
 
-      <Typography variant="h6" gutterBottom>
-        Bildverarbeitung
-      </Typography>
-      <List>
-        {IMAGE_TOOLS.map((tool) => {
-          const Icon = tool.icon;
-          return (
-            <ListItem key={tool.path} disablePadding>
-              <ListItemButton component={RouterLink} to={tool.path}>
-                <ListItemIcon>
-                  <Icon />
-                </ListItemIcon>
-                <ListItemText primary={tool.label} secondary={tool.description} />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
+      <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Typography variant="h6">Bildverarbeitung</Typography>
+        <Tooltip title="Bildtools anzeigen">
+          <IconButton
+            aria-label="Bildtools anzeigen"
+            size="small"
+            onClick={() => setToolsDialogOpen(true)}
+          >
+            <HelpOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+      <Dialog
+        open={toolsDialogOpen}
+        onClose={() => setToolsDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby="image-tools-dialog-title"
+      >
+        <DialogTitle id="image-tools-dialog-title">Bildverarbeitung</DialogTitle>
+        <DialogContent dividers>
+          <List>
+            {IMAGE_TOOLS.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <ListItem key={tool.path} disablePadding>
+                  <ListItemButton
+                    component={RouterLink}
+                    to={tool.path}
+                    onClick={() => setToolsDialogOpen(false)}
+                  >
+                    <ListItemIcon>
+                      <Icon />
+                    </ListItemIcon>
+                    <ListItemText primary={tool.label} secondary={tool.description} />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </DialogContent>
+      </Dialog>
 
       <Divider sx={{ my: 3 }} />
 

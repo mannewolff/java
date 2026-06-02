@@ -203,6 +203,18 @@ Lokale Kontrolle vor jedem Push. Production ausschließlich via Pull Request.
 
 Vorfall 01.06.2026: #153–#157 wurden durch `Closes #N`-Commits beim `main`-Push verfrüht geschlossen und automatisch nach Done geschoben, obwohl sie nur auf dem Testserver (`main`) lagen. Seitdem gilt obige Konvention.
 
+### Pre-Push-Guard (#218)
+
+Ein versionierter Hook unter [`scripts/githooks/pre-push`](scripts/githooks/pre-push) blockt
+`git push`, wenn ein in den zu pushenden Commits referenziertes Issue (`#N`) im Project-Board
+auf **Backlog** liegt — die mechanische Absicherung der Regel „nur Ready/GO wird umgesetzt".
+Aktiviert via `core.hooksPath=scripts/githooks` (setzt `scripts/local-dev-setup.sh`).
+
+- **Backlog-Issue referenziert** → Push abgebrochen. Lösung: Issue nach **Ready** ziehen (GO),
+  **nicht** mit `--no-verify` umgehen.
+- **gh fehlt / Board nicht erreichbar / Issue nicht am Board** → Warnung, Push läuft (fail-open,
+  damit Netzausfälle die Arbeit nicht blockieren).
+
 ### Warnsignale (nicht ignorieren)
 
 - Fehlgeschlagene Branch-Protection-Regeln

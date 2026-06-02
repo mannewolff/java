@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 
 import org.mwolff.api.image.application.GetImageUseCase;
+import org.mwolff.api.image.application.ListImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
 import org.mwolff.api.image.domain.InvalidImageUploadException;
 import org.mwolff.api.image.domain.StoredImage;
@@ -25,10 +26,22 @@ public class ImageController {
 
   private final UploadImageUseCase uploadUseCase;
   private final GetImageUseCase getUseCase;
+  private final ListImagesUseCase listUseCase;
 
-  public ImageController(final UploadImageUseCase uploadUseCase, final GetImageUseCase getUseCase) {
+  public ImageController(
+      final UploadImageUseCase uploadUseCase,
+      final GetImageUseCase getUseCase,
+      final ListImagesUseCase listUseCase) {
     this.uploadUseCase = uploadUseCase;
     this.getUseCase = getUseCase;
+    this.listUseCase = listUseCase;
+  }
+
+  @GetMapping
+  public ImageListResponse list(
+      @RequestParam(required = false) final Integer limit,
+      @RequestParam(required = false) final Integer offset) {
+    return ImageListResponse.from(listUseCase.execute(limit, offset));
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

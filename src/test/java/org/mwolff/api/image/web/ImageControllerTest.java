@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mwolff.api.image.application.GetImageUseCase;
+import org.mwolff.api.image.application.ListImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
+import org.mwolff.api.image.domain.ImageMetadata;
 import org.mwolff.api.image.domain.ImageNotFoundException;
+import org.mwolff.api.image.domain.ImagePage;
 import org.mwolff.api.image.domain.InvalidImageUploadException;
 import org.mwolff.api.image.domain.StoredImage;
 import org.springframework.http.MediaType;
@@ -32,13 +36,14 @@ class ImageControllerTest {
 
   @Mock private UploadImageUseCase uploadUseCase;
   @Mock private GetImageUseCase getUseCase;
+  @Mock private ListImagesUseCase listUseCase;
 
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new ImageController(uploadUseCase, getUseCase))
+        MockMvcBuilders.standaloneSetup(new ImageController(uploadUseCase, getUseCase, listUseCase))
             .setControllerAdvice(new ImageExceptionHandler())
             .build();
   }
@@ -99,5 +104,35 @@ class ImageControllerTest {
     when(getUseCase.execute(9L)).thenThrow(new ImageNotFoundException(9));
 
     mockMvc.perform(get("/api/images/9")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void listReturnsMetadataPageWithTotal() throws Exception {
+    when(listUseCase.execute(null, null))
+        .thenReturn(
+            new ImagePage(
+                List.of(
+                    new ImageMetadata(
+                        3L, "image/png", 123, Instant.parse("2026-06-01T00:00:00Z"), null)),
+                1L));
+
+    mockMvc
+        .perform(get("/api/images"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.images[0].id").value(3))
+        .andExpect(jsonPath("$.images[0].contentType").value("image/png"))
+        .andExpect(jsonPath("$.images[0].sizeBytes").value(123))
+        .andExpect(jsonPath("$.images[0].hash").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  void listForwardsLimitAndOffset() throws Exception {
+    when(listUseCase.execute(10, 20)).thenReturn(new ImagePage(List.of(), 0L));
+
+    mockMvc
+        .perform(get("/api/images?limit=10&offset=20"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(0));
   }
 }

@@ -5,6 +5,21 @@ export interface UploadedImageInfo {
   url: string;
 }
 
+/** Metadaten eines gespeicherten Bildes ohne Binärdaten (#198). `hash` ist erst ab #199 gesetzt. */
+export interface ImageMetadata {
+  id: number;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  hash: string | null;
+}
+
+/** Paginierte Galerie-Antwort des Backends (#198). */
+export interface ImageListResponse {
+  images: ImageMetadata[];
+  total: number;
+}
+
 /** Erlaubte Upload-Formate (deckt sich mit dem Backend-Whitelist, #182). */
 export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 /** Maximale Upload-Größe: 5 MB (Backend lehnt Größeres mit 413 ab). */
@@ -38,4 +53,31 @@ export async function fetchImageObjectUrl(id: number): Promise<string> {
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);
+}
+
+/** Listet Bild-Metadaten paginiert (ohne Binärdaten) für Galerie-Ansichten (#198). */
+export async function listImages(limit?: number, offset?: number): Promise<ImageListResponse> {
+  const search = new URLSearchParams();
+  if (limit != null) search.set('limit', String(limit));
+  if (offset != null) search.set('offset', String(offset));
+  const query = search.toString();
+  const response = await authedFetch(`/api/images${query ? `?${query}` : ''}`);
+  if (!response.ok) {
+    throw new ApiError(response.status, `Galerie konnte nicht geladen werden (${response.status})`, null);
+  }
+  return (await response.json()) as ImageListResponse;
+}
+
+/**
+ * Lädt ein gespeichertes Bild authentifiziert als {@link File}, damit es wie ein lokaler Upload
+ * weiterverarbeitet werden kann (z. B. resizeImage). Der Serve-Endpoint ist bearer-only (#182).
+ */
+export async function fetchImageFile(id: number): Promise<File> {
+  const response = await authedFetch(`/api/images/${id}`);
+  if (!response.ok) {
+    throw new ApiError(response.status, `Bild konnte nicht geladen werden (${response.status})`, null);
+  }
+  const blob = await response.blob();
+  const ext = blob.type.split('/')[1] ?? 'bin';
+  return new File([blob], `image-${id}.${ext}`, { type: blob.type });
 }

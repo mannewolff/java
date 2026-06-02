@@ -6,7 +6,7 @@ vi.mock('./client', async () => {
 });
 
 import { authedFetch, ApiError } from './client';
-import { fetchImageObjectUrl, uploadImage } from './images';
+import { fetchImageFile, fetchImageObjectUrl, listImages, uploadImage } from './images';
 
 const fetchMock = authedFetch as ReturnType<typeof vi.fn>;
 
@@ -60,5 +60,61 @@ describe('fetchImageObjectUrl', () => {
   it('wirft ApiError bei Fehlerstatus', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 });
     await expect(fetchImageObjectUrl(9)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('listImages (#198)', () => {
+  afterEach(() => fetchMock.mockReset());
+
+  it('lädt eine Seite mit limit/offset und liefert images + total', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        images: [{ id: 1, contentType: 'image/png', sizeBytes: 10, createdAt: 'x', hash: null }],
+        total: 1,
+      }),
+    });
+
+    const res = await listImages(24, 0);
+
+    expect(res.total).toBe(1);
+    expect(res.images).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/images?limit=24&offset=0');
+  });
+
+  it('lässt Query-Parameter weg, wenn nicht gesetzt', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ images: [], total: 0 }) });
+
+    await listImages();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/images');
+  });
+
+  it('wirft ApiError bei Fehlerstatus', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+    await expect(listImages()).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('fetchImageFile (#198)', () => {
+  afterEach(() => fetchMock.mockReset());
+
+  it('liefert ein File mit Endung aus dem Content-Type', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['x'], { type: 'image/webp' }),
+    });
+
+    const file = await fetchImageFile(7);
+
+    expect(file).toBeInstanceOf(File);
+    expect(file.type).toBe('image/webp');
+    expect(file.name).toBe('image-7.webp');
+    expect(fetchMock).toHaveBeenCalledWith('/api/images/7');
+  });
+
+  it('wirft ApiError bei Fehlerstatus', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+    await expect(fetchImageFile(9)).rejects.toBeInstanceOf(ApiError);
   });
 });

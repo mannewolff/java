@@ -14,11 +14,14 @@ import {
   Stack,
   Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Toolbar,
   Tooltip,
   Typography,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CollectionsIcon from '@mui/icons-material/Collections';
 import CompressIcon from '@mui/icons-material/Compress';
 import DownloadIcon from '@mui/icons-material/Download';
 import LinkIcon from '@mui/icons-material/Link';
@@ -26,8 +29,11 @@ import LinkOffIcon from '@mui/icons-material/LinkOff';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { ApiError } from '../../api/client';
+import { fetchImageFile } from '../../api/images';
 import { resizeImage, type OutputFormat } from '../../api/resize';
 import { useNotify } from '../../notify/NotifyProvider';
+import ImageGallery from '../../components/ImageGallery';
+import InteractiveResizeFrame from './components/InteractiveResizeFrame';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -60,7 +66,11 @@ function errorMessage(err: unknown): string {
   return 'Unbekannter Fehler';
 }
 
+type ImageSource = 'upload' | 'db';
+
 export default function ResizePage() {
+  const [source, setSource] = useState<ImageSource>('upload');
+  const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
@@ -131,6 +141,7 @@ export default function ResizePage() {
     setTargetW('');
     setTargetH('');
     setResultUrl(null);
+    setSelectedDbId(null);
   };
 
   const acceptFile = (incoming: File) => {
@@ -150,6 +161,23 @@ export default function ResizePage() {
     setTargetW('');
     setTargetH('');
     setSourceUrl(URL.createObjectURL(incoming));
+  };
+
+  const selectFromDb = async (id: number) => {
+    setSelectedDbId(id);
+    try {
+      const loaded = await fetchImageFile(id);
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+      if (resultUrl) URL.revokeObjectURL(resultUrl);
+      setFile(loaded);
+      setResultUrl(null);
+      setNatural(null);
+      setTargetW('');
+      setTargetH('');
+      setSourceUrl(URL.createObjectURL(loaded));
+    } catch (err) {
+      notify.error(errorMessage(err));
+    }
   };
 
   const handleImageLoad = (event: ChangeEvent<HTMLImageElement>) => {
@@ -222,41 +250,69 @@ export default function ResizePage() {
         proportional. Standardmäßig wird nur verkleinert.
       </Typography>
 
-      <Paper
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
+      <ToggleButtonGroup
+        value={source}
+        exclusive
+        onChange={(_, next: ImageSource | null) => {
+          if (next) setSource(next);
         }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        sx={{
-          p: 4,
-          mb: 3,
-          textAlign: 'center',
-          cursor: 'pointer',
-          borderStyle: 'dashed',
-          borderWidth: 2,
-          borderColor: isDragging ? 'primary.main' : 'divider',
-          bgcolor: isDragging ? 'action.hover' : 'background.paper',
-        }}
-        data-testid="drop-zone"
+        size="small"
+        sx={{ mb: 2 }}
+        aria-label="Bildquelle"
       >
-        <CompressIcon sx={{ fontSize: 32, color: 'text.secondary', mr: 1, verticalAlign: 'middle' }} />
-        <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-        <Typography>Bild hier ablegen oder klicken zum Auswählen</Typography>
-        <Typography variant="caption" color="text.secondary">
-          PNG, JPEG oder WEBP, max 10 MB
-        </Typography>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPTED_TYPES.join(',')}
-          onChange={handleInputChange}
-          hidden
-          aria-label="Bild auswählen"
-        />
-      </Paper>
+        <ToggleButton value="upload" aria-label="Hochladen">
+          <CloudUploadIcon sx={{ mr: 1 }} fontSize="small" />
+          Hochladen
+        </ToggleButton>
+        <ToggleButton value="db" aria-label="Aus Datenbank laden">
+          <CollectionsIcon sx={{ mr: 1 }} fontSize="small" />
+          Aus Datenbank laden
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {source === 'upload' ? (
+        <Paper
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          sx={{
+            p: 4,
+            mb: 3,
+            textAlign: 'center',
+            cursor: 'pointer',
+            borderStyle: 'dashed',
+            borderWidth: 2,
+            borderColor: isDragging ? 'primary.main' : 'divider',
+            bgcolor: isDragging ? 'action.hover' : 'background.paper',
+          }}
+          data-testid="drop-zone"
+        >
+          <CompressIcon
+            sx={{ fontSize: 32, color: 'text.secondary', mr: 1, verticalAlign: 'middle' }}
+          />
+          <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+          <Typography>Bild hier ablegen oder klicken zum Auswählen</Typography>
+          <Typography variant="caption" color="text.secondary">
+            PNG, JPEG oder WEBP, max 10 MB
+          </Typography>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPTED_TYPES.join(',')}
+            onChange={handleInputChange}
+            hidden
+            aria-label="Bild auswählen"
+          />
+        </Paper>
+      ) : (
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <ImageGallery onSelect={(id) => void selectFromDb(id)} selectedId={selectedDbId} />
+        </Paper>
+      )}
 
       {/* Hidden image to read natural dimensions */}
       {sourceUrl && (
@@ -275,6 +331,24 @@ export default function ResizePage() {
             <Typography gutterBottom>
               Original: <strong>{natural.w}×{natural.h}</strong> px
             </Typography>
+            {sourceUrl &&
+              Number.isFinite(Number.parseInt(targetW, 10)) &&
+              Number.isFinite(Number.parseInt(targetH, 10)) && (
+                <Box sx={{ mb: 2 }}>
+                  <InteractiveResizeFrame
+                    imageUrl={sourceUrl}
+                    naturalWidth={natural.w}
+                    naturalHeight={natural.h}
+                    width={Number.parseInt(targetW, 10) || 1}
+                    height={Number.parseInt(targetH, 10) || 1}
+                    aspectLocked={aspectLocked}
+                    onChange={({ width, height }) => {
+                      setTargetW(String(width));
+                      setTargetH(String(height));
+                    }}
+                  />
+                </Box>
+              )}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
               <TextField
                 label="Neue Breite (px)"

@@ -10,4 +10,13 @@ public interface ImageRepository {
 
   /** Lädt ein Bild per id; leer, wenn keines existiert. */
   Optional<StoredImage> findById(long id);
+
+  /**
+   * Liefert Bild-Metadaten (ohne Binärdaten) absteigend nach id, beschränkt auf {@code limit} ab
+   * {@code offset}. Für Galerie-Ansichten (#198).
+   */
+  java.util.List<ImageMetadata> findMetadata(int limit, int offset);
+
+  /** Gesamtzahl gespeicherter Bilder — Basis für die Paginierung (#198). */
+  long count();
 }

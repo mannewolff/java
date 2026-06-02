@@ -368,6 +368,8 @@
                                 -->
                                 <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageEntity.class</exclude>
                                 <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageJpaRepository.class</exclude>
+                                <!-- Reine Spring-Data-Projektion ohne eigene Logik (#198). -->
+                                <exclude>org/mwolff/api/image/infrastructure/persistence/StoredImageMetadataView.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>

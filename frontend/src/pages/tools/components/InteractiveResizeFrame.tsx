@@ -148,15 +148,11 @@ export default function InteractiveResizeFrame({
           mx: 'auto',
           userSelect: 'none',
           touchAction: 'none',
+          // Gestrichelter Rahmen zeigt die Originalgröße als Referenz, während das Bild schrumpft.
+          outline: '1px dashed',
+          outlineColor: 'divider',
         }}
       >
-        <Box
-          component="img"
-          src={imageUrl}
-          alt="Original"
-          draggable={false}
-          sx={{ width: displayWidth, height: displayHeight, display: 'block', opacity: 0.55 }}
-        />
         <Box
           data-testid="resize-frame"
           sx={{
@@ -168,9 +164,17 @@ export default function InteractiveResizeFrame({
             border: '2px solid',
             borderColor: 'primary.main',
             boxSizing: 'border-box',
-            bgcolor: 'rgba(25,118,210,0.12)',
           }}
         >
+          {/* Das Bild selbst wird live auf die Zielmaße skaliert (stretcht bei entkoppeltem
+              Seitenverhältnis sichtbar) — es IST der Rahmen, kein Overlay mehr (#201). */}
+          <Box
+            component="img"
+            src={imageUrl}
+            alt="Vorschau der Zielgröße"
+            draggable={false}
+            sx={{ width: '100%', height: '100%', display: 'block' }}
+          />
           {RESIZE_HANDLES.map((h) => (
             <Box
               key={h}

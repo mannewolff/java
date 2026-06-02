@@ -25,7 +25,7 @@ function renderFrame(over: Partial<React.ComponentProps<typeof InteractiveResize
  * Pointer-Event-Typ behält die Koordinaten (gleiches Muster wie InteractiveCropFrame.test).
  */
 function firePointer(
-  target: Element,
+  target: Element | Window,
   type: 'pointerdown' | 'pointermove' | 'pointerup',
   init: { clientX: number; clientY: number },
 ): void {
@@ -36,15 +36,17 @@ function firePointer(
     clientY: init.clientY,
   });
   Object.defineProperty(event, 'pointerId', { configurable: true, value: 1 });
-  fireEvent(target, event);
+  fireEvent(target as Element, event);
 }
 
 // scale = min(640, naturalWidth)/naturalWidth = 640/1280 = 0.5.
+// pointerdown auf dem Griff, move/up auf `window` — so verhält sich der echte Browser, sobald der
+// Zeiger den 12px-Griff verlässt (#201). Mit den alten Griff-Handlern wäre onChange nie gefeuert.
 function drag(testId: string, dx: number, dy: number) {
   const handle = screen.getByTestId(testId);
   firePointer(handle, 'pointerdown', { clientX: 0, clientY: 0 });
-  firePointer(handle, 'pointermove', { clientX: dx, clientY: dy });
-  firePointer(handle, 'pointerup', { clientX: dx, clientY: dy });
+  firePointer(window, 'pointermove', { clientX: dx, clientY: dy });
+  firePointer(window, 'pointerup', { clientX: dx, clientY: dy });
 }
 
 describe('InteractiveResizeFrame (#198)', () => {

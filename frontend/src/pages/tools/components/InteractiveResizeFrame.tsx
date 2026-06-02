@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { Box, Typography } from '@mui/material';
 
@@ -65,30 +65,28 @@ export default function InteractiveResizeFrame({
   const frameDisplayW = clamp(width * scale, 0, displayWidth);
   const frameDisplayH = clamp(height * scale, 0, displayHeight);
 
-  const handlePointerDown = (handle: ResizeHandle) => (e: PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* jsdom / ältere Browser ohne Pointer-Capture */
-    }
-    dragRef.current = {
-      handle,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startWidth: width,
-      startHeight: height,
-    };
-    setDragging(true);
-  };
+  // Move-/Up-Listener hängen während des Drags an `window`, nicht am Griff (#201): die 12px-Griffe
+  // sind zu klein, als dass `pointermove` zuverlässig auf ihnen landet, sobald der Zeiger sie
+  // verlässt — Pointer-Capture allein war hier nicht robust genug. Die exakt registrierten
+  // Closures liegen im Ref, damit removeEventListener sie wieder trifft.
+  const listenersRef = useRef<{ move: EventListener; up: EventListener } | null>(null);
 
-  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+  function detach(): void {
+    const l = listenersRef.current;
+    if (l) {
+      window.removeEventListener('pointermove', l.move);
+      window.removeEventListener('pointerup', l.up);
+      window.removeEventListener('pointercancel', l.up);
+      listenersRef.current = null;
+    }
+  }
+
+  function applyMove(clientX: number, clientY: number): void {
     const drag = dragRef.current;
     if (!drag) return;
     const { fx, fy } = axisFactors(drag.handle);
-    const dxNatural = (e.clientX - drag.startClientX) / scale;
-    const dyNatural = (e.clientY - drag.startClientY) / scale;
+    const dxNatural = (clientX - drag.startClientX) / scale;
+    const dyNatural = (clientY - drag.startClientY) / scale;
 
     let nextWidth = drag.startWidth;
     let nextHeight = drag.startHeight;
@@ -108,19 +106,37 @@ export default function InteractiveResizeFrame({
     }
 
     onChange({ width: Math.round(nextWidth), height: Math.round(nextHeight) });
+  }
+
+  const handlePointerDown = (handle: ResizeHandle) => (e: PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = {
+      handle,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startWidth: width,
+      startHeight: height,
+    };
+    setDragging(true);
+    detach();
+    const move: EventListener = (ev) => {
+      const pe = ev as globalThis.PointerEvent;
+      applyMove(pe.clientX, pe.clientY);
+    };
+    const up: EventListener = () => {
+      dragRef.current = null;
+      setDragging(false);
+      detach();
+    };
+    listenersRef.current = { move, up };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   };
 
-  const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
-    try {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-    } catch {
-      /* siehe handlePointerDown */
-    }
-    dragRef.current = null;
-    setDragging(false);
-  };
+  // Bei Unmount mitten im Drag die globalen Listener sicher entfernen.
+  useEffect(() => detach, []);
 
   return (
     <Box>
@@ -166,9 +182,6 @@ export default function InteractiveResizeFrame({
               aria-valuenow={Math.round(width)}
               data-testid={`resize-handle-${h}`}
               onPointerDown={handlePointerDown(h)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
               sx={{
                 position: 'absolute',
                 width: 12,

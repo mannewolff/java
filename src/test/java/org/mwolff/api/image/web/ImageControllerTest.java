@@ -2,6 +2,7 @@ package org.mwolff.api.image.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mwolff.api.image.application.CheckImageHashUseCase;
+import org.mwolff.api.image.application.GetImageThumbnailUseCase;
 import org.mwolff.api.image.application.GetImageUseCase;
 import org.mwolff.api.image.application.ListImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
@@ -40,6 +42,7 @@ class ImageControllerTest {
   @Mock private GetImageUseCase getUseCase;
   @Mock private ListImagesUseCase listUseCase;
   @Mock private CheckImageHashUseCase checkHashUseCase;
+  @Mock private GetImageThumbnailUseCase thumbnailUseCase;
 
   private MockMvc mockMvc;
 
@@ -47,7 +50,8 @@ class ImageControllerTest {
   void setUp() {
     mockMvc =
         MockMvcBuilders.standaloneSetup(
-                new ImageController(uploadUseCase, getUseCase, listUseCase, checkHashUseCase))
+                new ImageController(
+                    uploadUseCase, getUseCase, listUseCase, checkHashUseCase, thumbnailUseCase))
             .setControllerAdvice(new ImageExceptionHandler())
             .build();
   }
@@ -178,5 +182,35 @@ class ImageControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"hash\":\"not-a-hash\"}"))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void thumbnailReturnsPngWithCacheHeader() throws Exception {
+    final byte[] png = {(byte) 0x89, 0x50, 0x4e, 0x47};
+    when(thumbnailUseCase.execute(5L, null)).thenReturn(png);
+
+    mockMvc
+        .perform(get("/api/images/5/thumbnail"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.IMAGE_PNG))
+        .andExpect(
+            header().string("Cache-Control", org.hamcrest.Matchers.containsString("max-age")))
+        .andExpect(content().bytes(png));
+  }
+
+  @Test
+  void thumbnailForwardsSizeParam() throws Exception {
+    when(thumbnailUseCase.execute(5L, 64)).thenReturn(new byte[] {1});
+
+    mockMvc.perform(get("/api/images/5/thumbnail?size=64")).andExpect(status().isOk());
+
+    verify(thumbnailUseCase).execute(5L, 64);
+  }
+
+  @Test
+  void thumbnailMissingReturns404() throws Exception {
+    when(thumbnailUseCase.execute(9L, null)).thenThrow(new ImageNotFoundException(9));
+
+    mockMvc.perform(get("/api/images/9/thumbnail")).andExpect(status().isNotFound());
   }
 }

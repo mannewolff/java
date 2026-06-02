@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 
-import { fetchImageObjectUrl, listImages, type ImageMetadata } from '../api/images';
+import { fetchThumbnailObjectUrl, listImages, type ImageMetadata } from '../api/images';
 import { ApiError } from '../api/client';
 
 const THUMB_SIZE = 80;
@@ -16,9 +16,8 @@ export interface ImageGalleryProps {
 
 /**
  * Wiederverwendbare Galerie gespeicherter Bilder als 80×80-Thumbnails (#198). Die Thumbnails werden
- * vorerst als Vollbild über den bearer-only Serve-Endpoint geladen (Object-URLs); ein dedizierter
- * server-seitiger Thumbnail-Endpoint folgt (#200). Genutzt von ResizePage (#198) und dem
- * WidgetImage-Galerie-Modal (#199).
+ * über den server-seitig skalierten Thumbnail-Endpoint geladen (#200, bearer-only, als Object-URL).
+ * Genutzt von ResizePage (#198) und dem WidgetImage-Galerie-Modal (#199).
  */
 export default function ImageGallery({ onSelect, selectedId }: ImageGalleryProps): JSX.Element {
   const [items, setItems] = useState<ImageMetadata[]>([]);
@@ -121,7 +120,7 @@ function GalleryThumb({ image, selected, onSelect }: GalleryThumbProps): JSX.Ele
   useEffect(() => {
     let active = true;
     let created: string | null = null;
-    fetchImageObjectUrl(image.id)
+    fetchThumbnailObjectUrl(image.id)
       .then((u) => {
         if (active) {
           created = u;

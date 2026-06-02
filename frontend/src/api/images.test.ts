@@ -10,6 +10,7 @@ import {
   checkImageHash,
   fetchImageFile,
   fetchImageObjectUrl,
+  fetchThumbnailObjectUrl,
   listImages,
   sha256Hex,
   uploadImage,
@@ -67,6 +68,33 @@ describe('fetchImageObjectUrl', () => {
   it('wirft ApiError bei Fehlerstatus', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 });
     await expect(fetchImageObjectUrl(9)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('fetchThumbnailObjectUrl (#200)', () => {
+  afterEach(() => fetchMock.mockReset());
+
+  it('lädt den Thumbnail-Endpoint mit size-Parameter', async () => {
+    const spy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:thumb');
+    fetchMock.mockResolvedValue({ ok: true, blob: async () => new Blob(['x']) });
+
+    await expect(fetchThumbnailObjectUrl(5)).resolves.toBe('blob:thumb');
+    expect(fetchMock).toHaveBeenCalledWith('/api/images/5/thumbnail?size=160');
+    spy.mockRestore();
+  });
+
+  it('reicht eine abweichende Größe durch', async () => {
+    const spy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:thumb');
+    fetchMock.mockResolvedValue({ ok: true, blob: async () => new Blob(['x']) });
+
+    await fetchThumbnailObjectUrl(5, 64);
+    expect(fetchMock).toHaveBeenCalledWith('/api/images/5/thumbnail?size=64');
+    spy.mockRestore();
+  });
+
+  it('wirft ApiError bei Fehlerstatus', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+    await expect(fetchThumbnailObjectUrl(9)).rejects.toBeInstanceOf(ApiError);
   });
 });
 

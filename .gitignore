@@ -55,6 +55,10 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Versehentlich im Repo-Root angelegte Node-/Vite-Artefakte (kein npm-Projekt im Root)
+/node_modules/
+/.vite/
+
 # Python-tools build artifacts
 python-tools/.venv/
 python-tools/__pycache__/

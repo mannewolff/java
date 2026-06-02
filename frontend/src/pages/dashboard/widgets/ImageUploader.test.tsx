@@ -10,7 +10,7 @@ vi.mock('../../../api/images', async () => {
     checkImageHash: vi.fn(),
     sha256Hex: vi.fn(),
     listImages: vi.fn(),
-    fetchImageObjectUrl: vi.fn(),
+    fetchThumbnailObjectUrl: vi.fn(),
   };
 });
 
@@ -19,7 +19,7 @@ import {
   checkImageHash,
   sha256Hex,
   listImages,
-  fetchImageObjectUrl,
+  fetchThumbnailObjectUrl,
 } from '../../../api/images';
 import ImageUploader from './ImageUploader';
 
@@ -27,7 +27,7 @@ const upload = uploadImage as ReturnType<typeof vi.fn>;
 const checkHash = checkImageHash as ReturnType<typeof vi.fn>;
 const hashOf = sha256Hex as ReturnType<typeof vi.fn>;
 const list = listImages as ReturnType<typeof vi.fn>;
-const fetchUrl = fetchImageObjectUrl as ReturnType<typeof vi.fn>;
+const fetchUrl = fetchThumbnailObjectUrl as ReturnType<typeof vi.fn>;
 
 if (typeof URL.createObjectURL !== 'function') {
   URL.createObjectURL = () => 'blob:preview';

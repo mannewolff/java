@@ -7,6 +7,7 @@ import java.util.Optional;
 import jakarta.validation.Valid;
 
 import org.mwolff.api.image.application.CheckImageHashUseCase;
+import org.mwolff.api.image.application.GetImageThumbnailUseCase;
 import org.mwolff.api.image.application.GetImageUseCase;
 import org.mwolff.api.image.application.ListImagesUseCase;
 import org.mwolff.api.image.application.UploadImageUseCase;
@@ -33,16 +34,19 @@ public class ImageController {
   private final GetImageUseCase getUseCase;
   private final ListImagesUseCase listUseCase;
   private final CheckImageHashUseCase checkHashUseCase;
+  private final GetImageThumbnailUseCase thumbnailUseCase;
 
   public ImageController(
       final UploadImageUseCase uploadUseCase,
       final GetImageUseCase getUseCase,
       final ListImagesUseCase listUseCase,
-      final CheckImageHashUseCase checkHashUseCase) {
+      final CheckImageHashUseCase checkHashUseCase,
+      final GetImageThumbnailUseCase thumbnailUseCase) {
     this.uploadUseCase = uploadUseCase;
     this.getUseCase = getUseCase;
     this.listUseCase = listUseCase;
     this.checkHashUseCase = checkHashUseCase;
+    this.thumbnailUseCase = thumbnailUseCase;
   }
 
   @GetMapping
@@ -82,5 +86,15 @@ public class ImageController {
         .contentType(MediaType.parseMediaType(image.contentType()))
         .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePrivate())
         .body(image.data());
+  }
+
+  @GetMapping("/{id}/thumbnail")
+  public ResponseEntity<byte[]> thumbnail(
+      @PathVariable final long id, @RequestParam(required = false) final Integer size) {
+    final byte[] png = thumbnailUseCase.execute(id, size);
+    return ResponseEntity.ok()
+        .contentType(MediaType.IMAGE_PNG)
+        .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePrivate())
+        .body(png);
   }
 }

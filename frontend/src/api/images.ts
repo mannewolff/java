@@ -55,6 +55,20 @@ export async function fetchImageObjectUrl(id: number): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
+/**
+ * Lädt ein server-seitig verkleinertes Thumbnail (PNG) authentifiziert als Object-URL (#200).
+ * Deutlich sparsamer als das Vollbild für Galerie-Ansichten. Aufrufer geben die URL via
+ * {@link URL.revokeObjectURL} wieder frei.
+ */
+export async function fetchThumbnailObjectUrl(id: number, size = 160): Promise<string> {
+  const response = await authedFetch(`/api/images/${id}/thumbnail?size=${size}`);
+  if (!response.ok) {
+    throw new ApiError(response.status, `Thumbnail konnte nicht geladen werden (${response.status})`, null);
+  }
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
 /** Listet Bild-Metadaten paginiert (ohne Binärdaten) für Galerie-Ansichten (#198). */
 export async function listImages(limit?: number, offset?: number): Promise<ImageListResponse> {
   const search = new URLSearchParams();

@@ -4,14 +4,14 @@ import userEvent from '@testing-library/user-event';
 
 vi.mock('../api/images', () => ({
   listImages: vi.fn(),
-  fetchImageObjectUrl: vi.fn(),
+  fetchThumbnailObjectUrl: vi.fn(),
 }));
 
 import ImageGallery from './ImageGallery';
-import { listImages, fetchImageObjectUrl, type ImageListResponse } from '../api/images';
+import { listImages, fetchThumbnailObjectUrl, type ImageListResponse } from '../api/images';
 
 const listMock = vi.mocked(listImages);
-const fetchUrlMock = vi.mocked(fetchImageObjectUrl);
+const fetchUrlMock = vi.mocked(fetchThumbnailObjectUrl);
 
 function page(ids: number[], total: number): ImageListResponse {
   return {

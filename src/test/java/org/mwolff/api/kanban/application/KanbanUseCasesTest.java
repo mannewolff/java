@@ -244,6 +244,10 @@ class KanbanUseCasesTest {
     verify(items).updatePosition(2L, 0); // b: 1 -> 0
     verify(items).updatePosition(3L, 1); // c: 2 -> 1
     verify(items, never()).updatePosition(4L, 2); // d bleibt
+    // Das verschobene Item selbst (a, position 0) darf NIE reindexiert werden — killt den
+    // Grenzwert-Mutanten `position > fromPosition` -> `>=` (#203).
+    verify(items, never())
+        .updatePosition(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.anyInt());
   }
 
   @Test
@@ -262,6 +266,10 @@ class KanbanUseCasesTest {
 
     verify(items).updatePosition(2L, 2); // b: 1 -> 2
     verify(items).updatePosition(3L, 3); // c: 2 -> 3
+    // Das verschobene Item selbst (d, position 3) darf NIE reindexiert werden — killt den
+    // Grenzwert-Mutanten `position < fromPosition` -> `<=` (#203).
+    verify(items, never())
+        .updatePosition(org.mockito.ArgumentMatchers.eq(4L), org.mockito.ArgumentMatchers.anyInt());
   }
 
   @Test
@@ -275,8 +283,12 @@ class KanbanUseCasesTest {
     given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of(a, b, c));
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-    new MoveItemUseCase(items, clock).execute(SUB_OWNER, 3L, KanbanColumn.BACKLOG, 99);
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 3L, KanbanColumn.BACKLOG, 99);
 
+    // Clamp auf max = size-1 = 2 (kein +1) und Early-Return liefert genau diese Position
+    // zurück (kein 0) — killt Math- und PrimitiveReturns-Mutanten (#203).
+    assertThat(moved.position()).isEqualTo(2);
     // Keine Reindex-Aufrufe, weil clamped (= 2) == fromPosition (= 2).
     verify(items, never())
         .updatePosition(
@@ -297,8 +309,12 @@ class KanbanUseCasesTest {
         .willReturn(List.of(x, y, z));
     given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-    new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.IN_PROGRESS, 1);
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.IN_PROGRESS, 1);
 
+    // Insert-Position (clamped = 1) wird unverändert zurückgegeben — killt PrimitiveReturns->0
+    // (#203).
+    assertThat(moved.position()).isEqualTo(1);
     verify(items, never()).updatePosition(10L, 0); // x bleibt
     verify(items).updatePosition(11L, 2); // y: 1 -> 2
     verify(items).updatePosition(12L, 3); // z: 2 -> 3
@@ -327,8 +343,11 @@ class KanbanUseCasesTest {
     final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
     given(items.findById(1L)).willReturn(Optional.of(a));
 
-    new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.BACKLOG, 0);
+    final KanbanItem result =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.BACKLOG, 0);
 
+    // Idempotenter No-op gibt das bestehende Item zurück (nicht null) (#203).
+    assertThat(result).isSameAs(a);
     verify(items, never())
         .updatePosition(
             org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
@@ -343,6 +362,26 @@ class KanbanUseCasesTest {
                 new MoveItemUseCase(items, clock)
                     .execute(SUB_OTHER, 1L, KanbanColumn.IN_PROGRESS, 0))
         .isInstanceOf(KanbanItemNotFoundException.class);
+  }
+
+  @Test
+  void moveCrossColumnDoesNotReindexItemAtRemovedPosition() {
+    // Quelle enthält ein Item GENAU auf der entfernten Position (1). Es darf nicht verschoben
+    // werden — killt den Grenzwert-Mutanten `position > removedPosition` -> `>=` (#203).
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem atGap = item(5, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem below = item(6, SUB_OWNER, KanbanColumn.BACKLOG, 2);
+    given(items.findById(2L)).willReturn(Optional.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
+        .willReturn(List.of(atGap, below));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.IN_PROGRESS)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    new MoveItemUseCase(items, clock).execute(SUB_OWNER, 2L, KanbanColumn.IN_PROGRESS, 0);
+
+    verify(items).updatePosition(6L, 1); // below (2) rutscht hoch
+    verify(items, never())
+        .updatePosition(org.mockito.ArgumentMatchers.eq(5L), org.mockito.ArgumentMatchers.anyInt());
   }
 
   // ----- archive ------------------------------------------------------------
@@ -379,9 +418,12 @@ class KanbanUseCasesTest {
     given(items.findById(2L))
         .willReturn(Optional.of(archivedItem(2, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
 
-    new RestoreItemUseCase(items).execute(SUB_OWNER, 2L);
+    final KanbanItem result = new RestoreItemUseCase(items).execute(SUB_OWNER, 2L);
 
     verify(items).restoreById(2L);
+    // Wiederhergestelltes Item wird zurückgegeben (nicht null) — killt NullReturnVals (#203).
+    assertThat(result).isNotNull();
+    assertThat(result.id()).isEqualTo(2L);
   }
 
   @Test
@@ -413,6 +455,23 @@ class KanbanUseCasesTest {
 
     verify(items).deleteById(2L);
     verify(items).updatePosition(3L, 1);
+  }
+
+  @Test
+  void forceDeleteDoesNotShiftItemAtGapPosition() {
+    // Ein Item GENAU auf der Lücken-Position (gap = 1) darf nicht verschoben werden — killt den
+    // Grenzwert-Mutanten `position > gap` -> `>=` (#203).
+    final KanbanItem atGap = item(5, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem below = item(6, SUB_OWNER, KanbanColumn.BACKLOG, 2);
+    given(items.findById(2L)).willReturn(Optional.of(item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
+        .willReturn(List.of(atGap, below));
+
+    new ForceDeleteItemUseCase(items).execute(SUB_OWNER, 2L);
+
+    verify(items).updatePosition(6L, 1); // below (2) rutscht hoch
+    verify(items, never())
+        .updatePosition(org.mockito.ArgumentMatchers.eq(5L), org.mockito.ArgumentMatchers.anyInt());
   }
 
   @Test

@@ -97,6 +97,18 @@ class UploadImageUseCaseTest {
   }
 
   @Test
+  void acceptsExactlyMaxSize() {
+    // Grenzwert-Mutant (#203): genau MAX_SIZE_BYTES muss durchlaufen ( > MAX, nicht >= ).
+    final UploadImageUseCase useCase = new UploadImageUseCase(repository);
+    when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0, StoredImage.class));
+    final byte[] atLimit = new byte[UploadImageUseCase.MAX_SIZE_BYTES];
+    atLimit[0] = 1;
+
+    assertThat(useCase.execute("image/png", atLimit).sizeBytes())
+        .isEqualTo(UploadImageUseCase.MAX_SIZE_BYTES);
+  }
+
+  @Test
   void acceptsAllWhitelistedTypes() {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
     when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0, StoredImage.class));

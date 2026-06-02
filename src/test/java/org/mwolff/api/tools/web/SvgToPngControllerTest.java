@@ -69,6 +69,21 @@ class SvgToPngControllerTest {
   }
 
   @Test
+  void shouldKeepLeadingDotFilenameAsBase() throws Exception {
+    // Dateiname ".svg" → lastIndexOf('.') == 0. Grenzwert-Mutant (#203): `dot > 0` -> `dot >= 0`
+    // würde die Basis auf "" kürzen ( -> ".png" ). Korrekt bleibt die ganze ".svg" als Basis.
+    given(useCase.execute(any(), any()))
+        .willReturn(new ToolImageResult(new byte[] {1}, MediaType.IMAGE_PNG_VALUE));
+    final MockMultipartFile file =
+        new MockMultipartFile("file", ".svg", "image/svg+xml", SVG_BYTES);
+
+    mockMvc
+        .perform(multipart("/api/tools/svg-to-png").file(file))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Disposition", "attachment; filename=\".svg.png\""));
+  }
+
+  @Test
   void shouldUseWidthOnlySuffixWhenHeightMissing() throws Exception {
     given(useCase.execute(any(), any()))
         .willReturn(new ToolImageResult(new byte[] {1}, MediaType.IMAGE_PNG_VALUE));

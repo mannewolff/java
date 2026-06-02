@@ -29,6 +29,9 @@ const TimeSeriesDetailPage = lazy(
 const IngestTokenSettingsPage = lazy(
   () => import('./pages/settings/IngestTokenSettingsPage'),
 );
+const MobileAuthSettingsPage = lazy(
+  () => import('./pages/settings/MobileAuthSettingsPage'),
+);
 
 export default function App() {
   return (
@@ -176,6 +179,14 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <IngestTokenSettingsPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings/mobile-auth"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <MobileAuthSettingsPage />
             </Suspense>
           }
         />

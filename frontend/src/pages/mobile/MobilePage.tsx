@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, Paper, Stack, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SmartphoneIcon from '@mui/icons-material/Smartphone';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 
 import { ApiError } from '../../api/client';
 import { createKanbanItem } from '../../api/kanban';
+import { clearMobileDevice, isMobileDevice } from '../../auth/mobileDevice';
+import { useAuth } from '../../auth/useAuth';
 import { useNotify } from '../../notify/NotifyProvider';
 
 const MAX_TITLE = 200;
@@ -22,6 +26,8 @@ function errorMessage(err: unknown): string {
  */
 export default function MobilePage(): JSX.Element {
   const notify = useNotify();
+  const { signOut } = useAuth();
+  const paired = isMobileDevice();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -45,8 +51,39 @@ export default function MobilePage(): JSX.Element {
     }
   };
 
+  const handleUnpair = (): void => {
+    clearMobileDevice();
+    notify.success('Kopplung aufgehoben');
+    signOut();
+  };
+
   return (
     <Box sx={{ maxWidth: 520, mx: 'auto' }}>
+      {paired && (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ mb: 2 }}
+        >
+          <Chip
+            icon={<SmartphoneIcon />}
+            label="Gerät gekoppelt (30 Tage)"
+            color="success"
+            variant="outlined"
+            size="small"
+          />
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<LinkOffIcon />}
+            onClick={handleUnpair}
+          >
+            Kopplung aufheben
+          </Button>
+        </Stack>
+      )}
       <Typography variant="h5" component="h1" gutterBottom>
         Item erstellen
       </Typography>

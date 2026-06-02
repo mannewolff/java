@@ -1,8 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AuthProvider as OidcAuthProvider, useAuth } from 'react-oidc-context';
+import {
+  AuthProvider as OidcAuthProvider,
+  useAuth,
+  type AuthProviderProps,
+} from 'react-oidc-context';
 
-import { oidcConfig } from './oidcConfig';
+import { isMobileDevice, markMobileDeviceFromUrl } from './mobileDevice';
+import { buildOidcConfig } from './oidcConfig';
 import { setOnAuthExpired, setTokenGetter } from './tokenBridge';
 
 // Wrappt die App im react-oidc-context AuthProvider und verbindet den
@@ -23,8 +28,16 @@ function AuthBridge({ children }: { children: ReactNode }): JSX.Element {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
+  // Einmalig beim Mount: Pairing-Flag aus der URL auswerten und die passende
+  // Config (Mobile = localStorage + offline_access, sonst Desktop) festlegen.
+  // useState-Initializer läuft genau einmal und stabil über alle Re-Renders.
+  const [config] = useState<AuthProviderProps>(() => {
+    markMobileDeviceFromUrl();
+    return buildOidcConfig(isMobileDevice());
+  });
+
   return (
-    <OidcAuthProvider {...oidcConfig}>
+    <OidcAuthProvider {...config}>
       <AuthBridge>{children}</AuthBridge>
     </OidcAuthProvider>
   );

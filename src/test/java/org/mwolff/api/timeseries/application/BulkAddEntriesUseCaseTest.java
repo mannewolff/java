@@ -134,4 +134,19 @@ class BulkAddEntriesUseCaseTest {
         .hasMessageContaining("too many rows");
     verify(entries, never()).saveAll(any());
   }
+
+  @Test
+  void acceptsExactlyMaxRows() {
+    // Grenzwert-Mutant (#203): genau MAX_ROWS muss noch durchlaufen ( > MAX_ROWS, nicht >= ).
+    given(timeSeries.findById(1L)).willReturn(Optional.of(owned(TimeSeriesDataType.DECIMAL)));
+    given(entries.saveAll(any())).willAnswer(inv -> inv.getArgument(0));
+    final List<BulkEntry> exactly = new java.util.ArrayList<>();
+    for (int i = 0; i < BulkAddEntriesUseCase.MAX_ROWS; i++) {
+      exactly.add(new BulkEntry(Instant.EPOCH.plusSeconds(i), BigDecimal.ONE));
+    }
+
+    final int inserted = new BulkAddEntriesUseCase(timeSeries, entries).execute(SUB, 1L, exactly);
+
+    assertThat(inserted).isEqualTo(BulkAddEntriesUseCase.MAX_ROWS);
+  }
 }

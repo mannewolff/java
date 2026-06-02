@@ -419,6 +419,15 @@
                       False-Positive-Violations.
                     -->
                     <configLocation>google_checks.xml</configLocation>
+                    <!--
+                      Suppressions (#204): unterdrueckt die gegenueber Spotless redundante
+                      CustomImportOrder-Regel projektweit. google_checks.xml enthaelt einen
+                      SuppressionFilter, der die Datei ueber die Property
+                      org.checkstyle.google.suppressionfilter.config liest — daher der
+                      passende suppressionsFileExpression.
+                    -->
+                    <suppressionsLocation>infra/checkstyle-suppressions.xml</suppressionsLocation>
+                    <suppressionsFileExpression>org.checkstyle.google.suppressionfilter.config</suppressionsFileExpression>
                     <failOnViolation>true</failOnViolation>
                     <failsOnError>true</failsOnError>
                     <logViolationsToConsole>true</logViolationsToConsole>
@@ -661,8 +670,23 @@
                             <targetClasses>
                                 <param>org.mwolff.api.*</param>
                             </targetClasses>
+                            <!--
+                              Kategorie B (#203): Mutationstests fokussieren auf die fachlich
+                              kritischen Schichten Domain + Application + Web-Controller/Handler.
+                              Ausgeschlossen werden Infrastruktur (Entities/Repositories/Adapter/
+                              Configs/Filter/Crypto/Scaling) und reines Bean-Wiring/Plumbing — diese
+                              sind über JaCoCo (Unit) bzw. Testcontainers-ITs abgedeckt und tragen
+                              keine eigenständige Branch-Logik, die ein Mutant sinnvoll prüfen
+                              könnte. Deckt sich mit der JaCoCo-Exclusion-Liste oben.
+                            -->
                             <excludedClasses>
                                 <param>org.mwolff.api.ApiApplication</param>
+                                <param>org.mwolff.api.*.infrastructure.*</param>
+                                <param>org.mwolff.api.common.OpenApiConfig</param>
+                                <param>org.mwolff.api.ingest.web.IngestSecurityConfig</param>
+                                <param>org.mwolff.api.timeseries.web.CsvBulkParser*</param>
+                                <param>org.mwolff.api.ingest.web.IngestTokenAuthFilter*</param>
+                                <param>org.mwolff.api.ingest.web.IngestRateLimitFilter*</param>
                             </excludedClasses>
                             <!--
                               IT-Tests (Testcontainers+Docker) werden aus PIT ausgeschlossen.
@@ -692,6 +716,11 @@
                             <mutationThreshold>70</mutationThreshold>
                             <testStrengthThreshold>90</testStrengthThreshold>
                             <timestampedReports>false</timestampedReports>
+                            <!-- XML zusätzlich zum HTML-Report, um Survivor maschinell zu parsen (#203). -->
+                            <outputFormats>
+                                <param>HTML</param>
+                                <param>XML</param>
+                            </outputFormats>
                         </configuration>
                         <executions>
                             <execution>

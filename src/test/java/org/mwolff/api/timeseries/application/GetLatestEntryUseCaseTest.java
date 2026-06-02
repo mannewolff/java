@@ -65,6 +65,29 @@ class GetLatestEntryUseCaseTest {
   }
 
   @Test
+  void throwsForForeignEvenWhenEntriesExist() {
+    // Killt den Owner-Filter-Mutanten (#203): nur mit nicht-leeren Entries ist der Filter der
+    // EINZIGE Pfad zu NotFound — bei leeren Entries würde der orElseThrow ohnehin greifen.
+    given(timeSeries.findById(1L))
+        .willReturn(
+            Optional.of(
+                new TimeSeries(
+                    1L,
+                    "other-user",
+                    "n",
+                    null,
+                    "kg",
+                    TimeSeriesDataType.DECIMAL,
+                    Instant.EPOCH,
+                    Instant.EPOCH)));
+    given(entries.findByTimeSeries(eq(1L), any(), any(), eq(1)))
+        .willReturn(List.of(new TimeSeriesEntry(7L, 1L, Instant.EPOCH, new BigDecimal("1"))));
+
+    assertThatThrownBy(() -> new GetLatestEntryUseCase(timeSeries, entries).execute(SUB, 1L))
+        .isInstanceOf(TimeSeriesNotFoundException.class);
+  }
+
+  @Test
   void throwsWhenSeriesMissing() {
     given(timeSeries.findById(99L)).willReturn(Optional.empty());
 

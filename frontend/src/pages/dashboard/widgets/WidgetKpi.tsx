@@ -65,6 +65,8 @@ interface GaugeConfig {
   max: number;
   lowEnd: number;
   mediumEnd: number;
+  /** #220: Farbzonen umkehren (Grün niedrig → Rot hoch) für "niedrig ist gut"-Metriken wie Gewicht. */
+  invert: boolean;
   rangeLabel: string;
   /** Mittelanzeige: Prozent (Default) oder tatsächlicher Wert + Einheit. */
   display: GaugeDisplay;
@@ -113,6 +115,7 @@ const GAUGE_DEFAULTS = {
   max: 100,
   lowEnd: 33,
   mediumEnd: 66,
+  invert: false,
   rangeLabel: '',
   display: 'percent' as GaugeDisplay,
   unit: '',
@@ -138,6 +141,8 @@ function parseConfig(raw: string): KpiConfig {
       lowEnd: typeof parsed.lowEnd === 'number' ? parsed.lowEnd : GAUGE_DEFAULTS.lowEnd,
       mediumEnd:
         typeof parsed.mediumEnd === 'number' ? parsed.mediumEnd : GAUGE_DEFAULTS.mediumEnd,
+      // Fehlendes invert-Feld → false (rückwärtskompatibel zu bestehenden Gauges).
+      invert: typeof parsed.invert === 'boolean' ? parsed.invert : GAUGE_DEFAULTS.invert,
       rangeLabel:
         typeof parsed.rangeLabel === 'string' ? parsed.rangeLabel : GAUGE_DEFAULTS.rangeLabel,
       // Fehlendes display-Feld → 'percent' (rückwärtskompatibel zu bestehenden Gauges).
@@ -266,6 +271,7 @@ export default function WidgetKpi({
   const [draftMax, setDraftMax] = useState(String(gaugeConfig.max));
   const [draftLowEnd, setDraftLowEnd] = useState(String(gaugeConfig.lowEnd));
   const [draftMediumEnd, setDraftMediumEnd] = useState(String(gaugeConfig.mediumEnd));
+  const [draftInvert, setDraftInvert] = useState(gaugeConfig.invert);
   const [draftRangeLabel, setDraftRangeLabel] = useState(gaugeConfig.rangeLabel);
   const [draftGaugeSeriesId, setDraftGaugeSeriesId] = useState<string>(
     gaugeConfig.timeSeriesId == null ? '' : String(gaugeConfig.timeSeriesId),
@@ -308,6 +314,7 @@ export default function WidgetKpi({
       setDraftMax(String(config.max));
       setDraftLowEnd(String(config.lowEnd));
       setDraftMediumEnd(String(config.mediumEnd));
+      setDraftInvert(config.invert);
       setDraftRangeLabel(config.rangeLabel);
       setDraftGaugeSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
       setDraftGaugeRefresh(String(config.refreshSeconds ?? 60));
@@ -353,6 +360,7 @@ export default function WidgetKpi({
         max: parseOrDefault(draftMax, GAUGE_DEFAULTS.max),
         lowEnd: parseOrDefault(draftLowEnd, GAUGE_DEFAULTS.lowEnd),
         mediumEnd: parseOrDefault(draftMediumEnd, GAUGE_DEFAULTS.mediumEnd),
+        invert: draftInvert,
         rangeLabel: draftRangeLabel,
         display: draftGaugeDisplay,
         unit: draftGaugeUnit.trim(),
@@ -562,6 +570,15 @@ export default function WidgetKpi({
                     helperText="gelb / grün"
                   />
                 </Stack>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={draftInvert}
+                      onChange={(e) => setDraftInvert(e.target.checked)}
+                    />
+                  }
+                  label="Niedrig ist gut (Farben umkehren)"
+                />
                 <TextField
                   label="Range-Label (optional)"
                   value={draftRangeLabel}
@@ -792,19 +809,15 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
   const valueRatio = (clampedValue - config.min) / span;
   const needleAngle = valueRatio * 180;
 
-  // Zonen-Grenzwinkel in Grad. #220: Ist lowEnd > mediumEnd, signalisiert das
-  // "niedrig = gut" (z. B. Gewicht) → die Farbzonen werden umgekehrt (Grün links,
-  // Rot rechts). Damit die Arcs immer vorwärts laufen, werden die Grenzen sortiert.
-  const inverted = config.lowEnd > config.mediumEnd;
-  const lowerBound = Math.min(config.lowEnd, config.mediumEnd);
-  const upperBound = Math.max(config.lowEnd, config.mediumEnd);
-  const lowRatio = Math.max(0, Math.min(1, (lowerBound - config.min) / span));
-  const mediumRatio = Math.max(0, Math.min(1, (upperBound - config.min) / span));
+  // Zonen-Grenzwinkel in Grad.
+  const lowRatio = Math.max(0, Math.min(1, (config.lowEnd - config.min) / span));
+  const mediumRatio = Math.max(0, Math.min(1, (config.mediumEnd - config.min) / span));
   const lowAngle = lowRatio * 180;
   const mediumAngle = mediumRatio * 180;
-  // Farbe der niedrigen bzw. hohen Zone — im invertierten Fall vertauscht.
-  const lowZoneColor = inverted ? theme.palette.success.main : theme.palette.error.main;
-  const highZoneColor = inverted ? theme.palette.error.main : theme.palette.success.main;
+  // #220: Bei invert sind die Farbzonen umgekehrt — Grün niedrig (links), Rot hoch
+  // (rechts), z. B. für Gewicht ("niedrig ist gut"). Default: Rot niedrig, Grün hoch.
+  const lowZoneColor = config.invert ? theme.palette.success.main : theme.palette.error.main;
+  const highZoneColor = config.invert ? theme.palette.error.main : theme.palette.success.main;
 
   const needle = polar(cx, cy, radius - strokeWidth - 4, needleAngle);
 

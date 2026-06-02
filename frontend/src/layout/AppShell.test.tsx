@@ -69,7 +69,7 @@ describe('AppShell navigation', () => {
     renderShell('/dashboards/default');
 
     // then Dashboard and Einstellungen are visible immediately
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Einstellungen')).toBeInTheDocument();
 
     // and the group headers are visible too
@@ -146,14 +146,14 @@ describe('AppShell navigation', () => {
     expect(link?.getAttribute('aria-selected')).toBe('true');
 
     // and an inactive entry does not
-    const sibling = screen.getByText('Dashboard').closest('[role="button"]');
+    const sibling = screen.getByText('Home').closest('[role="button"]');
     expect(sibling?.getAttribute('aria-selected')).toBe('false');
   });
 
-  it('keeps Dashboard outside any group at the top level', () => {
+  it('keeps Home outside any group at the top level', () => {
     renderShell('/dashboards/default');
-    // Dashboard ist kein Kind einer Gruppe; sein Eintrag steht direkt im Drawer.
-    const list = screen.getByText('Dashboard').closest('ul');
+    // Home ist kein Kind einer Gruppe; sein Eintrag steht direkt im Drawer.
+    const list = screen.getByText('Home').closest('ul');
     expect(list).not.toBeNull();
     // Within the list there is also Einstellungen at the top level.
     expect(within(list as HTMLElement).getByText('Einstellungen')).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe('AppShell collapsed sidebar', () => {
 
   it('shows labels when not collapsed', () => {
     renderShell('/dashboards/default');
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Einstellungen')).toBeInTheDocument();
   });
 
@@ -185,7 +185,7 @@ describe('AppShell collapsed sidebar', () => {
     await user.click(toggleBtn);
 
     // Labels nicht mehr sichtbar
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Einstellungen')).not.toBeInTheDocument();
 
     // Toggle-Button zeigt jetzt "ausklappen"
@@ -210,7 +210,7 @@ describe('AppShell collapsed sidebar', () => {
     renderShell('/dashboards/default');
 
     // Im collapsed Zustand sind Labels nicht sichtbar
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
   });
 
@@ -219,7 +219,7 @@ describe('AppShell collapsed sidebar', () => {
     renderShell('/dashboards/default');
 
     // Icon-Buttons haben aria-label mit dem Menüpunkt-Namen
-    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Einstellungen' })).toBeInTheDocument();
   });
 });
@@ -235,7 +235,7 @@ describe('AppShell Mobile-Auto-Collapse (#195)', () => {
 
   it('klappt die Sidebar auf /mobile automatisch ein', () => {
     renderShell('/mobile');
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
   });
 
@@ -244,11 +244,11 @@ describe('AppShell Mobile-Auto-Collapse (#195)', () => {
     const user = userEvent.setup();
 
     // Auf /mobile eingeklappt — Navigation erfolgt über das Icon (aria-label).
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Dashboard' }));
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Home' }));
 
     // Zurück auf einer normalen Route: Labels wieder sichtbar (Zustand wiederhergestellt).
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menü einklappen' })).toBeInTheDocument();
   });
 
@@ -257,8 +257,8 @@ describe('AppShell Mobile-Auto-Collapse (#195)', () => {
     renderShell('/mobile');
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: 'Dashboard' }));
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Home' }));
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menü ausklappen' })).toBeInTheDocument();
     // Nutzer-Präferenz unverändert.
     expect(localStorage.getItem('sidebar-collapsed')).toBe('true');

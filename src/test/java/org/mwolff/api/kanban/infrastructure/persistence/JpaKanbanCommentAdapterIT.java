@@ -24,10 +24,15 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
 
   @Autowired private JpaKanbanCommentAdapter comments;
   @Autowired private JpaKanbanAdapter items;
+  @Autowired private org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager em;
 
   private long createItem() {
+    // Eindeutige pro-User-Nummer vergeben (#187), sonst verletzen mehrere Items den Unique-Index.
+    final int number = items.getMaxNumberForUser(USER).map(max -> max + 1).orElse(1);
     return items
-        .save(KanbanItem.newInstance(USER, "Item", "", KanbanColumn.BACKLOG, 0, Instant.now()))
+        .save(
+            KanbanItem.newInstance(USER, "Item", "", KanbanColumn.BACKLOG, 0, Instant.now())
+                .withNumber(number))
         .id();
   }
 
@@ -96,6 +101,10 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
     final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, "alice", "x"));
 
     items.deleteById(itemId);
+    // DB-seitiges ON DELETE CASCADE ist Hibernate unbekannt: Context leeren, damit der Read
+    // den DB-Stand sieht statt der gecachten Kommentar-Entity.
+    em.flush();
+    em.clear();
 
     assertThat(comments.findById(saved.id())).isEmpty();
   }

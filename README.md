@@ -113,7 +113,7 @@ docker compose up -d --no-deps api
 
 `./scripts/local-dev-setup.sh` erneut ausführen, um auf den lokalen Auth-Pfad zurückzukommen.
 
-> **Versions-Increment (#225):** Der letzte Deploy-Schritt `./scripts/increment-version.sh` wartet, bis `api` gesund ist, und ruft `POST /api/app/version/increment-minor` über **localhost:8080** auf. Das ersetzt den früheren GitHub-Actions-Job, der den Prod-Server von außen nicht erreichen konnte (Firewall/Geo-Filter, TCP-Timeout). Das Repository-Secret `APP_BASE_URL` wird dadurch **obsolet** und kann gelöscht werden.
+> **Versions-Increment (#225):** Der letzte Deploy-Schritt `./scripts/increment-version.sh` erhöht die Minor-Version. In Produktion ist `api` **nicht** auf einen Host-Port gemappt (nur im Compose-Netz, nginx spricht ihn intern an) — das Skript ruft `POST /api/app/version/increment-minor` daher per Wegwerf-curl-Container **im Netzwerk-Namespace des api-Containers** auf (`docker run --network container:<api>`). Kein Host-Port, kein Reverse-Proxy, keine Firewall/Geo-Filter (die den früheren GitHub-Actions-Job ausgesperrt hatten). Für dev mit Host-Port-Mapping oder Jar ohne Docker: `APP_BASE_URL=http://localhost:8080 ./scripts/increment-version.sh`. Das Repository-Secret `APP_BASE_URL` ist **obsolet** und kann gelöscht werden.
 
 #### Troubleshooting
 

@@ -17,7 +17,9 @@ public class GetImageUseCase {
   }
 
   @Transactional(readOnly = true)
-  public StoredImage execute(final long id) {
-    return repository.findById(id).orElseThrow(() -> new ImageNotFoundException(id));
+  public StoredImage execute(final String userSub, final long id) {
+    return repository
+        .findByIdAndUserSub(id, userSub)
+        .orElseThrow(() -> new ImageNotFoundException(id));
   }
 }

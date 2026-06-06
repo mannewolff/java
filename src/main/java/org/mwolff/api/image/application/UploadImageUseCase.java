@@ -27,7 +27,7 @@ public class UploadImageUseCase {
   }
 
   @Transactional
-  public StoredImage execute(final String contentType, final byte[] data) {
+  public StoredImage execute(final String userSub, final String contentType, final byte[] data) {
     if (data == null || data.length == 0) {
       throw new InvalidImageUploadException("EMPTY_FILE", "Uploaded file is empty.");
     }
@@ -39,7 +39,7 @@ public class UploadImageUseCase {
       throw new InvalidImageUploadException(
           "TOO_LARGE", "Image exceeds the 5 MB limit (" + data.length + " bytes).");
     }
-    return repository.save(StoredImage.of(contentType, data, sha256Hex(data)));
+    return repository.save(StoredImage.of(userSub, contentType, data, sha256Hex(data)));
   }
 
   /**

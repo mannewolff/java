@@ -8,12 +8,15 @@ import org.junit.jupiter.api.Test;
 
 class StoredImageTest {
 
+  private static final String SUB = "user-1";
+
   @Test
   void ofSetsSizeFromDataAndLeavesIdAndCreatedAtNull() {
-    final StoredImage image = StoredImage.of("image/png", new byte[] {1, 2, 3});
+    final StoredImage image = StoredImage.of(SUB, "image/png", new byte[] {1, 2, 3});
 
     assertThat(image.id()).isNull();
     assertThat(image.createdAt()).isNull();
+    assertThat(image.userSub()).isEqualTo(SUB);
     assertThat(image.contentType()).isEqualTo("image/png");
     assertThat(image.sizeBytes()).isEqualTo(3);
     assertThat(image.data()).containsExactly(1, 2, 3);
@@ -22,7 +25,7 @@ class StoredImageTest {
   @Test
   void dataIsDefensivelyCopiedOnConstructionAndAccess() {
     final byte[] original = {1, 2, 3};
-    final StoredImage image = StoredImage.of("image/png", original);
+    final StoredImage image = StoredImage.of(SUB, "image/png", original);
 
     original[0] = 9; // darf das gespeicherte Bild nicht verändern
     assertThat(image.data()).containsExactly(1, 2, 3);
@@ -33,22 +36,29 @@ class StoredImageTest {
   }
 
   @Test
+  void rejectsNullUserSub() {
+    assertThatNullPointerException()
+        .isThrownBy(() -> new StoredImage(null, null, "image/png", 1, new byte[] {1}, null, null))
+        .withMessageContaining("userSub");
+  }
+
+  @Test
   void rejectsNullContentType() {
     assertThatNullPointerException()
-        .isThrownBy(() -> new StoredImage(null, null, 1, new byte[] {1}, null, null))
+        .isThrownBy(() -> new StoredImage(null, SUB, null, 1, new byte[] {1}, null, null))
         .withMessageContaining("contentType");
   }
 
   @Test
   void rejectsNullData() {
     assertThatNullPointerException()
-        .isThrownBy(() -> new StoredImage(null, "image/png", 0, null, null, null))
+        .isThrownBy(() -> new StoredImage(null, SUB, "image/png", 0, null, null, null))
         .withMessageContaining("data");
   }
 
   @Test
   void rejectsEmptyData() {
-    assertThatThrownBy(() -> new StoredImage(null, "image/png", 0, new byte[0], null, null))
+    assertThatThrownBy(() -> new StoredImage(null, SUB, "image/png", 0, new byte[0], null, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("empty");
   }

@@ -28,17 +28,21 @@ public class ListManagedImagesUseCase {
   }
 
   @Transactional(readOnly = true)
-  public ManagedImagePage execute(final Integer limit, final Integer offset) {
+  public ManagedImagePage execute(final String userSub, final Integer limit, final Integer offset) {
     final int effectiveLimit =
         limit == null
             ? ListImagesUseCase.DEFAULT_LIMIT
             : Math.min(Math.max(1, limit), ListImagesUseCase.MAX_LIMIT);
     final int effectiveOffset = offset == null ? 0 : Math.max(0, offset);
 
-    final List<ImageMetadata> metadata = repository.findMetadata(effectiveLimit, effectiveOffset);
+    final List<ImageMetadata> metadata =
+        repository.findMetadataByUserSub(userSub, effectiveLimit, effectiveOffset);
+    // usageCounts() ist inhärent owner-bezogen: ein imageId gehört genau einem User, und die
+    // referenzierenden IMAGE-Widgets liegen in dessen Dashboards. Die Map wird daher nur über die
+    // bereits user-gescopte metadata-Liste gelesen (Kante image → dashboard, #202/#230).
     final Map<Long, Long> usage = usagePort.usageCounts();
     final List<ManagedImage> managed =
         metadata.stream().map(m -> new ManagedImage(m, usage.getOrDefault(m.id(), 0L))).toList();
-    return new ManagedImagePage(managed, repository.count());
+    return new ManagedImagePage(managed, repository.countByUserSub(userSub));
   }
 }

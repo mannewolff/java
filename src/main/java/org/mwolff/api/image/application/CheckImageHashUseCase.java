@@ -18,10 +18,10 @@ public class CheckImageHashUseCase {
 
   /** Liefert die id eines existierenden Bildes mit diesem Hash, falls vorhanden. */
   @Transactional(readOnly = true)
-  public Optional<Long> execute(final String hash) {
+  public Optional<Long> execute(final String userSub, final String hash) {
     if (hash == null || hash.isBlank()) {
       return Optional.empty();
     }
-    return repository.findIdByHash(hash);
+    return repository.findIdByHashAndUserSub(hash, userSub);
   }
 }

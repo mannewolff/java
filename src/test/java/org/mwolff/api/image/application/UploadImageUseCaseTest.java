@@ -19,6 +19,8 @@ import org.mwolff.api.image.domain.StoredImage;
 @ExtendWith(MockitoExtension.class)
 class UploadImageUseCaseTest {
 
+  private static final String SUB = "user-1";
+
   @Mock private ImageRepository repository;
 
   @Test
@@ -27,10 +29,11 @@ class UploadImageUseCaseTest {
     final byte[] data = {1, 2, 3};
     when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0, StoredImage.class));
 
-    final StoredImage result = useCase.execute("image/png", data);
+    final StoredImage result = useCase.execute(SUB, "image/png", data);
 
     final ArgumentCaptor<StoredImage> captor = ArgumentCaptor.forClass(StoredImage.class);
     verify(repository).save(captor.capture());
+    assertThat(captor.getValue().userSub()).isEqualTo(SUB);
     assertThat(captor.getValue().contentType()).isEqualTo("image/png");
     assertThat(captor.getValue().data()).containsExactly(1, 2, 3);
     assertThat(result.sizeBytes()).isEqualTo(3);
@@ -50,7 +53,7 @@ class UploadImageUseCaseTest {
   @Test
   void rejectsNullData() {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
-    assertThatThrownBy(() -> useCase.execute("image/png", null))
+    assertThatThrownBy(() -> useCase.execute(SUB, "image/png", null))
         .isInstanceOf(InvalidImageUploadException.class)
         .extracting("code")
         .isEqualTo("EMPTY_FILE");
@@ -60,7 +63,7 @@ class UploadImageUseCaseTest {
   @Test
   void rejectsEmptyData() {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
-    assertThatThrownBy(() -> useCase.execute("image/png", new byte[0]))
+    assertThatThrownBy(() -> useCase.execute(SUB, "image/png", new byte[0]))
         .isInstanceOf(InvalidImageUploadException.class)
         .extracting("code")
         .isEqualTo("EMPTY_FILE");
@@ -69,7 +72,7 @@ class UploadImageUseCaseTest {
   @Test
   void rejectsNullContentType() {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
-    assertThatThrownBy(() -> useCase.execute(null, new byte[] {1}))
+    assertThatThrownBy(() -> useCase.execute(SUB, null, new byte[] {1}))
         .isInstanceOf(InvalidImageUploadException.class)
         .extracting("code")
         .isEqualTo("UNSUPPORTED_TYPE");
@@ -78,7 +81,7 @@ class UploadImageUseCaseTest {
   @Test
   void rejectsUnsupportedContentType() {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
-    assertThatThrownBy(() -> useCase.execute("application/pdf", new byte[] {1}))
+    assertThatThrownBy(() -> useCase.execute(SUB, "application/pdf", new byte[] {1}))
         .isInstanceOf(InvalidImageUploadException.class)
         .extracting("code")
         .isEqualTo("UNSUPPORTED_TYPE");
@@ -89,7 +92,7 @@ class UploadImageUseCaseTest {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
     final byte[] tooBig = new byte[UploadImageUseCase.MAX_SIZE_BYTES + 1];
     tooBig[0] = 1;
-    assertThatThrownBy(() -> useCase.execute("image/jpeg", tooBig))
+    assertThatThrownBy(() -> useCase.execute(SUB, "image/jpeg", tooBig))
         .isInstanceOf(InvalidImageUploadException.class)
         .extracting("code")
         .isEqualTo("TOO_LARGE");
@@ -104,7 +107,7 @@ class UploadImageUseCaseTest {
     final byte[] atLimit = new byte[UploadImageUseCase.MAX_SIZE_BYTES];
     atLimit[0] = 1;
 
-    assertThat(useCase.execute("image/png", atLimit).sizeBytes())
+    assertThat(useCase.execute(SUB, "image/png", atLimit).sizeBytes())
         .isEqualTo(UploadImageUseCase.MAX_SIZE_BYTES);
   }
 
@@ -113,7 +116,7 @@ class UploadImageUseCaseTest {
     final UploadImageUseCase useCase = new UploadImageUseCase(repository);
     when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0, StoredImage.class));
     for (final String type : new String[] {"image/jpeg", "image/png", "image/webp", "image/gif"}) {
-      assertThat(useCase.execute(type, new byte[] {1}).contentType()).isEqualTo(type);
+      assertThat(useCase.execute(SUB, type, new byte[] {1}).contentType()).isEqualTo(type);
     }
   }
 }

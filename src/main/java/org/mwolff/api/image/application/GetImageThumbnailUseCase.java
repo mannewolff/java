@@ -24,9 +24,11 @@ public class GetImageThumbnailUseCase {
   }
 
   @Transactional(readOnly = true)
-  public byte[] execute(final long id, final Integer size) {
+  public byte[] execute(final String userSub, final long id, final Integer size) {
     final StoredImage image =
-        repository.findById(id).orElseThrow(() -> new ImageNotFoundException(id));
+        repository
+            .findByIdAndUserSub(id, userSub)
+            .orElseThrow(() -> new ImageNotFoundException(id));
     final int maxEdge = clampEdge(size);
     return thumbnailer.toThumbnailPng(image.data(), maxEdge);
   }

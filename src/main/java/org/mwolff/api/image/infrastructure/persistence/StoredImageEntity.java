@@ -22,6 +22,10 @@ class StoredImageEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  // OIDC-sub des Eigentümers (#230). NOT NULL ab V18 (Bestand wurde beim Rollout getruncatet).
+  @Column(name = "user_sub", nullable = false, length = 64)
+  private String userSub;
+
   @Column(name = "content_type", nullable = false, length = 64)
   private String contentType;
 
@@ -54,6 +58,14 @@ class StoredImageEntity {
 
   void setId(final Long id) {
     this.id = id;
+  }
+
+  String getUserSub() {
+    return userSub;
+  }
+
+  void setUserSub(final String userSub) {
+    this.userSub = userSub;
   }
 
   String getContentType() {

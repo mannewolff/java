@@ -30,6 +30,13 @@ spring:
           # Profile dev/prod/docker ueberschreiben diesen Wert in den jeweiligen application-*.yml.
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/toolbox-dev}
 
+# App-Version (#229): Shared-Secret fuer die mutierenden increment-Endpunkte. Leer = deny
+# (anonymer Schreibzugriff ist dann gesperrt). Auf dem Server via Env/.env setzen; das
+# Deploy-Skript (#225) sendet denselben Wert als X-Version-Token-Header.
+app:
+  version:
+    increment-secret: ${APP_VERSION_INCREMENT_SECRET:}
+
 python-tools:
   url: ${PYTHON_TOOLS_URL:http://localhost:8000}
   connect-timeout: ${PYTHON_TOOLS_CONNECT_TIMEOUT:5s}

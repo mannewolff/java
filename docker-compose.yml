@@ -98,6 +98,9 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PYTHON_TOOLS_URL: http://python-tools:8000
+      # #229: Shared-Secret, gegen das die increment-Endpunkte den X-Version-Token-Header
+      # pruefen. Muss mit dem Wert uebereinstimmen, den scripts/increment-version.sh sendet.
+      APP_VERSION_INCREMENT_SECRET: ${APP_VERSION_INCREMENT_SECRET}
     ports:
       - "8080:8080"
 

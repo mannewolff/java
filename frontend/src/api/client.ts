@@ -21,7 +21,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  options: AuthedFetchOptions = {},
+): Promise<T> {
   const token = getAccessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: {
@@ -36,7 +40,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (response.status === 401) {
     // Token abgelaufen oder ungueltig — Re-Login ausloesen und Fehler weiterreichen,
     // damit die aufrufende Komponente ihren Loading-State sauber zurueckdrehen kann.
-    notifyAuthExpired();
+    // Hintergrund-/unkritische Calls (z. B. Versionsanzeige) koennen den Re-Login-Trigger
+    // via suppressAuthExpired unterdruecken, damit ein einzelner 401 keinen Loop ausloest (#233).
+    if (!options.suppressAuthExpired) {
+      notifyAuthExpired();
+    }
     const body = await safeJson<ApiErrorBody>(response);
     throw new ApiError(
       response.status,
@@ -100,7 +108,8 @@ export async function authedFetch(
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, options?: AuthedFetchOptions) =>
+    request<T>(path, undefined, options),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>

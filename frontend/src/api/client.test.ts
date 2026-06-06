@@ -76,6 +76,23 @@ describe('api client — auth integration', () => {
     expect(expiredCallback).toHaveBeenCalledTimes(1);
   });
 
+  it('does NOT trigger re-login on 401 when api.get gets suppressAuthExpired (#233)', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ message: 'expired' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    // Hintergrund-Call (z. B. Versionsanzeige): wirft weiterhin, aber ohne Re-Login-Loop.
+    await expect(
+      api.get('/app/version', { suppressAuthExpired: true }),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(expiredCallback).not.toHaveBeenCalled();
+  });
+
   it('propagates non-401 errors without triggering re-login', async () => {
     // given
     const expiredCallback = vi.fn();

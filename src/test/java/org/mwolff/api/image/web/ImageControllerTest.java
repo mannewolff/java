@@ -1,8 +1,11 @@
 package org.mwolff.api.image.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -14,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -43,6 +47,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ImageControllerTest {
@@ -87,6 +92,46 @@ class ImageControllerTest {
         .andExpect(header().string("Location", "/api/images/5"))
         .andExpect(jsonPath("$.id").value(5))
         .andExpect(jsonPath("$.url").value("/api/images/5"));
+  }
+
+  @Test
+  void uploadWithUnreadableFileThrowsReadFailed() throws Exception {
+    // #232: deckt den defensiven catch(IOException)-Zweig von file.getBytes() ab.
+    final MultipartFile file = mock(MultipartFile.class);
+    when(file.isEmpty()).thenReturn(false);
+    when(file.getBytes()).thenThrow(new IOException("boom"));
+
+    final ImageController controller =
+        new ImageController(
+            uploadUseCase,
+            getUseCase,
+            listUseCase,
+            checkHashUseCase,
+            thumbnailUseCase,
+            listManagedUseCase,
+            deleteUseCase);
+
+    final InvalidImageUploadException ex =
+        assertThrows(InvalidImageUploadException.class, () -> controller.upload(file));
+    assertThat(ex.code()).isEqualTo("READ_FAILED");
+  }
+
+  @Test
+  void uploadWithNullFileThrowsEmptyFile() throws Exception {
+    // #232: deckt den file==null-Zweig von if (file == null || file.isEmpty()) ab.
+    final ImageController controller =
+        new ImageController(
+            uploadUseCase,
+            getUseCase,
+            listUseCase,
+            checkHashUseCase,
+            thumbnailUseCase,
+            listManagedUseCase,
+            deleteUseCase);
+
+    final InvalidImageUploadException ex =
+        assertThrows(InvalidImageUploadException.class, () -> controller.upload(null));
+    assertThat(ex.code()).isEqualTo("EMPTY_FILE");
   }
 
   @Test

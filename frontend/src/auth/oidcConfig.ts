@@ -1,6 +1,8 @@
 import { WebStorageStateStore } from 'oidc-client-ts';
 import type { AuthProviderProps } from 'react-oidc-context';
 
+import { clearReloginGuard } from './reloginGuard';
+
 // Liest die OIDC-Verbindungsdaten aus den VITE_-Variablen. Defaults zielen auf den
 // lokalen Keycloak-Dev-Container und sind so geschnitten, dass die App ohne extra
 // .env beim "npm run dev" startet.
@@ -43,8 +45,10 @@ export function buildOidcConfig(mobile: boolean): AuthProviderProps {
     // Token-Endpoint-Antworten via Background-Iframe sind im Dev unzuverlaessig —
     // Silent-Renew via Refresh-Token ist sauberer.
     automaticSilentRenew: true,
-    // Entfernt ?code=...&state=... aus der URL nach erfolgreichem Login.
+    // Entfernt ?code=...&state=... aus der URL nach erfolgreichem Login und setzt den
+    // reload-festen Re-Login-Loop-Breaker zurück (#233).
     onSigninCallback: (): void => {
+      clearReloginGuard();
       window.history.replaceState({}, document.title, window.location.pathname);
     },
   };

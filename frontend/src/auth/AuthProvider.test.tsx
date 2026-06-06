@@ -18,6 +18,7 @@ describe('AuthProvider Re-Login-Loop-Guard (#233)', () => {
   beforeEach(() => {
     __resetAuthBridge();
     signinRedirect.mockClear();
+    window.sessionStorage.clear();
   });
 
   it('löst bei wiederholten auth-expired-Events höchstens einen signinRedirect aus', () => {

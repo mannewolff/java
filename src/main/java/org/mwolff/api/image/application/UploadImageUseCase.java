@@ -3,6 +3,7 @@ package org.mwolff.api.image.application;
 import java.util.Set;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.tika.Tika;
 import org.mwolff.api.image.domain.ImageRepository;
 import org.mwolff.api.image.domain.InvalidImageUploadException;
 import org.mwolff.api.image.domain.StoredImage;
@@ -22,24 +23,34 @@ public class UploadImageUseCase {
 
   private final ImageRepository repository;
 
+  // Tika.detect(byte[], String) liest die Magic-Bytes direkt aus dem Array (keine IO) und ist
+  // thread-safe — als Feld wiederverwendbar (Muster TikaUploadValidator, #231).
+  private final Tika tika = new Tika();
+
   public UploadImageUseCase(final ImageRepository repository) {
     this.repository = repository;
   }
 
+  /**
+   * Validiert die Bytes per Magic-Bytes (Tika) und speichert das Bild. Der client-gemeldete
+   * Content-Type wird bewusst NICHT vertraut (#231) — der gespeicherte {@code contentType} stammt
+   * aus der Byte-Detektion. {@code filename} dient Tika nur als zusätzlicher Hint.
+   */
   @Transactional
-  public StoredImage execute(final String userSub, final String contentType, final byte[] data) {
+  public StoredImage execute(final String userSub, final byte[] data, final String filename) {
     if (data == null || data.length == 0) {
       throw new InvalidImageUploadException("EMPTY_FILE", "Uploaded file is empty.");
-    }
-    if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
-      throw new InvalidImageUploadException(
-          "UNSUPPORTED_TYPE", "Unsupported image type: " + contentType);
     }
     if (data.length > MAX_SIZE_BYTES) {
       throw new InvalidImageUploadException(
           "TOO_LARGE", "Image exceeds the 5 MB limit (" + data.length + " bytes).");
     }
-    return repository.save(StoredImage.of(userSub, contentType, data, sha256Hex(data)));
+    final String detected = tika.detect(data, filename);
+    if (!ALLOWED_CONTENT_TYPES.contains(detected)) {
+      throw new InvalidImageUploadException(
+          "UNSUPPORTED_TYPE", "Unsupported image type: " + detected);
+    }
+    return repository.save(StoredImage.of(userSub, detected, data, sha256Hex(data)));
   }
 
   /**

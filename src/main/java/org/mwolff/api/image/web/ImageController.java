@@ -115,7 +115,9 @@ public class ImageController {
     } catch (final IOException ex) {
       throw new InvalidImageUploadException("READ_FAILED", "Could not read uploaded file.");
     }
-    final StoredImage saved = uploadUseCase.execute(sub(auth), file.getContentType(), bytes);
+    // file.getOriginalFilename() dient Tika nur als Hint; der MIME-Typ wird in der UseCase aus den
+    // Bytes detektiert (#231), der client-gemeldete Content-Type wird ignoriert.
+    final StoredImage saved = uploadUseCase.execute(sub(auth), bytes, file.getOriginalFilename());
     final ImageUploadResponse response = ImageUploadResponse.from(saved);
     return ResponseEntity.created(URI.create(response.url())).body(response);
   }

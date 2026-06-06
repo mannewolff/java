@@ -90,7 +90,7 @@ class ImageControllerTest {
   @Test
   void uploadReturns201WithIdAndUrl() throws Exception {
     final byte[] bytes = {1, 2, 3};
-    when(uploadUseCase.execute(eq(SUB), eq("image/png"), any()))
+    when(uploadUseCase.execute(eq(SUB), any(), eq("x.png")))
         .thenReturn(new StoredImage(5L, SUB, "image/png", 3, bytes, Instant.now(), null));
 
     mockMvc

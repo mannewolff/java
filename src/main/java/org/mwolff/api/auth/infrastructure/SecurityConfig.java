@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -70,11 +71,26 @@ public class SecurityConfig {
                     .requestMatchers(
                         "/api/openapi/**", "/api/swagger-ui/**", "/api/swagger-ui.html")
                     .permitAll()
+                    // App-Version (#229): GET nur fuer eingeloggte USER (wird im Header
+                    // angezeigt). Die mutierenden POSTs sind bewusst permitAll auf
+                    // Security-Ebene — sie werden im Controller per Shared-Secret-Header
+                    // geschuetzt, weil das Deploy-Skript (#225) kein JWT mitbringt.
+                    .requestMatchers(HttpMethod.GET, "/api/app/version")
+                    .hasRole("USER")
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/app/version/increment-minor",
+                        "/api/app/version/increment-major")
+                    .permitAll()
                     // Actuator-Health bleibt fuer Container-Healthchecks oeffentlich.
                     .requestMatchers("/actuator/health/**")
                     .permitAll()
-                    // SPA-Forwarding (statisches + Root) bleibt oeffentlich — Auth-Gate ist im
-                    // Frontend.
+                    // #229: Default-Deny fuer alle uebrigen /api/**-Routen — neue Endpoints
+                    // sind secure-by-default und muessen explizit oben freigeschaltet werden.
+                    .requestMatchers("/api/**")
+                    .denyAll()
+                    // SPA-Forwarding (statisches + Root, kein /api) bleibt oeffentlich —
+                    // Auth-Gate ist im Frontend.
                     .anyRequest()
                     .permitAll())
         .oauth2ResourceServer(

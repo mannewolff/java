@@ -512,8 +512,12 @@
                       der Property-Name von 'argLine' auf 'jacocoArgLine' umgestellt wurde
                       (verhindert PIT-Konflikt). allowAttachSelf: Mockito InlineMockMaker
                       braucht ByteBuddy-Attach unter Java 21 Homebrew.
+                      #232: @{...} erzwingt SPAETE Property-Aufloesung zur Ausfuehrungszeit,
+                      damit der von jacoco-prepare-agent gesetzte Wert greift. Mit ${...}
+                      (frueh) gewann der leere statische Default -> kein jacoco.exec ->
+                      JaCoCo-Report/-Check wurden stillschweigend uebersprungen (Gate war No-op).
                     -->
-                    <argLine>${jacocoArgLine} -Djdk.attach.allowAttachSelf=true</argLine>
+                    <argLine>@{jacocoArgLine} -Djdk.attach.allowAttachSelf=true</argLine>
                 </configuration>
             </plugin>
             <plugin>
@@ -531,6 +535,13 @@
                     <includes>
                         <include>**/*IT.java</include>
                     </includes>
+                    <!--
+                      #232: Integrationstests muessen denselben JaCoCo-Agent tragen wie die
+                      Unit-Tests (gleiche destfile, append=true), sonst zaehlt ihre Coverage
+                      (v. a. JPA-Adapter, die nur per Testcontainers-IT erreichbar sind) nicht
+                      und der 100%-Check wuerde fehlschlagen.
+                    -->
+                    <argLine>@{jacocoArgLine} -Djdk.attach.allowAttachSelf=true</argLine>
                 </configuration>
             </plugin>
             <plugin>

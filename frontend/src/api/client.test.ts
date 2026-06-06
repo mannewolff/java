@@ -76,6 +76,23 @@ describe('api client — auth integration', () => {
     expect(expiredCallback).toHaveBeenCalledTimes(1);
   });
 
+  it('does NOT trigger re-login on 401 when api.get gets suppressAuthExpired (#233)', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ message: 'expired' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    // Hintergrund-Call (z. B. Versionsanzeige): wirft weiterhin, aber ohne Re-Login-Loop.
+    await expect(
+      api.get('/app/version', { suppressAuthExpired: true }),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(expiredCallback).not.toHaveBeenCalled();
+  });
+
   it('propagates non-401 errors without triggering re-login', async () => {
     // given
     const expiredCallback = vi.fn();
@@ -158,6 +175,24 @@ describe('authedFetch', () => {
     await authedFetch('/api/tools/whatever', { method: 'POST' });
 
     expect(expiredCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT trigger notifyAuthExpired on 401 when suppressAuthExpired is set (#233)', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('', { status: 401 }),
+    );
+
+    const response = await authedFetch(
+      '/api/images/5',
+      {},
+      { suppressAuthExpired: true },
+    );
+
+    // Aufrufer bekommt den 401 zur eigenen Behandlung, aber kein globaler Re-Login-Loop.
+    expect(response.status).toBe(401);
+    expect(expiredCallback).not.toHaveBeenCalled();
   });
 
   it('does not override caller-provided Authorization header', async () => {

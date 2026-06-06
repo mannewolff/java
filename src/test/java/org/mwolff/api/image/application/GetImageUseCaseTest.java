@@ -17,23 +17,25 @@ import org.mwolff.api.image.domain.StoredImage;
 @ExtendWith(MockitoExtension.class)
 class GetImageUseCaseTest {
 
+  private static final String SUB = "user-1";
+
   @Mock private ImageRepository repository;
 
   @Test
   void returnsStoredImageWhenPresent() {
     final GetImageUseCase useCase = new GetImageUseCase(repository);
-    final StoredImage image = StoredImage.of("image/png", new byte[] {1});
-    when(repository.findById(5L)).thenReturn(Optional.of(image));
+    final StoredImage image = StoredImage.of(SUB, "image/png", new byte[] {1});
+    when(repository.findByIdAndUserSub(5L, SUB)).thenReturn(Optional.of(image));
 
-    assertThat(useCase.execute(5L)).isSameAs(image);
+    assertThat(useCase.execute(SUB, 5L)).isSameAs(image);
   }
 
   @Test
-  void throwsWhenMissing() {
+  void throwsWhenMissingOrForeign() {
     final GetImageUseCase useCase = new GetImageUseCase(repository);
-    when(repository.findById(9L)).thenReturn(Optional.empty());
+    when(repository.findByIdAndUserSub(9L, SUB)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> useCase.execute(9L))
+    assertThatThrownBy(() -> useCase.execute(SUB, 9L))
         .isInstanceOf(ImageNotFoundException.class)
         .hasMessageContaining("9");
   }

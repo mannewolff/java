@@ -1,10 +1,14 @@
 package org.mwolff.api.image.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -14,14 +18,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.image.application.CheckImageHashUseCase;
 import org.mwolff.api.image.application.DeleteImagesUseCase;
 import org.mwolff.api.image.application.DeleteImagesUseCase.DeleteResult;
@@ -39,50 +41,63 @@ import org.mwolff.api.image.domain.InvalidImageUploadException;
 import org.mwolff.api.image.domain.ManagedImage;
 import org.mwolff.api.image.domain.ManagedImagePage;
 import org.mwolff.api.image.domain.StoredImage;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.multipart.MultipartFile;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(ImageController.class)
+@Import({ImageExceptionHandler.class, SecurityConfig.class})
 class ImageControllerTest {
 
-  @Mock private UploadImageUseCase uploadUseCase;
-  @Mock private GetImageUseCase getUseCase;
-  @Mock private ListImagesUseCase listUseCase;
-  @Mock private CheckImageHashUseCase checkHashUseCase;
-  @Mock private GetImageThumbnailUseCase thumbnailUseCase;
-  @Mock private ListManagedImagesUseCase listManagedUseCase;
-  @Mock private DeleteImagesUseCase deleteUseCase;
+  private static final String SUB = "user-1";
 
-  private MockMvc mockMvc;
+  /** Mit USER-Rolle authentifizierter Aufruf, sub = SUB. */
+  private static org.springframework.test.web.servlet.request.RequestPostProcessor userJwt() {
+    return jwt().jwt(j -> j.subject(SUB)).authorities(new SimpleGrantedAuthority("ROLE_USER"));
+  }
 
-  @BeforeEach
-  void setUp() {
-    mockMvc =
-        MockMvcBuilders.standaloneSetup(
-                new ImageController(
-                    uploadUseCase,
-                    getUseCase,
-                    listUseCase,
-                    checkHashUseCase,
-                    thumbnailUseCase,
-                    listManagedUseCase,
-                    deleteUseCase))
-            .setControllerAdvice(new ImageExceptionHandler())
-            .build();
+  @Autowired private MockMvc mockMvc;
+
+  @MockitoBean private UploadImageUseCase uploadUseCase;
+  @MockitoBean private GetImageUseCase getUseCase;
+  @MockitoBean private ListImagesUseCase listUseCase;
+  @MockitoBean private CheckImageHashUseCase checkHashUseCase;
+  @MockitoBean private GetImageThumbnailUseCase thumbnailUseCase;
+  @MockitoBean private ListManagedImagesUseCase listManagedUseCase;
+  @MockitoBean private DeleteImagesUseCase deleteUseCase;
+
+  // SecurityConfig will autowire einen JwtDecoder — fuer Slice-Tests reicht ein Mock.
+  @MockitoBean private JwtDecoder jwtDecoder;
+
+  private ImageController controller() {
+    return new ImageController(
+        uploadUseCase,
+        getUseCase,
+        listUseCase,
+        checkHashUseCase,
+        thumbnailUseCase,
+        listManagedUseCase,
+        deleteUseCase);
   }
 
   @Test
   void uploadReturns201WithIdAndUrl() throws Exception {
     final byte[] bytes = {1, 2, 3};
-    when(uploadUseCase.execute(eq("image/png"), any()))
-        .thenReturn(new StoredImage(5L, "image/png", 3, bytes, Instant.now(), null));
+    when(uploadUseCase.execute(eq(SUB), any(), eq("x.png")))
+        .thenReturn(new StoredImage(5L, SUB, "image/png", 3, bytes, Instant.now(), null));
 
     mockMvc
         .perform(
             multipart("/api/images")
-                .file(new MockMultipartFile("file", "x.png", "image/png", bytes)))
+                .file(new MockMultipartFile("file", "x.png", "image/png", bytes))
+                .with(userJwt()))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", "/api/images/5"))
         .andExpect(jsonPath("$.id").value(5))
@@ -90,24 +105,46 @@ class ImageControllerTest {
   }
 
   @Test
+  void uploadWithUnreadableFileThrowsReadFailed() throws Exception {
+    // #232: deckt den defensiven catch(IOException)-Zweig von file.getBytes() ab.
+    final MultipartFile file = mock(MultipartFile.class);
+    when(file.isEmpty()).thenReturn(false);
+    when(file.getBytes()).thenThrow(new IOException("boom"));
+
+    final InvalidImageUploadException ex =
+        assertThrows(InvalidImageUploadException.class, () -> controller().upload(null, file));
+    assertThat(ex.code()).isEqualTo("READ_FAILED");
+  }
+
+  @Test
+  void uploadWithNullFileThrowsEmptyFile() throws Exception {
+    // #232: deckt den file==null-Zweig von if (file == null || file.isEmpty()) ab.
+    final InvalidImageUploadException ex =
+        assertThrows(InvalidImageUploadException.class, () -> controller().upload(null, null));
+    assertThat(ex.code()).isEqualTo("EMPTY_FILE");
+  }
+
+  @Test
   void uploadEmptyFileReturns400() throws Exception {
     mockMvc
         .perform(
             multipart("/api/images")
-                .file(new MockMultipartFile("file", "x.png", "image/png", new byte[0])))
+                .file(new MockMultipartFile("file", "x.png", "image/png", new byte[0]))
+                .with(userJwt()))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("EMPTY_FILE"));
   }
 
   @Test
   void uploadUnsupportedTypeReturns415() throws Exception {
-    when(uploadUseCase.execute(any(), any()))
+    when(uploadUseCase.execute(eq(SUB), any(), any()))
         .thenThrow(new InvalidImageUploadException("UNSUPPORTED_TYPE", "bad"));
 
     mockMvc
         .perform(
             multipart("/api/images")
-                .file(new MockMultipartFile("file", "x.pdf", "application/pdf", new byte[] {1})))
+                .file(new MockMultipartFile("file", "x.pdf", "application/pdf", new byte[] {1}))
+                .with(userJwt()))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(jsonPath("$.code").value("UNSUPPORTED_TYPE"));
   }
@@ -115,25 +152,26 @@ class ImageControllerTest {
   @Test
   void getReturnsBytesWithContentType() throws Exception {
     final byte[] bytes = {1, 2, 3};
-    when(getUseCase.execute(5L)).thenReturn(new StoredImage(5L, "image/png", 3, bytes, null, null));
+    when(getUseCase.execute(SUB, 5L))
+        .thenReturn(new StoredImage(5L, SUB, "image/png", 3, bytes, null, null));
 
     mockMvc
-        .perform(get("/api/images/5"))
+        .perform(get("/api/images/5").with(userJwt()))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.IMAGE_PNG))
         .andExpect(content().bytes(bytes));
   }
 
   @Test
-  void getMissingReturns404() throws Exception {
-    when(getUseCase.execute(9L)).thenThrow(new ImageNotFoundException(9));
+  void getForeignOrMissingReturns404() throws Exception {
+    when(getUseCase.execute(SUB, 9L)).thenThrow(new ImageNotFoundException(9));
 
-    mockMvc.perform(get("/api/images/9")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/api/images/9").with(userJwt())).andExpect(status().isNotFound());
   }
 
   @Test
   void listReturnsMetadataPageWithTotal() throws Exception {
-    when(listUseCase.execute(null, null))
+    when(listUseCase.execute(SUB, null, null))
         .thenReturn(
             new ImagePage(
                 List.of(
@@ -142,7 +180,7 @@ class ImageControllerTest {
                 1L));
 
     mockMvc
-        .perform(get("/api/images"))
+        .perform(get("/api/images").with(userJwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.total").value(1))
         .andExpect(jsonPath("$.images[0].id").value(3))
@@ -153,10 +191,10 @@ class ImageControllerTest {
 
   @Test
   void listForwardsLimitAndOffset() throws Exception {
-    when(listUseCase.execute(10, 20)).thenReturn(new ImagePage(List.of(), 0L));
+    when(listUseCase.execute(SUB, 10, 20)).thenReturn(new ImagePage(List.of(), 0L));
 
     mockMvc
-        .perform(get("/api/images?limit=10&offset=20"))
+        .perform(get("/api/images?limit=10&offset=20").with(userJwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.total").value(0));
   }
@@ -165,11 +203,12 @@ class ImageControllerTest {
 
   @Test
   void checkHashReturnsExistsTrueWithId() throws Exception {
-    when(checkHashUseCase.execute(HASH)).thenReturn(java.util.Optional.of(42L));
+    when(checkHashUseCase.execute(SUB, HASH)).thenReturn(java.util.Optional.of(42L));
 
     mockMvc
         .perform(
             post("/api/images/check-hash")
+                .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"hash\":\"" + HASH + "\"}"))
         .andExpect(status().isOk())
@@ -179,11 +218,12 @@ class ImageControllerTest {
 
   @Test
   void checkHashReturnsExistsFalseWhenAbsent() throws Exception {
-    when(checkHashUseCase.execute(HASH)).thenReturn(java.util.Optional.empty());
+    when(checkHashUseCase.execute(SUB, HASH)).thenReturn(java.util.Optional.empty());
 
     mockMvc
         .perform(
             post("/api/images/check-hash")
+                .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"hash\":\"" + HASH + "\"}"))
         .andExpect(status().isOk())
@@ -196,6 +236,7 @@ class ImageControllerTest {
     mockMvc
         .perform(
             post("/api/images/check-hash")
+                .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"hash\":\"not-a-hash\"}"))
         .andExpect(status().isBadRequest());
@@ -204,10 +245,10 @@ class ImageControllerTest {
   @Test
   void thumbnailReturnsPngWithCacheHeader() throws Exception {
     final byte[] png = {(byte) 0x89, 0x50, 0x4e, 0x47};
-    when(thumbnailUseCase.execute(5L, null)).thenReturn(png);
+    when(thumbnailUseCase.execute(SUB, 5L, null)).thenReturn(png);
 
     mockMvc
-        .perform(get("/api/images/5/thumbnail"))
+        .perform(get("/api/images/5/thumbnail").with(userJwt()))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.IMAGE_PNG))
         .andExpect(
@@ -217,25 +258,29 @@ class ImageControllerTest {
 
   @Test
   void thumbnailForwardsSizeParam() throws Exception {
-    when(thumbnailUseCase.execute(5L, 64)).thenReturn(new byte[] {1});
+    when(thumbnailUseCase.execute(SUB, 5L, 64)).thenReturn(new byte[] {1});
 
-    mockMvc.perform(get("/api/images/5/thumbnail?size=64")).andExpect(status().isOk());
+    mockMvc
+        .perform(get("/api/images/5/thumbnail?size=64").with(userJwt()))
+        .andExpect(status().isOk());
 
-    verify(thumbnailUseCase).execute(5L, 64);
+    verify(thumbnailUseCase).execute(SUB, 5L, 64);
   }
 
   @Test
-  void thumbnailMissingReturns404() throws Exception {
-    when(thumbnailUseCase.execute(9L, null)).thenThrow(new ImageNotFoundException(9));
+  void thumbnailForeignOrMissingReturns404() throws Exception {
+    when(thumbnailUseCase.execute(SUB, 9L, null)).thenThrow(new ImageNotFoundException(9));
 
-    mockMvc.perform(get("/api/images/9/thumbnail")).andExpect(status().isNotFound());
+    mockMvc
+        .perform(get("/api/images/9/thumbnail").with(userJwt()))
+        .andExpect(status().isNotFound());
   }
 
   // ----- GET /api/images/manage --------------------------------------------
 
   @Test
   void manageListReturnsImagesWithUsageCount() throws Exception {
-    when(listManagedUseCase.execute(null, null))
+    when(listManagedUseCase.execute(SUB, null, null))
         .thenReturn(
             new ManagedImagePage(
                 List.of(
@@ -246,7 +291,7 @@ class ImageControllerTest {
                 1L));
 
     mockMvc
-        .perform(get("/api/images/manage"))
+        .perform(get("/api/images/manage").with(userJwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.total").value(1))
         .andExpect(jsonPath("$.images[0].id").value(3))
@@ -256,46 +301,49 @@ class ImageControllerTest {
 
   @Test
   void manageListForwardsLimitAndOffset() throws Exception {
-    when(listManagedUseCase.execute(10, 20)).thenReturn(new ManagedImagePage(List.of(), 0L));
+    when(listManagedUseCase.execute(SUB, 10, 20)).thenReturn(new ManagedImagePage(List.of(), 0L));
 
-    mockMvc.perform(get("/api/images/manage?limit=10&offset=20")).andExpect(status().isOk());
+    mockMvc
+        .perform(get("/api/images/manage?limit=10&offset=20").with(userJwt()))
+        .andExpect(status().isOk());
 
-    verify(listManagedUseCase).execute(10, 20);
+    verify(listManagedUseCase).execute(SUB, 10, 20);
   }
 
   // ----- DELETE /api/images/{id} -------------------------------------------
 
   @Test
   void deleteReturns204WhenUnused() throws Exception {
-    mockMvc.perform(delete("/api/images/5")).andExpect(status().isNoContent());
+    mockMvc.perform(delete("/api/images/5").with(userJwt())).andExpect(status().isNoContent());
 
-    verify(deleteUseCase).deleteOne(5L);
+    verify(deleteUseCase).deleteOne(SUB, 5L);
   }
 
   @Test
   void deleteReturns409WhenInUse() throws Exception {
-    doThrow(new ImageInUseException(5L, 2L)).when(deleteUseCase).deleteOne(5L);
+    doThrow(new ImageInUseException(5L, 2L)).when(deleteUseCase).deleteOne(SUB, 5L);
 
-    mockMvc.perform(delete("/api/images/5")).andExpect(status().isConflict());
+    mockMvc.perform(delete("/api/images/5").with(userJwt())).andExpect(status().isConflict());
   }
 
   @Test
-  void deleteReturns404WhenMissing() throws Exception {
-    doThrow(new ImageNotFoundException(9)).when(deleteUseCase).deleteOne(9L);
+  void deleteForeignOrMissingReturns404() throws Exception {
+    doThrow(new ImageNotFoundException(9)).when(deleteUseCase).deleteOne(SUB, 9L);
 
-    mockMvc.perform(delete("/api/images/9")).andExpect(status().isNotFound());
+    mockMvc.perform(delete("/api/images/9").with(userJwt())).andExpect(status().isNotFound());
   }
 
   // ----- POST /api/images/batch-delete -------------------------------------
 
   @Test
   void batchDeleteReturnsDeletedAndFailed() throws Exception {
-    when(deleteUseCase.deleteBatch(List.of(1L, 2L)))
+    when(deleteUseCase.deleteBatch(SUB, List.of(1L, 2L)))
         .thenReturn(new DeleteResult(List.of(1L), List.of(new Failure(2L, "IN_USE"))));
 
     mockMvc
         .perform(
             post("/api/images/batch-delete")
+                .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"ids\":[1,2]}"))
         .andExpect(status().isOk())
@@ -309,6 +357,7 @@ class ImageControllerTest {
     mockMvc
         .perform(
             post("/api/images/batch-delete")
+                .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"ids\":[]}"))
         .andExpect(status().isBadRequest());

@@ -43,8 +43,8 @@ public class DeleteImagesUseCase {
    * @throws ImageInUseException wenn es noch von Widgets referenziert wird
    */
   @Transactional
-  public void deleteOne(final long id) {
-    if (repository.findById(id).isEmpty()) {
+  public void deleteOne(final String userSub, final long id) {
+    if (repository.findByIdAndUserSub(id, userSub).isEmpty()) {
       throw new ImageNotFoundException(id);
     }
     final long usage = usagePort.countUsages(id);
@@ -54,13 +54,15 @@ public class DeleteImagesUseCase {
     repository.delete(id);
   }
 
-  /** Löscht mehrere Bilder; ungelöschte (benutzt/fehlend) werden als Fehler zurückgegeben. */
+  /**
+   * Löscht mehrere eigene Bilder; ungelöschte (benutzt/fehlend) werden als Fehler zurückgegeben.
+   */
   @Transactional
-  public DeleteResult deleteBatch(final List<Long> ids) {
+  public DeleteResult deleteBatch(final String userSub, final List<Long> ids) {
     final List<Long> deleted = new ArrayList<>();
     final List<Failure> failed = new ArrayList<>();
     for (final long id : ids) {
-      if (repository.findById(id).isEmpty()) {
+      if (repository.findByIdAndUserSub(id, userSub).isEmpty()) {
         failed.add(new Failure(id, REASON_NOT_FOUND));
         continue;
       }

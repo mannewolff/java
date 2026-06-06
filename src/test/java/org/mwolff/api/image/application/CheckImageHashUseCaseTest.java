@@ -12,32 +12,34 @@ import org.mwolff.api.image.domain.ImageRepository;
 
 class CheckImageHashUseCaseTest {
 
+  private static final String SUB = "user-1";
+
   private final ImageRepository repository = mock(ImageRepository.class);
   private final CheckImageHashUseCase useCase = new CheckImageHashUseCase(repository);
 
   @Test
   void returnsIdWhenHashExists() {
-    when(repository.findIdByHash("abc")).thenReturn(Optional.of(7L));
+    when(repository.findIdByHashAndUserSub("abc", SUB)).thenReturn(Optional.of(7L));
 
-    assertThat(useCase.execute("abc")).contains(7L);
+    assertThat(useCase.execute(SUB, "abc")).contains(7L);
   }
 
   @Test
   void returnsEmptyWhenHashUnknown() {
-    when(repository.findIdByHash("abc")).thenReturn(Optional.empty());
+    when(repository.findIdByHashAndUserSub("abc", SUB)).thenReturn(Optional.empty());
 
-    assertThat(useCase.execute("abc")).isEmpty();
+    assertThat(useCase.execute(SUB, "abc")).isEmpty();
   }
 
   @Test
   void returnsEmptyForNullHashWithoutHittingRepository() {
-    assertThat(useCase.execute(null)).isEmpty();
+    assertThat(useCase.execute(SUB, null)).isEmpty();
     verifyNoInteractions(repository);
   }
 
   @Test
   void returnsEmptyForBlankHashWithoutHittingRepository() {
-    assertThat(useCase.execute("   ")).isEmpty();
+    assertThat(useCase.execute(SUB, "   ")).isEmpty();
     verifyNoInteractions(repository);
   }
 }

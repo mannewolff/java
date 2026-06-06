@@ -83,6 +83,24 @@ class SecurityConfigTest {
   }
 
   @Test
+  void shouldDenyUnknownApiRouteAnonymously() throws Exception {
+    // #229: Default-Deny fuer /api/** — eine nicht explizit gematchte API-Route ist ohne
+    // Token nicht erreichbar (401), statt wie frueher unter anyRequest().permitAll() (404).
+    mockMvc.perform(get("/api/does-not-exist")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void shouldDenyUnknownApiRouteEvenWithUserRole() throws Exception {
+    // #229: Auch mit USER-Rolle bleibt eine unbekannte /api/**-Route gesperrt (403) —
+    // neue Endpoints muessen explizit freigeschaltet werden (secure-by-default).
+    mockMvc
+        .perform(
+            get("/api/does-not-exist")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void shouldAllowAnonymousAccessToOpenApiSpec() throws Exception {
     // #166: Die OpenAPI-Spec ist oeffentlich. Ohne Token geht Auth durch — im Slice-Test
     // ohne Springdoc-Mapping liefert der DispatcherServlet 404 (NICHT 401/403).

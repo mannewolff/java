@@ -22,11 +22,12 @@ public class ListImagesUseCase {
   }
 
   @Transactional(readOnly = true)
-  public ImagePage execute(final Integer limit, final Integer offset) {
+  public ImagePage execute(final String userSub, final Integer limit, final Integer offset) {
     final int effectiveLimit =
         limit == null ? DEFAULT_LIMIT : Math.min(Math.max(1, limit), MAX_LIMIT);
     final int effectiveOffset = offset == null ? 0 : Math.max(0, offset);
     return new ImagePage(
-        repository.findMetadata(effectiveLimit, effectiveOffset), repository.count());
+        repository.findMetadataByUserSub(userSub, effectiveLimit, effectiveOffset),
+        repository.countByUserSub(userSub));
   }
 }

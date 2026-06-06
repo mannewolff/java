@@ -17,6 +17,8 @@ import org.mwolff.api.image.domain.ManagedImagePage;
 
 class ListManagedImagesUseCaseTest {
 
+  private static final String SUB = "user-1";
+
   private final ImageRepository repository = mock(ImageRepository.class);
   private final ImageUsagePort usagePort = mock(ImageUsagePort.class);
   private final ListManagedImagesUseCase useCase =
@@ -28,12 +30,12 @@ class ListManagedImagesUseCaseTest {
 
   @Test
   void enrichesMetadataWithUsageCountsAndDefaultsToZero() {
-    when(repository.findMetadata(ListImagesUseCase.DEFAULT_LIMIT, 0))
+    when(repository.findMetadataByUserSub(SUB, ListImagesUseCase.DEFAULT_LIMIT, 0))
         .thenReturn(List.of(meta(1), meta(2)));
-    when(repository.count()).thenReturn(2L);
+    when(repository.countByUserSub(SUB)).thenReturn(2L);
     when(usagePort.usageCounts()).thenReturn(Map.of(1L, 3L)); // 2 ist ungenutzt
 
-    final ManagedImagePage page = useCase.execute(null, null);
+    final ManagedImagePage page = useCase.execute(SUB, null, null);
 
     assertThat(page.total()).isEqualTo(2L);
     assertThat(page.images()).hasSize(2);
@@ -44,23 +46,24 @@ class ListManagedImagesUseCaseTest {
 
   @Test
   void clampsLimitAndOffset() {
-    when(repository.findMetadata(ListImagesUseCase.MAX_LIMIT, 0)).thenReturn(List.of());
-    when(repository.count()).thenReturn(0L);
+    when(repository.findMetadataByUserSub(SUB, ListImagesUseCase.MAX_LIMIT, 0))
+        .thenReturn(List.of());
+    when(repository.countByUserSub(SUB)).thenReturn(0L);
     when(usagePort.usageCounts()).thenReturn(Map.of());
 
-    useCase.execute(ListImagesUseCase.MAX_LIMIT + 99, -3);
+    useCase.execute(SUB, ListImagesUseCase.MAX_LIMIT + 99, -3);
 
-    verify(repository).findMetadata(ListImagesUseCase.MAX_LIMIT, 0);
+    verify(repository).findMetadataByUserSub(SUB, ListImagesUseCase.MAX_LIMIT, 0);
   }
 
   @Test
   void clampsLimitToAtLeastOne() {
-    when(repository.findMetadata(1, 5)).thenReturn(List.of());
-    when(repository.count()).thenReturn(0L);
+    when(repository.findMetadataByUserSub(SUB, 1, 5)).thenReturn(List.of());
+    when(repository.countByUserSub(SUB)).thenReturn(0L);
     when(usagePort.usageCounts()).thenReturn(Map.of());
 
-    useCase.execute(0, 5);
+    useCase.execute(SUB, 0, 5);
 
-    verify(repository).findMetadata(1, 5);
+    verify(repository).findMetadataByUserSub(SUB, 1, 5);
   }
 }

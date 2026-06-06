@@ -15,6 +15,8 @@ import org.mwolff.api.image.domain.ImageRepository;
 
 class ListImagesUseCaseTest {
 
+  private static final String SUB = "user-1";
+
   private final ImageRepository repository = mock(ImageRepository.class);
   private final ListImagesUseCase useCase = new ListImagesUseCase(repository);
 
@@ -24,54 +26,56 @@ class ListImagesUseCaseTest {
 
   @Test
   void usesDefaultsWhenLimitAndOffsetAreNull() {
-    when(repository.findMetadata(ListImagesUseCase.DEFAULT_LIMIT, 0)).thenReturn(List.of(meta(1)));
-    when(repository.count()).thenReturn(1L);
+    when(repository.findMetadataByUserSub(SUB, ListImagesUseCase.DEFAULT_LIMIT, 0))
+        .thenReturn(List.of(meta(1)));
+    when(repository.countByUserSub(SUB)).thenReturn(1L);
 
-    final ImagePage page = useCase.execute(null, null);
+    final ImagePage page = useCase.execute(SUB, null, null);
 
     assertThat(page.total()).isEqualTo(1L);
     assertThat(page.images()).hasSize(1);
-    verify(repository).findMetadata(ListImagesUseCase.DEFAULT_LIMIT, 0);
+    verify(repository).findMetadataByUserSub(SUB, ListImagesUseCase.DEFAULT_LIMIT, 0);
   }
 
   @Test
   void clampsLimitToMax() {
-    when(repository.findMetadata(ListImagesUseCase.MAX_LIMIT, 0)).thenReturn(List.of());
-    when(repository.count()).thenReturn(0L);
+    when(repository.findMetadataByUserSub(SUB, ListImagesUseCase.MAX_LIMIT, 0))
+        .thenReturn(List.of());
+    when(repository.countByUserSub(SUB)).thenReturn(0L);
 
-    useCase.execute(ListImagesUseCase.MAX_LIMIT + 50, 0);
+    useCase.execute(SUB, ListImagesUseCase.MAX_LIMIT + 50, 0);
 
-    verify(repository).findMetadata(ListImagesUseCase.MAX_LIMIT, 0);
+    verify(repository).findMetadataByUserSub(SUB, ListImagesUseCase.MAX_LIMIT, 0);
   }
 
   @Test
   void clampsLimitToAtLeastOne() {
-    when(repository.findMetadata(1, 0)).thenReturn(List.of());
-    when(repository.count()).thenReturn(0L);
+    when(repository.findMetadataByUserSub(SUB, 1, 0)).thenReturn(List.of());
+    when(repository.countByUserSub(SUB)).thenReturn(0L);
 
-    useCase.execute(0, 0);
+    useCase.execute(SUB, 0, 0);
 
-    verify(repository).findMetadata(1, 0);
+    verify(repository).findMetadataByUserSub(SUB, 1, 0);
   }
 
   @Test
   void clampsNegativeOffsetToZero() {
-    when(repository.findMetadata(10, 0)).thenReturn(List.of());
-    when(repository.count()).thenReturn(0L);
+    when(repository.findMetadataByUserSub(SUB, 10, 0)).thenReturn(List.of());
+    when(repository.countByUserSub(SUB)).thenReturn(0L);
 
-    useCase.execute(10, -5);
+    useCase.execute(SUB, 10, -5);
 
-    verify(repository).findMetadata(10, 0);
+    verify(repository).findMetadataByUserSub(SUB, 10, 0);
   }
 
   @Test
   void passesValidLimitAndOffsetThrough() {
-    when(repository.findMetadata(25, 50)).thenReturn(List.of(meta(3)));
-    when(repository.count()).thenReturn(99L);
+    when(repository.findMetadataByUserSub(SUB, 25, 50)).thenReturn(List.of(meta(3)));
+    when(repository.countByUserSub(SUB)).thenReturn(99L);
 
-    final ImagePage page = useCase.execute(25, 50);
+    final ImagePage page = useCase.execute(SUB, 25, 50);
 
     assertThat(page.total()).isEqualTo(99L);
-    verify(repository).findMetadata(25, 50);
+    verify(repository).findMetadataByUserSub(SUB, 25, 50);
   }
 }

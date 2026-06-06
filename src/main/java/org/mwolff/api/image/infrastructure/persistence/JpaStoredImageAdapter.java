@@ -22,6 +22,7 @@ class JpaStoredImageAdapter implements ImageRepository {
   @Override
   public StoredImage save(final StoredImage image) {
     final StoredImageEntity entity = new StoredImageEntity();
+    entity.setUserSub(image.userSub());
     entity.setContentType(image.contentType());
     entity.setSizeBytes((int) image.sizeBytes());
     entity.setData(image.data());
@@ -30,27 +31,29 @@ class JpaStoredImageAdapter implements ImageRepository {
   }
 
   @Override
-  public Optional<StoredImage> findById(final long id) {
-    return repository.findById(id).map(this::toDomain);
+  public Optional<StoredImage> findByIdAndUserSub(final long id, final String userSub) {
+    return repository.findByIdAndUserSub(id, userSub).map(this::toDomain);
   }
 
   @Override
-  public List<ImageMetadata> findMetadata(final int limit, final int offset) {
+  public List<ImageMetadata> findMetadataByUserSub(
+      final String userSub, final int limit, final int offset) {
     return repository
-        .findAllByOrderByIdDesc(new OffsetLimitPageable(offset, limit, Sort.unsorted()))
+        .findByUserSubOrderByIdDesc(
+            userSub, new OffsetLimitPageable(offset, limit, Sort.unsorted()))
         .stream()
         .map(JpaStoredImageAdapter::toMetadata)
         .toList();
   }
 
   @Override
-  public long count() {
-    return repository.count();
+  public long countByUserSub(final String userSub) {
+    return repository.countByUserSub(userSub);
   }
 
   @Override
-  public Optional<Long> findIdByHash(final String hash) {
-    return repository.findIdsByHash(hash).stream().findFirst();
+  public Optional<Long> findIdByHashAndUserSub(final String hash, final String userSub) {
+    return repository.findIdsByHashAndUserSub(hash, userSub).stream().findFirst();
   }
 
   @Override
@@ -70,6 +73,7 @@ class JpaStoredImageAdapter implements ImageRepository {
   private StoredImage toDomain(final StoredImageEntity entity) {
     return new StoredImage(
         entity.getId(),
+        entity.getUserSub(),
         entity.getContentType(),
         entity.getSizeBytes(),
         entity.getData(),

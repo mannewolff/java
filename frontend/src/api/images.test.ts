@@ -63,7 +63,8 @@ describe('fetchImageObjectUrl', () => {
     fetchMock.mockResolvedValue({ ok: true, blob: async () => new Blob(['x']) });
 
     await expect(fetchImageObjectUrl(5)).resolves.toBe('blob:abc');
-    expect(fetchMock).toHaveBeenCalledWith('/api/images/5');
+    // #233: passiver Resource-Fetch unterdrückt den globalen Re-Login-Trigger.
+    expect(fetchMock).toHaveBeenCalledWith('/api/images/5', {}, { suppressAuthExpired: true });
     spy.mockRestore();
   });
 
@@ -81,7 +82,11 @@ describe('fetchThumbnailObjectUrl (#200)', () => {
     fetchMock.mockResolvedValue({ ok: true, blob: async () => new Blob(['x']) });
 
     await expect(fetchThumbnailObjectUrl(5)).resolves.toBe('blob:thumb');
-    expect(fetchMock).toHaveBeenCalledWith('/api/images/5/thumbnail?size=160');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/images/5/thumbnail?size=160',
+      {},
+      { suppressAuthExpired: true },
+    );
     spy.mockRestore();
   });
 
@@ -90,7 +95,11 @@ describe('fetchThumbnailObjectUrl (#200)', () => {
     fetchMock.mockResolvedValue({ ok: true, blob: async () => new Blob(['x']) });
 
     await fetchThumbnailObjectUrl(5, 64);
-    expect(fetchMock).toHaveBeenCalledWith('/api/images/5/thumbnail?size=64');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/images/5/thumbnail?size=64',
+      {},
+      { suppressAuthExpired: true },
+    );
     spy.mockRestore();
   });
 
@@ -147,7 +156,7 @@ describe('fetchImageFile (#198)', () => {
     expect(file).toBeInstanceOf(File);
     expect(file.type).toBe('image/webp');
     expect(file.name).toBe('image-7.webp');
-    expect(fetchMock).toHaveBeenCalledWith('/api/images/7');
+    expect(fetchMock).toHaveBeenCalledWith('/api/images/7', {}, { suppressAuthExpired: true });
   });
 
   it('wirft ApiError bei Fehlerstatus', async () => {

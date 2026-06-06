@@ -65,6 +65,17 @@ async function safeJson<T>(response: Response): Promise<T | null> {
   }
 }
 
+/** Optionen für {@link authedFetch}. */
+export interface AuthedFetchOptions {
+  /**
+   * Unterdrückt den globalen Re-Login-Trigger (`notifyAuthExpired`) bei 401. Für passive
+   * Resource-Fetches (z. B. Bild-Blobs in Dashboard-Widgets): ein einzelnes nicht-ladbares
+   * Bild darf nicht die ganze Session in einen Re-Login-Loop reißen (#233). Der Aufrufer
+   * behandelt den Fehler dann selbst (Error-Anzeige).
+   */
+  suppressAuthExpired?: boolean;
+}
+
 /**
  * Wrapper um `fetch`, der den aktuellen Bearer-Token an den Authorization-Header haengt und
  * auf 401 mit einem Re-Login-Trigger reagiert. Anders als `api.*` parst dieser Helper die
@@ -74,6 +85,7 @@ async function safeJson<T>(response: Response): Promise<T | null> {
 export async function authedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
+  options: AuthedFetchOptions = {},
 ): Promise<Response> {
   const token = getAccessToken();
   const headers = new Headers(init.headers);
@@ -81,7 +93,7 @@ export async function authedFetch(
     headers.set('Authorization', `Bearer ${token}`);
   }
   const response = await fetch(input, { ...init, headers });
-  if (response.status === 401) {
+  if (response.status === 401 && !options.suppressAuthExpired) {
     notifyAuthExpired();
   }
   return response;

@@ -14,13 +14,23 @@ import { setOnAuthExpired, setTokenGetter } from './tokenBridge';
 // Hook-basierten User-State mit dem nicht-Hook-basierten API-Client
 // ueber tokenBridge.
 
+// Loop-Guard (#233): Sobald ein 401 einen Re-Login-Redirect anstößt, navigiert der Browser
+// komplett zu Keycloak — bis dahin dürfen weitere 401 (z. B. von mehreren Widgets) keinen
+// zweiten Redirect auslösen, sonst entsteht ein Endlos-"Zucken". Das Flag lebt modulweit, weil
+// signinRedirect die Seite ohnehin neu lädt; schlägt der Redirect fehl, wird es zurückgesetzt.
+let redirectInFlight = false;
+
 function AuthBridge({ children }: { children: ReactNode }): JSX.Element {
   const auth = useAuth();
 
   useEffect(() => {
     setTokenGetter(() => auth.user?.access_token);
     setOnAuthExpired(() => {
-      void auth.signinRedirect();
+      if (redirectInFlight) return;
+      redirectInFlight = true;
+      void auth.signinRedirect().catch(() => {
+        redirectInFlight = false;
+      });
     });
   }, [auth]);
 

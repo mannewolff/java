@@ -70,7 +70,7 @@ export async function uploadImage(file: File): Promise<UploadedImageInfo> {
  * via {@link URL.revokeObjectURL} freigeben.
  */
 export async function fetchImageObjectUrl(id: number): Promise<string> {
-  const response = await authedFetch(`/api/images/${id}`);
+  const response = await authedFetch(`/api/images/${id}`, {}, { suppressAuthExpired: true });
   if (!response.ok) {
     throw new ApiError(response.status, `Bild konnte nicht geladen werden (${response.status})`, null);
   }
@@ -84,7 +84,11 @@ export async function fetchImageObjectUrl(id: number): Promise<string> {
  * {@link URL.revokeObjectURL} wieder frei.
  */
 export async function fetchThumbnailObjectUrl(id: number, size = 160): Promise<string> {
-  const response = await authedFetch(`/api/images/${id}/thumbnail?size=${size}`);
+  const response = await authedFetch(
+    `/api/images/${id}/thumbnail?size=${size}`,
+    {},
+    { suppressAuthExpired: true },
+  );
   if (!response.ok) {
     throw new ApiError(response.status, `Thumbnail konnte nicht geladen werden (${response.status})`, null);
   }
@@ -167,7 +171,7 @@ export async function deleteImages(ids: number[]): Promise<BatchDeleteResult> {
  * weiterverarbeitet werden kann (z. B. resizeImage). Der Serve-Endpoint ist bearer-only (#182).
  */
 export async function fetchImageFile(id: number): Promise<File> {
-  const response = await authedFetch(`/api/images/${id}`);
+  const response = await authedFetch(`/api/images/${id}`, {}, { suppressAuthExpired: true });
   if (!response.ok) {
     throw new ApiError(response.status, `Bild konnte nicht geladen werden (${response.status})`, null);
   }

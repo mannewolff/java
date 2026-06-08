@@ -17,6 +17,8 @@
   "accessTokenLifespan": 300,
   "accessTokenLifespanForImplicitFlow": 900,
   "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 2592000,
   "passwordPolicy": "length(12) and specialChars(1) and notUsername",
   "defaultRole": {
     "name": "PENDING",

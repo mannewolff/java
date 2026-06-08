@@ -12,6 +12,7 @@ import ApiIcon from '@mui/icons-material/Api';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 
 type NavIcon = ComponentType<SvgIconProps>;
@@ -45,8 +46,9 @@ export const navItems: NavNode[] = [
     label: 'Bildverarbeitung',
     icon: ImageIcon,
     children: [
-      // Die übrigen Bildtools (Hintergrund entfernen, Beitragsbild, Bild verkleinern)
+      // Die übrigen Bildtools (Hintergrund entfernen, Bild verkleinern)
       // sind aus dem Menü in die Einstellungen umgezogen (#131) — Routen bleiben aktiv.
+      { kind: 'link', label: 'Beitragsbild', path: '/tools/og-image', icon: AspectRatioIcon },
       { kind: 'link', label: 'SVG zu PNG', path: '/tools/svg-to-png', icon: TransformIcon },
       { kind: 'link', label: 'Farbpipette', path: '/tools/color-picker', icon: ColorizeIcon },
     ],

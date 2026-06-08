@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 FROM node:20 AS frontend-build
 WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./

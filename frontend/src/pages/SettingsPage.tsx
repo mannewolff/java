@@ -24,7 +24,6 @@ import CheckIcon from '@mui/icons-material/Check';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import CompressIcon from '@mui/icons-material/Compress';
 
 import { useAuth } from '../auth/useAuth';
@@ -39,12 +38,6 @@ const IMAGE_TOOLS = [
     label: 'Hintergrund entfernen',
     description: 'Freisteller per KI — entfernt den Bildhintergrund',
     icon: AutoFixHighIcon,
-  },
-  {
-    path: '/tools/og-image',
-    label: 'Beitragsbild',
-    description: 'Bild auf Standard-Format für Social-/OG-Vorschau zuschneiden',
-    icon: AspectRatioIcon,
   },
   {
     path: '/tools/resize',

@@ -1,4 +1,8 @@
-import { getAccessToken, notifyAuthExpired } from '../auth/tokenBridge';
+import {
+  getAccessToken,
+  notifyAuthExpired,
+  tryRefreshToken,
+} from '../auth/tokenBridge';
 
 const BASE_URL = '/api';
 
@@ -25,8 +29,11 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
   options: AuthedFetchOptions = {},
+  retryToken?: string,
 ): Promise<T> {
-  const token = getAccessToken();
+  // Beim Retry den frisch erneuerten Token direkt verwenden — der tokenBridge-Getter liest
+  // noch den alten Token aus dem letzten React-Render (#237).
+  const token = retryToken ?? getAccessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: {
       Accept: 'application/json',
@@ -38,11 +45,18 @@ async function request<T>(
   });
 
   if (response.status === 401) {
-    // Token abgelaufen oder ungueltig — Re-Login ausloesen und Fehler weiterreichen,
-    // damit die aufrufende Komponente ihren Loading-State sauber zurueckdrehen kann.
-    // Hintergrund-/unkritische Calls (z. B. Versionsanzeige) koennen den Re-Login-Trigger
-    // via suppressAuthExpired unterdruecken, damit ein einzelner 401 keinen Loop ausloest (#233).
+    // Token abgelaufen oder ungueltig. Bevor wir den teuren vollen Re-Login ausloesen, erst
+    // versuchen, den Access-Token still ueber den (Offline-)Refresh-Token zu erneuern und den
+    // Request genau einmal zu wiederholen (#237). Gelingt das nicht, faellt es auf den bisherigen
+    // Re-Login-Pfad zurueck. Hintergrund-/unkritische Calls unterdruecken beides via
+    // suppressAuthExpired, damit ein einzelner 401 keinen Loop ausloest (#233).
     if (!options.suppressAuthExpired) {
+      if (retryToken === undefined) {
+        const fresh = await tryRefreshToken();
+        if (fresh !== undefined) {
+          return request<T>(path, init, options, fresh);
+        }
+      }
       notifyAuthExpired();
     }
     const body = await safeJson<ApiErrorBody>(response);
@@ -94,14 +108,23 @@ export async function authedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
   options: AuthedFetchOptions = {},
+  retryToken?: string,
 ): Promise<Response> {
-  const token = getAccessToken();
+  // Beim Retry den frisch erneuerten Token nutzen (#237), sonst den aktuellen aus der Bridge.
+  const token = retryToken ?? getAccessToken();
   const headers = new Headers(init.headers);
-  if (token && !headers.has('Authorization')) {
+  if (token && (retryToken !== undefined || !headers.has('Authorization'))) {
     headers.set('Authorization', `Bearer ${token}`);
   }
   const response = await fetch(input, { ...init, headers });
   if (response.status === 401 && !options.suppressAuthExpired) {
+    // Erst stillen Refresh + einmaligen Retry versuchen, dann erst den Re-Login (#237).
+    if (retryToken === undefined) {
+      const fresh = await tryRefreshToken();
+      if (fresh !== undefined) {
+        return authedFetch(input, init, options, fresh);
+      }
+    }
     notifyAuthExpired();
   }
   return response;

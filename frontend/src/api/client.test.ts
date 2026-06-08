@@ -5,7 +5,15 @@ import {
   __resetAuthBridge,
   setOnAuthExpired,
   setTokenGetter,
+  setTokenRefresher,
 } from '../auth/tokenBridge';
+
+function unauthorized(): Response {
+  return new Response(JSON.stringify({ message: 'expired' }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -78,19 +86,70 @@ describe('api client — auth integration', () => {
 
   it('does NOT trigger re-login on 401 when api.get gets suppressAuthExpired (#233)', async () => {
     const expiredCallback = vi.fn();
+    const refresher = vi.fn().mockResolvedValue('fresh-token');
     setOnAuthExpired(expiredCallback);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ message: 'expired' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    setTokenRefresher(refresher);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(unauthorized());
 
-    // Hintergrund-Call (z. B. Versionsanzeige): wirft weiterhin, aber ohne Re-Login-Loop.
+    // Hintergrund-Call (z. B. Versionsanzeige): wirft weiterhin, aber ohne Re-Login-Loop und
+    // ohne Refresh-Versuch.
     await expect(
       api.get('/app/version', { suppressAuthExpired: true }),
     ).rejects.toBeInstanceOf(ApiError);
     expect(expiredCallback).not.toHaveBeenCalled();
+    expect(refresher).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the token and retries once with the FRESH token, without re-login (#237)', async () => {
+    // given — erster Call 401, nach erfolgreichem Refresh liefert der Retry 200
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    setTokenGetter(() => 'stale-token');
+    setTokenRefresher(vi.fn().mockResolvedValue('fresh-token'));
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(unauthorized())
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    // when
+    const result = await api.get<{ ok: boolean }>('/me');
+
+    // then
+    expect(result).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(expiredCallback).not.toHaveBeenCalled();
+    // erster Versuch mit altem Token, Retry mit dem frischen Token aus dem Refresh
+    const firstHeaders = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    const retryHeaders = fetchMock.mock.calls[1][1]?.headers as Record<string, string>;
+    expect(firstHeaders.Authorization).toBe('Bearer stale-token');
+    expect(retryHeaders.Authorization).toBe('Bearer fresh-token');
+  });
+
+  it('falls back to re-login when the refresh fails on 401 (#237)', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    setTokenRefresher(vi.fn().mockResolvedValue(undefined));
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(unauthorized());
+
+    await expect(api.get('/me')).rejects.toBeInstanceOf(ApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(expiredCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to re-login when the retry still returns 401 (#237)', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    setTokenRefresher(vi.fn().mockResolvedValue('fresh-token'));
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(unauthorized());
+
+    await expect(api.get('/me')).rejects.toBeInstanceOf(ApiError);
+    // ein Original-Call + genau ein Retry, danach kein weiterer Refresh-Loop
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(expiredCallback).toHaveBeenCalledTimes(1);
   });
 
   it('propagates non-401 errors without triggering re-login', async () => {
@@ -175,6 +234,25 @@ describe('authedFetch', () => {
     await authedFetch('/api/tools/whatever', { method: 'POST' });
 
     expect(expiredCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes and retries once on 401 with the fresh token, returning the retried response (#237)', async () => {
+    const expiredCallback = vi.fn();
+    setOnAuthExpired(expiredCallback);
+    setTokenGetter(() => 'stale-token');
+    setTokenRefresher(vi.fn().mockResolvedValue('fresh-token'));
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }));
+
+    const response = await authedFetch('/api/tools/whatever', { method: 'POST' });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(expiredCallback).not.toHaveBeenCalled();
+    const retryHeaders = fetchMock.mock.calls[1][1]?.headers as Headers;
+    expect(retryHeaders.get('Authorization')).toBe('Bearer fresh-token');
   });
 
   it('does NOT trigger notifyAuthExpired on 401 when suppressAuthExpired is set (#233)', async () => {

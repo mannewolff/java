@@ -6,7 +6,6 @@ import {
   CircularProgress,
   Paper,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -21,8 +20,6 @@ import { useNotify } from '../../notify/NotifyProvider';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg'];
 const MAX_BYTES = 10 * 1024 * 1024;
-const MIN_DIMENSION = 1;
-const MAX_DIMENSION = 8192;
 
 function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
@@ -30,12 +27,9 @@ function errorMessage(err: unknown): string {
   return 'Unbekannter Fehler';
 }
 
-function buildOutputFilename(input: File, width: number | null, height: number | null): string {
+function buildOutputFilename(input: File): string {
   const lastDot = input.name.lastIndexOf('.');
   const base = lastDot > 0 ? input.name.slice(0, lastDot) : input.name;
-  if (width != null && height != null) return `${base || 'image'}-${width}x${height}.png`;
-  if (width != null) return `${base || 'image'}-w${width}.png`;
-  if (height != null) return `${base || 'image'}-h${height}.png`;
   return `${base || 'image'}.png`;
 }
 
@@ -46,8 +40,6 @@ export default function RasterToPngPage(): JSX.Element {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const notify = useNotify();
-  const [targetW, setTargetW] = useState('');
-  const [targetH, setTargetH] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -77,8 +69,6 @@ export default function RasterToPngPage(): JSX.Element {
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     setFile(incoming);
     setResultUrl(null);
-    setTargetW('');
-    setTargetH('');
     setSourceUrl(URL.createObjectURL(incoming));
   };
 
@@ -88,8 +78,6 @@ export default function RasterToPngPage(): JSX.Element {
     setFile(null);
     setSourceUrl(null);
     setResultUrl(null);
-    setTargetW('');
-    setTargetH('');
   };
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -104,31 +92,11 @@ export default function RasterToPngPage(): JSX.Element {
     if (dropped) acceptFile(dropped);
   };
 
-  const parseDimension = (raw: string): number | null => {
-    if (raw.trim() === '') return null;
-    const v = Number.parseInt(raw, 10);
-    return Number.isFinite(v) ? v : null;
-  };
-
   const handleSubmit = async (): Promise<void> => {
     if (!file) return;
-    const w = parseDimension(targetW);
-    const h = parseDimension(targetH);
-    if (w != null && (w < MIN_DIMENSION || w > MAX_DIMENSION)) {
-      notify.error(`Breite außerhalb 1..${MAX_DIMENSION} px.`);
-      return;
-    }
-    if (h != null && (h < MIN_DIMENSION || h > MAX_DIMENSION)) {
-      notify.error(`Höhe außerhalb 1..${MAX_DIMENSION} px.`);
-      return;
-    }
-
     setIsProcessing(true);
     try {
-      const { blob } = await convertRasterToPng(file, {
-        width: w ?? undefined,
-        height: h ?? undefined,
-      });
+      const { blob } = await convertRasterToPng(file);
       if (resultUrl) URL.revokeObjectURL(resultUrl);
       setResultUrl(URL.createObjectURL(blob));
     } catch (err) {
@@ -138,9 +106,7 @@ export default function RasterToPngPage(): JSX.Element {
     }
   };
 
-  const downloadFilename = file
-    ? buildOutputFilename(file, parseDimension(targetW), parseDimension(targetH))
-    : 'image.png';
+  const downloadFilename = file ? buildOutputFilename(file) : 'image.png';
 
   return (
     <>
@@ -148,8 +114,7 @@ export default function RasterToPngPage(): JSX.Element {
         <Typography variant="h4">Raster zu PNG</Typography>
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        JPEG oder PNG hochladen und als PNG exportieren. Optional eine Zielgröße angeben — ohne
-        Maße bleibt die Originalgröße erhalten.
+        JPEG oder PNG hochladen und 1:1 als PNG exportieren.
       </Typography>
 
       <Paper
@@ -199,32 +164,6 @@ export default function RasterToPngPage(): JSX.Element {
                 ({(file.size / 1024).toFixed(1)} KB)
               </Typography>
             </Typography>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <TextField
-                label="Breite (px, optional)"
-                type="number"
-                value={targetW}
-                onChange={(e) => setTargetW(e.target.value)}
-                inputProps={{
-                  min: MIN_DIMENSION,
-                  max: MAX_DIMENSION,
-                  'aria-label': 'Breite',
-                }}
-                sx={{ flex: 1 }}
-              />
-              <TextField
-                label="Höhe (px, optional)"
-                type="number"
-                value={targetH}
-                onChange={(e) => setTargetH(e.target.value)}
-                inputProps={{
-                  min: MIN_DIMENSION,
-                  max: MAX_DIMENSION,
-                  'aria-label': 'Höhe',
-                }}
-                sx={{ flex: 1 }}
-              />
-            </Stack>
             {sourceUrl && (
               <Box
                 component="img"

@@ -47,7 +47,7 @@ describe('RasterToPngPage', () => {
 
     expect(screen.getByRole('heading', { name: /Raster zu PNG/i })).toBeInTheDocument();
     expect(screen.getByText(/JPEG oder PNG hier ablegen/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Breite/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Konvertieren/i })).not.toBeInTheDocument();
   });
 
   it('rejects SVG (unsupported format)', async () => {
@@ -96,7 +96,6 @@ describe('RasterToPngPage', () => {
     renderPage();
 
     await uploadFile(makePngFile('bild.png'));
-
     await userEvent.click(screen.getByRole('button', { name: /Konvertieren/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -104,33 +103,18 @@ describe('RasterToPngPage', () => {
     expect(url).toBe('/api/tools/raster-to-png');
   });
 
-  it('forwards width and height as form fields', async () => {
+  it('does not send width or height fields', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
     renderPage();
 
     await uploadFile(makeJpegFile());
-    await userEvent.type(screen.getByLabelText('Breite'), '800');
-    await userEvent.type(screen.getByLabelText('Höhe'), '600');
-
     await userEvent.click(screen.getByRole('button', { name: /Konvertieren/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     const body = init.body as FormData;
-    expect(body.get('width')).toBe('800');
-    expect(body.get('height')).toBe('600');
-  });
-
-  it('rejects width out of range without calling the backend', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
-    renderPage();
-
-    await uploadFile(makeJpegFile());
-    await userEvent.type(screen.getByLabelText('Breite'), '99999');
-    await userEvent.click(screen.getByRole('button', { name: /Konvertieren/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Breite außerhalb/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(body.get('width')).toBeNull();
+    expect(body.get('height')).toBeNull();
   });
 
   it('reports backend error as an alert', async () => {

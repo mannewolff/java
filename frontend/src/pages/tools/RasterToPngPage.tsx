@@ -225,6 +225,23 @@ export default function RasterToPngPage(): JSX.Element {
                 sx={{ flex: 1 }}
               />
             </Stack>
+            {sourceUrl && (
+              <Box
+                component="img"
+                src={sourceUrl}
+                alt="Quelldatei"
+                sx={{
+                  width: '100%',
+                  maxWidth: 800,
+                  display: 'block',
+                  mx: 'auto',
+                  mb: 2,
+                  borderRadius: 1,
+                  border: 1,
+                  borderColor: 'divider',
+                }}
+              />
+            )}
             <Stack direction="row" spacing={2}>
               <Button
                 variant="contained"

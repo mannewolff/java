@@ -92,7 +92,7 @@ def _crop_to_og(
     from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
 
     src = Image.open(io.BytesIO(data))
-    src = src.convert("RGB")
+    src = src.convert("RGBA" if format == "png" else "RGB")
     src_w, src_h = src.size
 
     target_ratio = width / height

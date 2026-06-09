@@ -149,7 +149,9 @@ export default function OgImagePage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Defer revoke so the browser has time to start the download before the URL expires.
+      // Revoking synchronously after click() causes a race on Firefox and Safari (0-byte file).
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (err) {
       notify.error(errorMessage(err));
     } finally {

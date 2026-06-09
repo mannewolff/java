@@ -447,6 +447,24 @@ def test_crop_returns_png_when_format_is_png(client: TestClient) -> None:
     assert out.size == (1200, 630)
 
 
+def test_crop_preserves_alpha_channel_for_png_format(client: TestClient) -> None:
+    """RGBA-Quelle + format=png → Output muss Alpha-Kanal behalten (RGB-Konvertierung wäre falsch)."""
+    img = Image.new("RGBA", (800, 1200), (100, 150, 200, 128))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    upload = buf.getvalue()
+
+    response = client.post(
+        "/crop",
+        data={"format": "png"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.mode == "RGBA", f"Expected RGBA, got {out.mode}"
+
+
 def test_crop_rejects_invalid_format(client: TestClient) -> None:
     upload = _solid_image_bytes(800, 1200)
 

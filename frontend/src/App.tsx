@@ -17,6 +17,7 @@ const RemoveBackgroundPage = lazy(() => import('./pages/tools/RemoveBackgroundPa
 const OgImagePage = lazy(() => import('./pages/tools/OgImagePage'));
 const ResizePage = lazy(() => import('./pages/tools/ResizePage'));
 const SvgToPngPage = lazy(() => import('./pages/tools/SvgToPngPage'));
+const RasterToPngPage = lazy(() => import('./pages/tools/RasterToPngPage'));
 const ColorPickerPage = lazy(() => import('./pages/tools/ColorPickerPage'));
 const ImageManagerPage = lazy(() => import('./pages/tools/ImageManagerPage'));
 const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
@@ -108,6 +109,14 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <SvgToPngPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/raster-to-png"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <RasterToPngPage />
             </Suspense>
           }
         />

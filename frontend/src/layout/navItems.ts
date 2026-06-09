@@ -50,6 +50,7 @@ export const navItems: NavNode[] = [
       // sind aus dem Menü in die Einstellungen umgezogen (#131) — Routen bleiben aktiv.
       { kind: 'link', label: 'Beitragsbild', path: '/tools/og-image', icon: AspectRatioIcon },
       { kind: 'link', label: 'SVG zu PNG', path: '/tools/svg-to-png', icon: TransformIcon },
+      { kind: 'link', label: 'Raster zu PNG', path: '/tools/raster-to-png', icon: ImageIcon },
       { kind: 'link', label: 'Farbpipette', path: '/tools/color-picker', icon: ColorizeIcon },
     ],
   },

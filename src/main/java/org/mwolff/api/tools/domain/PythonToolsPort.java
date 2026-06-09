@@ -20,4 +20,6 @@ public interface PythonToolsPort {
   PaletteResult extractPalette(ValidatedImage image, PaletteParams params);
 
   ToolImageResult convertSvgToPng(ValidatedImage image, SvgToPngParams params);
+
+  ToolImageResult convertRasterToPng(ValidatedImage image, RasterToPngParams params);
 }

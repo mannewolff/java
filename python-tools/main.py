@@ -2,12 +2,13 @@
 
 Endpoints:
 
-- POST /remove-bg   -> rembg-basierter Hintergrund-Removal, liefert PNG mit Alpha.
-- POST /crop        -> Pillow-basierter Cover-Crop auf 1200x630 (OpenGraph / WordPress).
-- POST /palette     -> colorthief-basierte Brandpalette, liefert N Hex-Farben.
-- POST /resize      -> Pillow LANCZOS-Resize auf width x height.
-- POST /svg-to-png  -> cairosvg-basierte SVG->PNG-Konvertierung, optional skaliert.
-- GET  /health      -> Liveness-Check fuer Docker-Healthcheck und Spring.
+- POST /remove-bg      -> rembg-basierter Hintergrund-Removal, liefert PNG mit Alpha.
+- POST /crop           -> Pillow-basierter Cover-Crop auf 1200x630 (OpenGraph / WordPress).
+- POST /palette        -> colorthief-basierte Brandpalette, liefert N Hex-Farben.
+- POST /resize         -> Pillow LANCZOS-Resize auf width x height.
+- POST /svg-to-png     -> cairosvg-basierte SVG->PNG-Konvertierung, optional skaliert.
+- POST /raster-to-png  -> Pillow-basierte JPEG/PNG->PNG-Konvertierung, optional skaliert.
+- GET  /health         -> Liveness-Check fuer Docker-Healthcheck und Spring.
 """
 
 from __future__ import annotations
@@ -170,6 +171,42 @@ async def _read_validated(file: UploadFile, allowed: frozenset[str]) -> bytes:
     return contents
 
 
+def _raster_to_png(
+    data: bytes,
+    width: int | None,
+    height: int | None,
+) -> bytes:
+    """Konvertiert ein JPEG/PNG zu PNG mit optionaler Skalierung per LANCZOS.
+
+    Beide Dimensionen optional:
+    - Beide angegeben: exakte Zielgröße.
+    - Nur width: Höhe proportional berechnet.
+    - Nur height: Breite proportional berechnet.
+    - Keine Dimension: Originalgröße beibehalten.
+    Palette-Mode (P) wird vor dem Speichern nach RGBA konvertiert.
+    """
+    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+
+    img = Image.open(io.BytesIO(data))
+
+    if width is not None and height is not None:
+        img = img.resize((width, height), Image.LANCZOS)
+    elif width is not None:
+        ratio = width / img.width
+        img = img.resize((width, max(1, round(img.height * ratio))), Image.LANCZOS)
+    elif height is not None:
+        ratio = height / img.height
+        img = img.resize((max(1, round(img.width * ratio)), height), Image.LANCZOS)
+
+    # Palette-Mode hat keinen direkten PNG-Alpha-Support -> RGBA
+    if img.mode == "P":
+        img = img.convert("RGBA")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def _svg_to_png(
     data: bytes,
     width: int | None,
@@ -314,6 +351,26 @@ async def svg_to_png(
         logger.error("svg-to-png failed", exc_info=True)
         traceback.print_exc()
         detail = f"SVG conversion failed: {type(exc).__name__}: {exc}"
+        raise HTTPException(status_code=500, detail=detail) from exc
+
+    return Response(content=result, media_type="image/png")
+
+
+@app.post("/raster-to-png")
+async def raster_to_png(
+    file: Annotated[UploadFile, File()],
+    width: Annotated[int | None, Form(ge=1, le=8192)] = None,
+    height: Annotated[int | None, Form(ge=1, le=8192)] = None,
+) -> Response:
+    """Konvertiert ein JPEG oder PNG zu PNG. width/height optional, sonst Originalgröße."""
+    contents = await _read_and_validate(file)
+
+    try:
+        result = _raster_to_png(contents, width=width, height=height)
+    except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
+        logger.error("raster-to-png failed", exc_info=True)
+        traceback.print_exc()
+        detail = f"Raster conversion failed: {type(exc).__name__}: {exc}"
         raise HTTPException(status_code=500, detail=detail) from exc
 
     return Response(content=result, media_type="image/png")

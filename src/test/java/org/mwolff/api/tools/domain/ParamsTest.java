@@ -215,4 +215,34 @@ class ParamsTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("background");
   }
+
+  // ----- RasterToPngParams -------------------------------------------------
+
+  @Test
+  void rasterToPngParamsShouldExposeFieldsWhenValid() {
+    final RasterToPngParams params = new RasterToPngParams(800, 600);
+    assertThat(params.width()).isEqualTo(800);
+    assertThat(params.height()).isEqualTo(600);
+  }
+
+  @Test
+  void rasterToPngParamsShouldAcceptNullDimensions() {
+    final RasterToPngParams params = new RasterToPngParams(null, null);
+    assertThat(params.width()).isNull();
+    assertThat(params.height()).isNull();
+  }
+
+  @Test
+  void rasterToPngParamsShouldRejectZeroWidth() {
+    assertThatThrownBy(() -> new RasterToPngParams(0, 600))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("width");
+  }
+
+  @Test
+  void rasterToPngParamsShouldRejectZeroHeight() {
+    assertThatThrownBy(() -> new RasterToPngParams(800, 0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("height");
+  }
 }

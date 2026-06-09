@@ -14,6 +14,7 @@ import org.mwolff.api.tools.domain.CropOgParams;
 import org.mwolff.api.tools.domain.PaletteParams;
 import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsException;
+import org.mwolff.api.tools.domain.RasterToPngParams;
 import org.mwolff.api.tools.domain.ResizeParams;
 import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
@@ -371,6 +372,91 @@ class RestClientPythonToolsAdapterTest {
     assertThat(body).doesNotContain("name=\"width\"");
     assertThat(body).doesNotContain("name=\"height\"");
     assertThat(body).contains("name=\"background\"").contains("transparent");
+  }
+
+  // ----- raster-to-png -------------------------------------------------------
+
+  @Test
+  void rasterToPngShouldForwardWidthAndHeightWhenBothGiven() throws Exception {
+    final byte[] processed = "fake-png".getBytes(StandardCharsets.UTF_8);
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(processed)));
+
+    final ToolImageResult result =
+        adapter.convertRasterToPng(image, new RasterToPngParams(800, 600));
+
+    assertThat(result.bytes()).isEqualTo(processed);
+    assertThat(result.contentType()).isEqualTo("image/png");
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    assertThat(request.getPath()).isEqualTo("/raster-to-png");
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("name=\"width\"").contains("800");
+    assertThat(body).contains("name=\"height\"").contains("600");
+  }
+
+  @Test
+  void rasterToPngShouldOmitWidthAndHeightWhenNull() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {1})));
+
+    adapter.convertRasterToPng(image, new RasterToPngParams(null, null));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).doesNotContain("name=\"width\"");
+    assertThat(body).doesNotContain("name=\"height\"");
+  }
+
+  @Test
+  void rasterToPngShouldSendWidthOnlyWhenHeightIsNull() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {1})));
+
+    adapter.convertRasterToPng(image, new RasterToPngParams(400, null));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("name=\"width\"").contains("400");
+    assertThat(body).doesNotContain("name=\"height\"");
+  }
+
+  @Test
+  void rasterToPngShouldSendHeightOnlyWhenWidthIsNull() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {1})));
+
+    adapter.convertRasterToPng(image, new RasterToPngParams(null, 300));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).doesNotContain("name=\"width\"");
+    assertThat(body).contains("name=\"height\"").contains("300");
+  }
+
+  @Test
+  void rasterToPngShouldThrowOnUpstreamServerError() {
+    server.enqueue(new MockResponse().setResponseCode(500).setBody("pillow-crash"));
+
+    assertThatThrownBy(() -> adapter.convertRasterToPng(image, new RasterToPngParams(null, null)))
+        .isInstanceOf(PythonToolsException.class)
+        .hasMessageContaining("python-tools call failed")
+        .hasMessageNotContaining("pillow-crash");
   }
 
   @Test

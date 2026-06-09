@@ -17,6 +17,7 @@ import org.mwolff.api.tools.domain.InvalidUploadException;
 import org.mwolff.api.tools.domain.PaletteParams;
 import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsPort;
+import org.mwolff.api.tools.domain.RasterToPngParams;
 import org.mwolff.api.tools.domain.ResizeParams;
 import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
@@ -147,6 +148,32 @@ class UseCasesTest {
     assertThat(result).isSameAs(expected);
     verify(validator).validateSvg(svg);
     verify(tools).convertSvgToPng(validatedSvg, params);
+  }
+
+  @Test
+  void rasterToPngShouldValidateAndDelegate() {
+    final RasterToPngParams params = new RasterToPngParams(800, 600);
+    final ToolImageResult expected = new ToolImageResult(new byte[] {9}, "image/png");
+    given(validator.validateImage(image)).willReturn(validated);
+    given(tools.convertRasterToPng(validated, params)).willReturn(expected);
+
+    final ToolImageResult result = new RasterToPngUseCase(validator, tools).execute(image, params);
+
+    assertThat(result).isSameAs(expected);
+    verify(validator).validateImage(image);
+    verify(tools).convertRasterToPng(validated, params);
+  }
+
+  @Test
+  void rasterToPngShouldShortCircuitOnInvalidUpload() {
+    final RasterToPngParams params = new RasterToPngParams(null, null);
+    willThrow(new InvalidUploadException("UNSUPPORTED_FORMAT", "not raster"))
+        .given(validator)
+        .validateImage(image);
+
+    assertThatThrownBy(() -> new RasterToPngUseCase(validator, tools).execute(image, params))
+        .isInstanceOf(InvalidUploadException.class);
+    verify(tools, never()).convertRasterToPng(any(), any());
   }
 
   @Test

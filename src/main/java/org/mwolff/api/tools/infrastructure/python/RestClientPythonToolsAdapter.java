@@ -7,6 +7,7 @@ import org.mwolff.api.tools.domain.PaletteParams;
 import org.mwolff.api.tools.domain.PaletteResult;
 import org.mwolff.api.tools.domain.PythonToolsException;
 import org.mwolff.api.tools.domain.PythonToolsPort;
+import org.mwolff.api.tools.domain.RasterToPngParams;
 import org.mwolff.api.tools.domain.ResizeParams;
 import org.mwolff.api.tools.domain.SvgToPngParams;
 import org.mwolff.api.tools.domain.ToolImageResult;
@@ -35,6 +36,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   private static final String REMOVE_BG_PATH = "/remove-bg";
   private static final String PALETTE_PATH = "/palette";
   private static final String SVG_TO_PNG_PATH = "/svg-to-png";
+  private static final String RASTER_TO_PNG_PATH = "/raster-to-png";
 
   private final RestClient client;
 
@@ -82,6 +84,19 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
     }
     body.add("background", params.background());
     return postForImage(SVG_TO_PNG_PATH, body, "svg-to-png");
+  }
+
+  @Override
+  public ToolImageResult convertRasterToPng(ValidatedImage image, RasterToPngParams params) {
+    final MultiValueMap<String, Object> body = PythonToolsMultipart.withImage(image);
+    // width/height optional — nur weiterleiten wenn gesetzt, sonst bleibt Originalgröße.
+    if (params.width() != null) {
+      body.add("width", Integer.toString(params.width()));
+    }
+    if (params.height() != null) {
+      body.add("height", Integer.toString(params.height()));
+    }
+    return postForImage(RASTER_TO_PNG_PATH, body, "raster-to-png");
   }
 
   @Override

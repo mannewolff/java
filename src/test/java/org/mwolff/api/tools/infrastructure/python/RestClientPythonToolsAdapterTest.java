@@ -129,7 +129,8 @@ class RestClientPythonToolsAdapterTest {
             .setHeader("Content-Type", "image/jpeg")
             .setBody(new Buffer().write(processed)));
 
-    final ToolImageResult result = adapter.cropOg(image, new CropOgParams(0.3, 0.7, 88, 1200, 630));
+    final ToolImageResult result =
+        adapter.cropOg(image, new CropOgParams(0.3, 0.7, 88, 1200, 630, "jpeg"));
 
     assertThat(result.bytes()).isEqualTo(processed);
     final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
@@ -141,13 +142,31 @@ class RestClientPythonToolsAdapterTest {
     assertThat(body).contains("quality").contains("88");
     assertThat(body).contains("width").contains("1200");
     assertThat(body).contains("height").contains("630");
+    assertThat(body).contains("name=\"format\"").contains("jpeg");
+  }
+
+  @Test
+  void cropOgShouldForwardPngFormat() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write(new byte[] {1})));
+
+    adapter.cropOg(image, new CropOgParams(0.5, 0.5, 88, 1200, 630, "png"));
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("name=\"format\"").contains("png");
   }
 
   @Test
   void cropOgShouldThrowOnUpstreamFailure() {
     server.enqueue(new MockResponse().setResponseCode(500).setBody("crash"));
 
-    assertThatThrownBy(() -> adapter.cropOg(image, new CropOgParams(0.5, 0.5, 88, 1200, 630)))
+    assertThatThrownBy(
+            () -> adapter.cropOg(image, new CropOgParams(0.5, 0.5, 88, 1200, 630, "jpeg")))
         .isInstanceOf(PythonToolsException.class);
   }
 

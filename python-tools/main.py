@@ -86,8 +86,9 @@ def _crop_to_og(
     quality: int,
     width: int,
     height: int,
+    format: str = "jpeg",
 ) -> bytes:
-    """Cover-fit crop auf width x height, Ausschnittposition ueber x_offset / y_offset."""
+    """Cover-fit crop auf width x height; format 'jpeg' oder 'png'."""
     from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
 
     src = Image.open(io.BytesIO(data))
@@ -114,7 +115,10 @@ def _crop_to_og(
 
     cropped = resized.crop(box)
     buf = io.BytesIO()
-    cropped.save(buf, format="JPEG", quality=quality, optimize=True)
+    if format == "png":
+        cropped.save(buf, format="PNG")
+    else:
+        cropped.save(buf, format="JPEG", quality=quality, optimize=True)
     return buf.getvalue()
 
 
@@ -261,8 +265,9 @@ async def crop(
     quality: Annotated[int, Form(ge=50, le=95)] = 88,
     width: Annotated[int, Form(ge=OG_MIN_DIMENSION, le=OG_MAX_DIMENSION)] = OG_DEFAULT_WIDTH,
     height: Annotated[int, Form(ge=OG_MIN_DIMENSION, le=OG_MAX_DIMENSION)] = OG_DEFAULT_HEIGHT,
+    format: Annotated[str, Form(pattern="^(jpeg|png)$")] = "jpeg",
 ) -> Response:
-    """Cover-fit-Crop auf width x height als JPEG; x_offset/y_offset waehlen den Anschnitt."""
+    """Cover-fit-Crop auf width x height; format 'jpeg' (default) oder 'png'."""
     contents = await _read_and_validate(file)
 
     try:
@@ -273,6 +278,7 @@ async def crop(
             quality=quality,
             width=width,
             height=height,
+            format=format,
         )
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)
@@ -280,7 +286,8 @@ async def crop(
         detail = f"Crop failed: {type(exc).__name__}: {exc}"
         raise HTTPException(status_code=500, detail=detail) from exc
 
-    return Response(content=result, media_type="image/jpeg")
+    media_type = "image/png" if format == "png" else "image/jpeg"
+    return Response(content=result, media_type=media_type)
 
 
 @app.post("/resize")

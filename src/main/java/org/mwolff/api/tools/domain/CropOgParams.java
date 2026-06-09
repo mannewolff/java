@@ -1,7 +1,8 @@
 package org.mwolff.api.tools.domain;
 
 /** Eingabeparameter für den Open-Graph-Crop-Use-Case. */
-public record CropOgParams(double yOffset, double xOffset, int quality, int width, int height) {
+public record CropOgParams(
+    double yOffset, double xOffset, int quality, int width, int height, String format) {
 
   public CropOgParams {
     if (yOffset < 0.0 || yOffset > 1.0) {
@@ -19,6 +20,10 @@ public record CropOgParams(double yOffset, double xOffset, int quality, int widt
     }
     if (height < 1) {
       throw new IllegalArgumentException("height must be >= 1");
+    }
+    java.util.Objects.requireNonNull(format, "format must not be null");
+    if (!"jpeg".equals(format) && !"png".equals(format)) {
+      throw new IllegalArgumentException("format must be 'jpeg' or 'png'");
     }
   }
 }

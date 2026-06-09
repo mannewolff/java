@@ -146,4 +146,30 @@ class CropOgControllerTest {
     // Nur file, alles andere via Defaults — sollte 200 liefern
     mockMvc.perform(multipart("/api/tools/crop-og").file(file)).andExpect(status().isOk());
   }
+
+  @Test
+  void shouldReturnPngWhenFormatIsPng() throws Exception {
+    given(useCase.execute(any(), any()))
+        .willReturn(new ToolImageResult(new byte[] {1, 2}, MediaType.IMAGE_PNG_VALUE));
+    final MockMultipartFile file =
+        new MockMultipartFile("file", "x.png", "image/png", new byte[] {7});
+
+    mockMvc
+        .perform(multipart("/api/tools/crop-og").file(file).param("format", "png"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.IMAGE_PNG))
+        .andExpect(
+            header()
+                .string("Content-Disposition", "attachment; filename=\"featured-1200x630.png\""));
+  }
+
+  @Test
+  void shouldReturn400WhenFormatIsInvalid() throws Exception {
+    final MockMultipartFile file =
+        new MockMultipartFile("file", "x.png", "image/png", new byte[] {7});
+
+    mockMvc
+        .perform(multipart("/api/tools/crop-og").file(file).param("format", "gif"))
+        .andExpect(status().isBadRequest());
+  }
 }

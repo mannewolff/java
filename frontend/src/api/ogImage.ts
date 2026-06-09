@@ -27,6 +27,7 @@ export interface CropOptions {
   width?: number;
   height?: number;
   quality?: number;
+  format?: 'jpeg' | 'png';
 }
 
 export async function cropOg(
@@ -39,6 +40,7 @@ export async function cropOg(
   body.append('y_offset', yOffset.toString());
   body.append('x_offset', (options.xOffset ?? 0.5).toString());
   body.append('quality', (options.quality ?? 88).toString());
+  body.append('format', options.format ?? 'jpeg');
   if (options.width !== undefined) body.append('width', options.width.toString());
   if (options.height !== undefined) body.append('height', options.height.toString());
 

@@ -50,10 +50,16 @@ function presetLabelFor(width: number, height: number): string {
   return PRESETS.find((p) => p.width === width && p.height === height)?.label ?? CUSTOM_LABEL;
 }
 
-function buildOutputFilename(input: File, width: number, height: number): string {
+function buildOutputFilename(
+  input: File,
+  width: number,
+  height: number,
+  format: 'jpeg' | 'png' = 'jpeg',
+): string {
+  const ext = format === 'png' ? 'png' : 'jpg';
   const lastDot = input.name.lastIndexOf('.');
   const base = lastDot > 0 ? input.name.slice(0, lastDot) : input.name;
-  return `${base || 'featured'}-${width}x${height}.jpg`;
+  return `${base || 'featured'}-${width}x${height}.${ext}`;
 }
 
 function errorMessage(err: unknown): string {
@@ -71,6 +77,7 @@ export default function OgImagePage() {
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPngDownloading, setIsPngDownloading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const notify = useNotify();
@@ -124,6 +131,31 @@ export default function OgImagePage() {
     },
     [notify],
   );
+
+  const downloadPng = useCallback(async () => {
+    if (!file) return;
+    setIsPngDownloading(true);
+    try {
+      const blob = await cropOg(file, offsets.yOffset, {
+        xOffset: offsets.xOffset,
+        width: targetWidth,
+        height: targetHeight,
+        format: 'png',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = buildOutputFilename(file, targetWidth, targetHeight, 'png');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      notify.error(errorMessage(err));
+    } finally {
+      setIsPngDownloading(false);
+    }
+  }, [file, offsets, targetWidth, targetHeight, notify]);
 
   // Debounced re-crop whenever inputs change.
   useEffect(() => {
@@ -238,7 +270,7 @@ export default function OgImagePage() {
         </Tooltip>
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Bild hochladen, Crop-Rahmen mit der Maus verschieben, JPEG downloaden.
+        Bild hochladen, Crop-Rahmen mit der Maus verschieben, JPEG oder PNG downloaden.
         Aktuelle Zielgröße: <strong>{targetWidth}×{targetHeight}</strong>.
       </Typography>
 
@@ -302,15 +334,25 @@ export default function OgImagePage() {
                 Zurücksetzen
               </Button>
               {cropUrl && (
-                <Button
-                  variant="contained"
-                  startIcon={<DownloadIcon />}
-                  component="a"
-                  href={cropUrl}
-                  download={buildOutputFilename(file, targetWidth, targetHeight)}
-                >
-                  JPEG herunterladen
-                </Button>
+                <>
+                  <Button
+                    variant="contained"
+                    startIcon={<DownloadIcon />}
+                    component="a"
+                    href={cropUrl}
+                    download={buildOutputFilename(file, targetWidth, targetHeight, 'jpeg')}
+                  >
+                    JPEG herunterladen
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={isPngDownloading ? <CircularProgress size={18} /> : <DownloadIcon />}
+                    onClick={() => void downloadPng()}
+                    disabled={isPngDownloading}
+                  >
+                    PNG herunterladen
+                  </Button>
+                </>
               )}
             </Stack>
           </Paper>

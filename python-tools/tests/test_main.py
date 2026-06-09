@@ -431,6 +431,34 @@ def test_crop_rejects_quality_out_of_range(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_crop_returns_png_when_format_is_png(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200, fmt="PNG")
+
+    response = client.post(
+        "/crop",
+        data={"format": "png"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    out = _decode(response.content)
+    assert out.format == "PNG"
+    assert out.size == (1200, 630)
+
+
+def test_crop_rejects_invalid_format(client: TestClient) -> None:
+    upload = _solid_image_bytes(800, 1200)
+
+    response = client.post(
+        "/crop",
+        data={"format": "gif"},
+        files={"file": ("x.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 422
+
+
 def test_crop_returns_500_when_pillow_raises(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -443,6 +471,7 @@ def test_crop_returns_500_when_pillow_raises(
         quality: int,
         width: int,
         height: int,
+        format: str,
     ) -> bytes:
         raise RuntimeError("pillow crashed")
 
@@ -991,3 +1020,104 @@ def test_svg_to_png_invokes_cairosvg_with_all_options() -> None:
         "output_height": 32,
         "background_color": "#abcdef",
     }
+
+
+# ---------------------------------------------------------------------------
+# /raster-to-png tests
+# ---------------------------------------------------------------------------
+
+
+def _palette_image_bytes() -> bytes:
+    """PNG in Palette-Mode (P) — deckt den RGBA-Konvertierungspfad in _raster_to_png."""
+    img = Image.new("P", (100, 100))
+    img.putpalette([i for i in range(256)] * 3)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_raster_to_png_converts_jpeg_to_png(client: TestClient) -> None:
+    upload = _solid_image_bytes(200, 150, fmt="JPEG")
+
+    response = client.post(
+        "/raster-to-png",
+        files={"file": ("photo.jpg", io.BytesIO(upload), "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    out = _decode(response.content)
+    assert out.format == "PNG"
+    assert out.size == (200, 150)
+
+
+def test_raster_to_png_resizes_when_both_dimensions_given(client: TestClient) -> None:
+    upload = _solid_image_bytes(400, 300, fmt="PNG")
+
+    response = client.post(
+        "/raster-to-png",
+        data={"width": "200", "height": "150"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.size == (200, 150)
+
+
+def test_raster_to_png_scales_proportionally_with_width_only(client: TestClient) -> None:
+    upload = _solid_image_bytes(400, 200, fmt="PNG")
+
+    response = client.post(
+        "/raster-to-png",
+        data={"width": "200"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.size == (200, 100)
+
+
+def test_raster_to_png_scales_proportionally_with_height_only(client: TestClient) -> None:
+    upload = _solid_image_bytes(400, 200, fmt="PNG")
+
+    response = client.post(
+        "/raster-to-png",
+        data={"height": "100"},
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    out = _decode(response.content)
+    assert out.size == (200, 100)
+
+
+def test_raster_to_png_converts_palette_mode_image(client: TestClient) -> None:
+    upload = _palette_image_bytes()
+
+    response = client.post(
+        "/raster-to-png",
+        files={"file": ("palette.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+
+
+def test_raster_to_png_returns_500_when_pillow_raises(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(_data: bytes, *, width: int | None, height: int | None) -> bytes:
+        raise RuntimeError("pillow crashed")
+
+    monkeypatch.setattr(main, "_raster_to_png", boom)
+    upload = _solid_image_bytes(200, 150)
+
+    response = client.post(
+        "/raster-to-png",
+        files={"file": ("photo.png", io.BytesIO(upload), "image/png")},
+    )
+
+    assert response.status_code == 500
+    assert "Raster conversion failed" in response.json()["detail"]

@@ -343,6 +343,8 @@ export default function OgImagePage() {
                     component="a"
                     href={cropUrl}
                     download={buildOutputFilename(file, targetWidth, targetHeight, 'jpeg')}
+                    sx={{ pointerEvents: isPngDownloading ? 'none' : 'auto' }}
+                    aria-disabled={isPngDownloading}
                   >
                     JPEG herunterladen
                   </Button>

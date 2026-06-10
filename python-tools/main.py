@@ -116,6 +116,7 @@ def _crop_to_og(
     cropped = resized.crop(box)
     buf = io.BytesIO()
     if format == "png":
+        # quality is JPEG-only; PNG uses compress_level (0–9), which we leave at default.
         cropped.save(buf, format="PNG")
     else:
         cropped.save(buf, format="JPEG", quality=quality, optimize=True)

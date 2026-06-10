@@ -67,6 +67,11 @@ public class TimeSeriesController {
   /** 5 MiB Hardlimit fuer Bulk-Body — schuetzt vor versehentlichem 100-MB-Upload. */
   static final int MAX_BULK_BYTES = 5 * 1024 * 1024;
 
+  /** Size-Guard als reine Methode — direkt am Grenzwert testbar statt per 5-MiB-Payload. */
+  static boolean isBulkBodyTooLarge(final int length) {
+    return length > MAX_BULK_BYTES;
+  }
+
   public TimeSeriesController(
       ListTimeSeriesUseCase listUseCase,
       CreateTimeSeriesUseCase createUseCase,
@@ -173,7 +178,7 @@ public class TimeSeriesController {
   @PostMapping(path = "/{id}/entries/bulk", consumes = "text/csv")
   public ResponseEntity<BulkImportResponse> bulkImport(
       JwtAuthenticationToken auth, @PathVariable @Min(1) long id, @RequestBody byte[] body) {
-    if (body.length > MAX_BULK_BYTES) {
+    if (isBulkBodyTooLarge(body.length)) {
       throw new IllegalArgumentException("body too large: max " + MAX_BULK_BYTES + " bytes");
     }
     final String csv = new String(body, java.nio.charset.StandardCharsets.UTF_8);

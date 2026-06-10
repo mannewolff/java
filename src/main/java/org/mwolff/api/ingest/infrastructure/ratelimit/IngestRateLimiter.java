@@ -43,11 +43,11 @@ public class IngestRateLimiter {
         window.startMillis = now;
         window.count = 0;
       }
-      if (window.count >= capacity) {
-        return false;
-      }
-      window.count++;
-      return true;
+      // Saturierend bei capacity+1 inkrementieren (kein Overflow bei Dauerfeuer) und das
+      // Ergebnis EINMAL berechnet zurueckgeben — konstante true/false-Returns waeren
+      // identische, durch keinen Test killbare PIT-Mutanten (#207).
+      window.count = Math.min(window.count + 1, capacity + 1);
+      return window.count <= capacity;
     }
   }
 

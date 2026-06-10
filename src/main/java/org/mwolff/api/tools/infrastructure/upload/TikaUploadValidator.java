@@ -53,8 +53,13 @@ public class TikaUploadValidator implements UploadValidatorPort {
     return new ValidatedImage(image.bytes(), detected, image.originalFilename());
   }
 
+  /** Size-Guard als reine Methode — direkt am Grenzwert testbar statt per 10-MiB-Payload. */
+  static boolean exceedsMaxSize(final long size) {
+    return size > MAX_BYTES;
+  }
+
   private static void enforceSize(UploadedImage image) {
-    if (image.size() > MAX_BYTES) {
+    if (exceedsMaxSize(image.size())) {
       throw new InvalidUploadException("FILE_TOO_LARGE", "Uploaded file exceeds the 10 MB limit.");
     }
   }

@@ -1,9 +1,11 @@
 package org.mwolff.api.dashboard.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -16,6 +18,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.mwolff.api.dashboard.application.CreateDashboardUseCase;
 import org.mwolff.api.dashboard.application.DeleteDashboardUseCase;
@@ -207,6 +210,31 @@ class DashboardControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.widgets[0].id").value(42))
         .andExpect(jsonPath("$.widgets[0].type").value("KPI"));
+  }
+
+  @Test
+  void updateLayoutShouldPassMappedDomainWidgetsToUseCase() throws Exception {
+    // given — Detail-Antwort hier irrelevant, geprueft wird das Mapping Richtung Use-Case.
+    given(getUseCase.execute(SUB, 1L))
+        .willReturn(new DashboardWithWidgets(dashboard(1L, true), List.of()));
+
+    mockMvc
+        .perform(
+            put("/api/dashboards/1")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"widgets\":[{\"type\":\"KPI\",\"posX\":1,\"posY\":2,\"width\":3,\"height\":4,\"config\":\"{\\\"value\\\":1}\"}]}"))
+        .andExpect(status().isOk());
+
+    // then — die an den Use-Case uebergebenen Widgets sind nicht-null und korrekt gemappt
+    // (killt NullReturnVals auf dto.toDomain(id), PIT #207).
+    final ArgumentCaptor<List<Widget>> captor = ArgumentCaptor.captor();
+    verify(updateLayoutUseCase).execute(eq(SUB), eq(1L), captor.capture());
+    assertThat(captor.getValue())
+        .containsExactly(
+            Widget.newInstance(
+                1L, WidgetType.KPI, new WidgetPosition(1, 2, 3, 4), "{\"value\":1}"));
   }
 
   @Test

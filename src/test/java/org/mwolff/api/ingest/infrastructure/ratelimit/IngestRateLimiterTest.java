@@ -65,6 +65,18 @@ class IngestRateLimiterTest {
   }
 
   @Test
+  void enforcesLimitWhenClockStartsAtNonZeroEpoch() {
+    // Killt den Math-Mutanten now - startMillis -> now + startMillis (#207): mit Startzeit 0
+    // ist die Mutation nicht unterscheidbar; mit grosser Epoch-Zeit wuerde der Mutant das
+    // Fenster bei jedem Aufruf zuruecksetzen und das Limit griffe nie.
+    final MutableClock clock = new MutableClock(1_000_000L);
+    final IngestRateLimiter limiter = new IngestRateLimiter(1, 60_000L, clock);
+
+    assertThat(limiter.tryAcquire("k")).isTrue();
+    assertThat(limiter.tryAcquire("k")).isFalse();
+  }
+
+  @Test
   void separateKeysHaveSeparateBuckets() {
     final MutableClock clock = new MutableClock(0);
     final IngestRateLimiter limiter = new IngestRateLimiter(1, 60_000L, clock);

@@ -28,6 +28,31 @@ class ImageIoThumbnailerTest {
     return ImageIO.read(new ByteArrayInputStream(png));
   }
 
+  // ---- targetSize: reine Mass-Berechnung, direkt an den Grenzwerten testbar (#207) ----
+
+  @Test
+  void targetSizeScalesLongerEdgeToMaxEdge() {
+    assertThat(ImageIoThumbnailer.targetSize(400, 200, 160)).containsExactly(160, 80);
+  }
+
+  @Test
+  void targetSizeKeepsSizeWhenWithinMaxEdge() {
+    // Kein Upscaling: Faktor maximal 1.0.
+    assertThat(ImageIoThumbnailer.targetSize(50, 30, 160)).containsExactly(50, 30);
+  }
+
+  @Test
+  void targetSizeAtExactlyMaxEdgeIsUnchanged() {
+    // Grenzwert: laengere Kante == maxEdge → Faktor exakt 1.0.
+    assertThat(ImageIoThumbnailer.targetSize(160, 80, 160)).containsExactly(160, 80);
+  }
+
+  @Test
+  void targetSizeFloorsAtOnePixel() {
+    // 400x2 @ 16: Hoehe rundet auf 0 → Untergrenze 1 px.
+    assertThat(ImageIoThumbnailer.targetSize(400, 2, 16)).containsExactly(16, 1);
+  }
+
   @Test
   void scalesDownPreservingAspectRatio() throws IOException {
     // 400x200 → längere Kante auf 160 → 160x80.

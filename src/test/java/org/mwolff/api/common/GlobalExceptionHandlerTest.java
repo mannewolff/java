@@ -75,6 +75,21 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  void shouldMapConstraintViolationWithLeadingDotPathToTail() {
+    // given — lastIndexOf('.') == 0: Grenzfall fuer dot >= 0 (killt ConditionalsBoundary,
+    // PIT #207). Der Mutant dot > 0 wuerde ".x" statt "x" als Feldname liefern.
+    final ConstraintViolation<?> violation = violationWithPath(".x", "must be set");
+    final ConstraintViolationException ex =
+        new ConstraintViolationException("validation failed", Set.of(violation));
+
+    final ResponseEntity<Map<String, Object>> response = handler.handleConstraintViolation(ex);
+
+    @SuppressWarnings("unchecked")
+    final Map<String, String> fields = (Map<String, String>) response.getBody().get("fieldErrors");
+    assertThat(fields).containsEntry("x", "must be set").doesNotContainKey(".x");
+  }
+
+  @Test
   void shouldHandleEmptyConstraintViolations() {
     final ConstraintViolationException ex =
         new ConstraintViolationException("validation failed", new HashSet<>());

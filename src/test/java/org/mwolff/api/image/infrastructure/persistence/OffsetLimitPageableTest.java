@@ -24,6 +24,13 @@ class OffsetLimitPageableTest {
   }
 
   @Test
+  void acceptsLimitOfExactlyOne() {
+    // Grenzwert: limit == 1 ist gueltig — killt ConditionalsBoundary auf limit < 1 (#207).
+    final OffsetLimitPageable p = new OffsetLimitPageable(0, 1, Sort.unsorted());
+    assertThat(p.getPageSize()).isEqualTo(1);
+  }
+
+  @Test
   void rejectsNonPositiveLimit() {
     assertThatThrownBy(() -> new OffsetLimitPageable(0, 0, Sort.unsorted()))
         .isInstanceOf(IllegalArgumentException.class);

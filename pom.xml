@@ -682,23 +682,56 @@
                                 <param>org.mwolff.api.*</param>
                             </targetClasses>
                             <!--
-                              Kategorie B (#203): Mutationstests fokussieren auf die fachlich
-                              kritischen Schichten Domain + Application + Web-Controller/Handler.
-                              Ausgeschlossen werden Infrastruktur (Entities/Repositories/Adapter/
-                              Configs/Filter/Crypto/Scaling) und reines Bean-Wiring/Plumbing — diese
-                              sind über JaCoCo (Unit) bzw. Testcontainers-ITs abgedeckt und tragen
-                              keine eigenständige Branch-Logik, die ein Mutant sinnvoll prüfen
-                              könnte. Deckt sich mit der JaCoCo-Exclusion-Liste oben.
+                              Excludes eng und explizit (#207, vorher pauschaler
+                              infrastructure-Wildcard aus #203): Ausgeschlossen sind NUR
+                              JPA-Entities (Getter/Setter + Instant.now()-Lifecycle-Hooks,
+                              ueber Testcontainers-ITs abgedeckt), die reinen
+                              Entity-Domain-Mapping-Adapter ohne eigene Branch-Logik
+                              (IT-abgedeckt) und Bean-Wiring-Configs ohne testbares
+                              Verhalten. Infrastruktur-Klassen MIT Logik (z. B.
+                              JwtAuthoritiesConverter, TikaUploadValidator,
+                              RestClientPythonToolsAdapter, DoneItemCleanupJob,
+                              OffsetLimitPageable, IngestRateLimiter, ImageIoThumbnailer,
+                              Sha256TokenCryptoAdapter, PythonToolsMultipart) werden mutiert.
                             -->
                             <excludedClasses>
                                 <param>org.mwolff.api.ApiApplication</param>
-                                <param>org.mwolff.api.*.infrastructure.*</param>
+                                <!-- JPA-Entities: reine Persistenz-Abbilder, IT-abgedeckt. -->
+                                <param>org.mwolff.api.appversion.infrastructure.persistence.AppVersionEntity</param>
+                                <param>org.mwolff.api.dashboard.infrastructure.persistence.DashboardEntity</param>
+                                <param>org.mwolff.api.dashboard.infrastructure.persistence.WidgetEntity</param>
+                                <param>org.mwolff.api.image.infrastructure.persistence.StoredImageEntity</param>
+                                <param>org.mwolff.api.ingest.infrastructure.persistence.IngestTokenEntity</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanCommentEntity</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanItemEntity</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanSettingsEntity</param>
+                                <param>org.mwolff.api.timeseries.infrastructure.persistence.TimeSeriesEntity</param>
+                                <param>org.mwolff.api.timeseries.infrastructure.persistence.TimeSeriesEntryEntity</param>
+                                <!-- Reine Mapping-/Delegations-Adapter ohne Branch-Logik, via *IT abgedeckt. -->
+                                <param>org.mwolff.api.dashboard.infrastructure.persistence.JpaDashboardAdapter</param>
+                                <param>org.mwolff.api.ingest.infrastructure.persistence.JpaIngestTokenAdapter</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanAdapter</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanCommentAdapter</param>
+                                <param>org.mwolff.api.timeseries.infrastructure.persistence.JpaTimeSeriesAdapter</param>
+                                <!-- Bean-Wiring ohne eigenstaendig testbares Verhalten. -->
+                                <param>org.mwolff.api.auth.infrastructure.SecurityConfig</param>
+                                <param>org.mwolff.api.tools.infrastructure.python.PythonToolsConfig</param>
                                 <param>org.mwolff.api.common.OpenApiConfig</param>
                                 <param>org.mwolff.api.ingest.web.IngestSecurityConfig</param>
                                 <param>org.mwolff.api.timeseries.web.CsvBulkParser*</param>
                                 <param>org.mwolff.api.ingest.web.IngestTokenAuthFilter*</param>
                                 <param>org.mwolff.api.ingest.web.IngestRateLimitFilter*</param>
                             </excludedClasses>
+                            <!--
+                              Nachweislich aequivalente Mutanten (#207): renderScaledArgb
+                              (ImageIoThumbnailer) ist reines AWT-Render-Plumbing —
+                              setRenderingHint/dispose sind Qualitaets-/Resource-Seiteneffekte
+                              ohne deterministisch beobachtbares Verhalten. Die fachliche
+                              Logik (Mass-Berechnung targetSize) bleibt voll mutiert.
+                            -->
+                            <excludedMethods>
+                                <param>renderScaledArgb</param>
+                            </excludedMethods>
                             <!--
                               IT-Tests (Testcontainers+Docker) werden aus PIT ausgeschlossen.
                               PIT erkennt *IT-Klassen als normale Test-Klassen und versucht
@@ -718,14 +751,13 @@
                                 <value>-Djdk.attach.allowAttachSelf=true</value>
                             </jvmArgs>
                             <!--
-                              Messung 2026-05-31: Mutation Score 70%, Test Strength 92%.
-                              142 Mutations ohne Coverage (Persistence-Layer, JaCoCo-Exclusions).
-                              Schwellen entsprechen Ist-Stand — nächste Welle: Persistence-
-                              Layer-Tests über Unit-Tests abdecken und auf 80%/95% anheben.
-                              Folge-Issue: #71 (PIT auf 100%).
+                              #207: 100 % Mutation Score + Test Strength erreicht (alle
+                              Survivor per Test gekillt oder aequivalente Mutanten per
+                              Refactor eliminiert). Schwellen sind hart — jeder neue
+                              Survivor bricht den Build.
                             -->
-                            <mutationThreshold>70</mutationThreshold>
-                            <testStrengthThreshold>90</testStrengthThreshold>
+                            <mutationThreshold>100</mutationThreshold>
+                            <testStrengthThreshold>100</testStrengthThreshold>
                             <timestampedReports>false</timestampedReports>
                             <!-- XML zusätzlich zum HTML-Report, um Survivor maschinell zu parsen (#203). -->
                             <outputFormats>

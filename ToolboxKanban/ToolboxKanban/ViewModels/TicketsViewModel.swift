@@ -55,4 +55,19 @@ final class TicketsViewModel {
       state = .failed(APIError.transport.userMessage)
     }
   }
+
+  /// Legt ein neues Item an und lädt die Liste neu (#246). Gibt `true` bei Erfolg
+  /// zurück; bei 401 wird `onUnauthorized` ausgelöst und `false` geliefert.
+  func create(title: String, body: String, column: KanbanColumn) async -> Bool {
+    do {
+      _ = try await service.createItem(title: title, body: body, column: column)
+      await load()
+      return true
+    } catch APIError.unauthorized {
+      onUnauthorized()
+      return false
+    } catch {
+      return false
+    }
+  }
 }

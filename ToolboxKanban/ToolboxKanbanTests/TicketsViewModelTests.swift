@@ -88,4 +88,38 @@ struct TicketsViewModelTests {
     vm.selectedColumn = .backlog
     #expect(vm.filteredItems.isEmpty)
   }
+
+  // MARK: - Erstellen (#246)
+
+  @Test func createSucceedsAndReloads() async {
+    let service = MockKanbanService(result: .success([.fixture(id: 9, title: "Neu")]))
+    let vm = TicketsViewModel(service: service, onUnauthorized: {})
+    let ok = await vm.create(title: "Neu", body: "Text", column: .inProgress)
+    #expect(ok == true)
+    #expect(service.createCallCount == 1)
+    #expect(service.lastCreateArgs?.title == "Neu")
+    #expect(service.lastCreateArgs?.column == .inProgress)
+    // Liste wurde nach dem Anlegen neu geladen.
+    #expect(service.fetchCallCount == 1)
+    #expect(vm.state == .loaded([.fixture(id: 9, title: "Neu")]))
+  }
+
+  @Test func createUnauthorizedTriggersCallbackAndReturnsFalse() async {
+    var calledBack = false
+    let service = MockKanbanService(
+      result: .success([]), createResult: .failure(APIError.unauthorized))
+    let vm = TicketsViewModel(service: service, onUnauthorized: { calledBack = true })
+    let ok = await vm.create(title: "X", body: "", column: .backlog)
+    #expect(ok == false)
+    #expect(calledBack == true)
+    #expect(service.fetchCallCount == 0)
+  }
+
+  @Test func createFailureReturnsFalse() async {
+    let service = MockKanbanService(
+      result: .success([]), createResult: .failure(APIError.httpStatus(500)))
+    let vm = TicketsViewModel(service: service, onUnauthorized: {})
+    let ok = await vm.create(title: "X", body: "", column: .backlog)
+    #expect(ok == false)
+  }
 }

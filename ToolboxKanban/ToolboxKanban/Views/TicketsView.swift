@@ -11,6 +11,7 @@ import SwiftUI
 struct TicketsView: View {
   @Environment(AuthState.self) private var authState
   @State private var viewModel: TicketsViewModel?
+  @State private var showCreateSheet = false
 
   var body: some View {
     NavigationStack {
@@ -29,8 +30,21 @@ struct TicketsView: View {
       }
       .navigationTitle("Tickets")
       .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: .topBarLeading) {
           Button("Abmelden") { authState.logout() }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+          Button {
+            showCreateSheet = true
+          } label: {
+            Label("Neues Ticket", systemImage: "plus")
+          }
+          .disabled(viewModel == nil)
+        }
+      }
+      .sheet(isPresented: $showCreateSheet) {
+        CreateTicketView { title, body, column in
+          await viewModel?.create(title: title, body: body, column: column) ?? false
         }
       }
     }

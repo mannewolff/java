@@ -36,11 +36,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MPLCONFIGDIR=/tmp/matplotlib \
     PATH="/app/.venv/bin:$PATH"
 
-# OS-deps fuer Pillow + cairosvg-Native + curl fuer Healthcheck.
-# cairosvg laedt zur Laufzeit libcairo (-> libcairo2) und benoetigt fuer
+# OS-deps fuer Pillow + cairosvg-Native + weasyprint (#27) + curl fuer Healthcheck.
+# cairosvg/weasyprint laden zur Laufzeit libcairo (-> libcairo2) und benoetigen fuer
 # pango-Text-Rendering libpango/libgdk-pixbuf plus shared-mime-info als
 # MIME-Lookup-Datenbank. Ohne die Pakete crasht der erste svg2png-Call mit
 # OSError "no such file or directory: cairo".
+# fonts-dejavu-core: weasyprint braucht mindestens eine Schrift, sonst bleibt der
+# PDF-Text leer/als Kaestchen (das Slim-Image bringt keine Fonts mit).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libjpeg62-turbo \
@@ -50,6 +52,7 @@ RUN apt-get update \
         libpangocairo-1.0-0 \
         libgdk-pixbuf-2.0-0 \
         shared-mime-info \
+        fonts-dejavu-core \
         curl \
     && rm -rf /var/lib/apt/lists/*
 

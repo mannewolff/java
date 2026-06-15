@@ -14,6 +14,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 type NavIcon = ComponentType<SvgIconProps>;
 
@@ -65,6 +66,7 @@ export const navItems: NavNode[] = [
       { kind: 'link', label: 'Passwortgenerator', path: '/tools/password', icon: VpnKeyIcon },
       { kind: 'link', label: 'Bilder verwalten', path: '/tools/images', icon: PhotoLibraryIcon },
       { kind: 'link', label: 'API-Konsole', path: '/tools/api-console', icon: ApiIcon },
+      { kind: 'link', label: 'Markdown zu PDF', path: '/tools/md-to-pdf', icon: PictureAsPdfIcon },
     ],
   },
   { kind: 'link', label: 'Dashboards', path: '/dashboards', icon: DashboardCustomizeIcon },

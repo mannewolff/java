@@ -22,6 +22,7 @@ const ColorPickerPage = lazy(() => import('./pages/tools/ColorPickerPage'));
 const ImageManagerPage = lazy(() => import('./pages/tools/ImageManagerPage'));
 const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
 const ApiConsolePage = lazy(() => import('./pages/tools/ApiConsolePage'));
+const MarkdownToPdfPage = lazy(() => import('./pages/tools/MarkdownToPdfPage'));
 const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
 const MobilePage = lazy(() => import('./pages/mobile/MobilePage'));
 const TimeSeriesListPage = lazy(() => import('./pages/timeseries/TimeSeriesListPage'));
@@ -149,6 +150,14 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <ApiConsolePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tools/md-to-pdf"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <MarkdownToPdfPage />
             </Suspense>
           }
         />

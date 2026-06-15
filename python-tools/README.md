@@ -11,7 +11,10 @@ FastAPI-Microservice für Bild-Werkzeuge der persönlichen Toolbox.
 | `POST` | `/palette` | Dominante Farben per [colorthief](https://github.com/fengsp/color-thief-py). Returnt JSON. |
 | `POST` | `/resize` | Proportionales (oder freies) Skalieren via Pillow LANCZOS. Returnt Bild im gewählten Format. |
 | `POST` | `/svg-to-png` | SVG zu PNG via [cairosvg](https://cairosvg.org/). Optional `width`/`height`/`background`. |
+| `POST` | `/md-to-pdf` | Markdown zu PDF via [weasyprint](https://weasyprint.org/). Form-Feld `markdown`. Externe Ressourcen werden geblockt (#27/#261). |
 | `GET`  | `/health` | Liveness-Check für Docker- und Spring-Healthchecks. |
+
+> Alle `POST`-Tool-Endpoints erfordern den `X-Internal-Key`-Header (Internal-Auth, #265); `/health` ist frei. Der Markdown→PDF-Endpoint braucht zur Laufzeit cairo/pango + eine Schrift (`fonts-dejavu-core`, im Dockerfile enthalten).
 
 ### `POST /remove-bg`
 

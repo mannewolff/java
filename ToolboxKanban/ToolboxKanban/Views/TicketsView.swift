@@ -14,13 +14,25 @@ struct TicketsView: View {
 
   var body: some View {
     NavigationStack {
-      content
-        .navigationTitle("Tickets")
-        .toolbar {
-          ToolbarItem(placement: .topBarTrailing) {
-            Button("Abmelden") { authState.logout() }
+      Group {
+        if let viewModel {
+          @Bindable var vm = viewModel
+          VStack(spacing: 0) {
+            if case .loaded = vm.state {
+              filterPicker(selection: $vm.selectedColumn)
+            }
+            content(vm)
           }
+        } else {
+          ProgressView("Tickets werden geladen…")
         }
+      }
+      .navigationTitle("Tickets")
+      .toolbar {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button("Abmelden") { authState.logout() }
+        }
+      }
     }
     .task {
       if viewModel == nil {
@@ -30,16 +42,30 @@ struct TicketsView: View {
     }
   }
 
+  /// Segmentierter Filter über die vier Spalten plus „Alle" (#245).
+  private func filterPicker(selection: Binding<KanbanColumn?>) -> some View {
+    Picker("Status", selection: selection) {
+      Text("Alle").tag(KanbanColumn?.none)
+      ForEach(KanbanColumn.allCases) { column in
+        Text(column.displayName).tag(KanbanColumn?.some(column))
+      }
+    }
+    .pickerStyle(.segmented)
+    .padding(.horizontal)
+    .padding(.vertical, 8)
+  }
+
   @ViewBuilder
-  private var content: some View {
-    switch viewModel?.state ?? .idle {
+  private func content(_ viewModel: TicketsViewModel) -> some View {
+    switch viewModel.state {
     case .idle, .loading:
       ProgressView("Tickets werden geladen…")
-    case .loaded(let items):
+    case .loaded:
+      let items = viewModel.filteredItems
       if items.isEmpty {
         ContentUnavailableView(
           "Keine Tickets", systemImage: "tray",
-          description: Text("Es sind noch keine Tickets vorhanden."))
+          description: Text("Für diesen Filter sind keine Tickets vorhanden."))
       } else {
         List(items) { TicketRow(item: $0) }
           .listStyle(.plain)
@@ -51,7 +77,7 @@ struct TicketsView: View {
         Text(message)
       } actions: {
         Button("Erneut versuchen") {
-          Task { await viewModel?.load() }
+          Task { await viewModel.load() }
         }
       }
     }

@@ -21,6 +21,17 @@ final class TicketsViewModel {
 
   private(set) var state: State = .idle
 
+  /// Aktiver Spalten-Filter; `nil` = alle Spalten anzeigen (#245).
+  var selectedColumn: KanbanColumn?
+
+  /// Die nach `selectedColumn` gefilterten Items des `.loaded`-Zustands.
+  /// Die Sortierung (neueste zuerst) liefert bereits der Service.
+  var filteredItems: [KanbanItem] {
+    guard case .loaded(let items) = state else { return [] }
+    guard let column = selectedColumn else { return items }
+    return items.filter { $0.column == column }
+  }
+
   private let service: any KanbanServiceProtocol
   /// Wird bei 401/abgelaufener Sitzung aufgerufen (i. d. R. AuthState.logout).
   private let onUnauthorized: () -> Void

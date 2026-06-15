@@ -52,4 +52,40 @@ struct TicketsViewModelTests {
     await vm.load()
     #expect(vm.state == .failed(APIError.transport.userMessage))
   }
+
+  // MARK: - Filter (#245)
+
+  private func loadedViewModel() async -> TicketsViewModel {
+    let items = [
+      KanbanItem.fixture(id: 1, title: "B", column: .backlog),
+      KanbanItem.fixture(id: 2, title: "P", column: .inProgress),
+      KanbanItem.fixture(id: 3, title: "B2", column: .backlog),
+      KanbanItem.fixture(id: 4, title: "D", column: .done),
+    ]
+    let vm = TicketsViewModel(
+      service: MockKanbanService(result: .success(items)), onUnauthorized: {})
+    await vm.load()
+    return vm
+  }
+
+  @Test func filterNilShowsAllItems() async {
+    let vm = await loadedViewModel()
+    #expect(vm.selectedColumn == nil)
+    #expect(vm.filteredItems.count == 4)
+  }
+
+  @Test func filterByColumnShowsOnlyMatchingItems() async {
+    let vm = await loadedViewModel()
+    vm.selectedColumn = .backlog
+    #expect(vm.filteredItems.map(\.id) == [1, 3])
+    vm.selectedColumn = .done
+    #expect(vm.filteredItems.map(\.id) == [4])
+  }
+
+  @Test func filteredItemsEmptyWhenNotLoaded() {
+    let vm = TicketsViewModel(
+      service: MockKanbanService(result: .success([])), onUnauthorized: {})
+    vm.selectedColumn = .backlog
+    #expect(vm.filteredItems.isEmpty)
+  }
 }

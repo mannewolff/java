@@ -22,4 +22,11 @@ public interface PythonToolsPort {
   ToolImageResult convertSvgToPng(ValidatedImage image, SvgToPngParams params);
 
   ToolImageResult convertRasterToPng(ValidatedImage image, RasterToPngParams params);
+
+  /**
+   * Konvertiert Markdown-Text zu PDF (#27). Liefert die PDF-Bytes als {@link ToolImageResult}
+   * (bytes + content-type {@code application/pdf}); der Result-Typ ist das generische
+   * Binär-Ergebnis der Tool-Schicht.
+   */
+  ToolImageResult convertMarkdownToPdf(String markdown);
 }

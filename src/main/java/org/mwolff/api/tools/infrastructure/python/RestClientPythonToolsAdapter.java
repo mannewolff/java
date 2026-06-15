@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -37,6 +38,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
   private static final String PALETTE_PATH = "/palette";
   private static final String SVG_TO_PNG_PATH = "/svg-to-png";
   private static final String RASTER_TO_PNG_PATH = "/raster-to-png";
+  private static final String MD_TO_PDF_PATH = "/md-to-pdf";
 
   private final RestClient client;
 
@@ -98,6 +100,13 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
       body.add("height", Integer.toString(params.height()));
     }
     return postForImage(RASTER_TO_PNG_PATH, body, "raster-to-png");
+  }
+
+  @Override
+  public ToolImageResult convertMarkdownToPdf(String markdown) {
+    final MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+    body.add("markdown", markdown);
+    return postForImage(MD_TO_PDF_PATH, body, "md-to-pdf");
   }
 
   @Override

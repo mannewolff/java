@@ -1280,3 +1280,84 @@ def test_tool_endpoint_denies_when_no_key_configured(
             data={"width": "10", "height": "10"},
         )
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# /md-to-pdf tests (#27)
+# ---------------------------------------------------------------------------
+
+
+def test_markdown_to_html_renders_gfm() -> None:
+    """GFM-nahe Elemente (Heading, Tabelle) werden zu HTML gerendert."""
+    html = main._markdown_to_html("# Titel\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
+    assert "<h1>Titel</h1>" in html
+    assert "<table>" in html
+
+
+def test_md_to_pdf_uses_blocking_url_fetcher() -> None:
+    """_md_to_pdf rendert das HTML und verdrahtet den externen-Ressourcen-Blocker (#27/#261)."""
+    fake_weasyprint = types.ModuleType("weasyprint")
+    captured: dict[str, object] = {}
+
+    class FakeHTML:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def write_pdf(self) -> bytes:
+            return b"%PDF-fake"
+
+    fake_weasyprint.HTML = FakeHTML  # type: ignore[attr-defined]
+
+    with patch.dict("sys.modules", {"weasyprint": fake_weasyprint}):
+        result = main._md_to_pdf("# Hallo")
+
+    assert result == b"%PDF-fake"
+    assert captured["url_fetcher"] is main._block_external_resources
+    assert "<h1>Hallo</h1>" in captured["string"]  # type: ignore[operator]
+
+
+def test_md_to_pdf_endpoint_returns_pdf(client: TestClient) -> None:
+    with patch.object(main, "_md_to_pdf", return_value=b"%PDF-1.4 fake"):
+        response = client.post("/md-to-pdf", data={"markdown": "# Hi"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content == b"%PDF-1.4 fake"
+
+
+def test_md_to_pdf_endpoint_rejects_empty(client: TestClient) -> None:
+    response = client.post("/md-to-pdf", data={"markdown": "   \n  "})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Empty markdown"
+
+
+def test_md_to_pdf_endpoint_rejects_too_large(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_MARKDOWN_BYTES", 5)
+    response = client.post("/md-to-pdf", data={"markdown": "# viel zu lang"})
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Markdown too large"
+
+
+def test_md_to_pdf_endpoint_external_resource_returns_422(client: TestClient) -> None:
+    with patch.object(
+        main, "_md_to_pdf", side_effect=main.ExternalResourceError("file:///etc/passwd")
+    ):
+        response = client.post("/md-to-pdf", data={"markdown": "# Hi"})
+    assert response.status_code == 422
+    assert "external" in response.json()["detail"].lower()
+
+
+def test_md_to_pdf_endpoint_conversion_error_returns_500(client: TestClient) -> None:
+    with patch.object(main, "_md_to_pdf", side_effect=RuntimeError("boom")):
+        response = client.post("/md-to-pdf", data={"markdown": "# Hi"})
+    assert response.status_code == 500
+    detail = response.json()["detail"]
+    assert detail == "markdown conversion failed"
+    assert "RuntimeError" not in detail
+
+
+def test_md_to_pdf_requires_internal_key() -> None:
+    with TestClient(main.app) as c:
+        response = c.post("/md-to-pdf", data={"markdown": "# Hi"})
+    assert response.status_code == 401

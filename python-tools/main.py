@@ -42,6 +42,9 @@ ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
     {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 )
 MAX_BYTES: int = 10 * 1024 * 1024  # 10 MiB
+# Obergrenze fuer Markdown-Eingabe (#27): 1 MiB reicht weit fuer Dokumente, begrenzt
+# aber Resource-Verbrauch der HTML/PDF-Konvertierung.
+MAX_MARKDOWN_BYTES: int = 1 * 1024 * 1024
 # Explizites Pixel-Limit gegen Decompression-Bombs (#264): ~50 MP deckt reale Fotos
 # (z. B. 8000x6000) ab, blockt aber stark komprimierte Riesen-Bilder, die unter MAX_BYTES
 # passen, beim Dekodieren aber den Speicher sprengen wuerden.
@@ -110,6 +113,39 @@ def _block_external_resources(url: str, *args: object, **kwargs: object) -> byte
     ueber `<image href=...>` o. ae. in hochgeladenen SVGs.
     """
     raise ExternalResourceError(url)
+
+
+def _markdown_to_html(md: str) -> str:
+    """Rendert Markdown (GFM-nah: Tabellen, fenced code, Listen) zu HTML (#27)."""
+    import markdown  # local import: pure-python, hier gekapselt
+
+    return markdown.markdown(md, extensions=["extra", "sane_lists", "nl2br"])
+
+
+def _wrap_html(body: str) -> str:
+    """Bettet das gerenderte HTML in ein druckfreundliches Grundgeruest ein (#27)."""
+    return (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'><style>"
+        "body{font-family:sans-serif;font-size:11pt;line-height:1.5;margin:2cm;color:#111}"
+        "h1,h2,h3{line-height:1.2}code,pre{font-family:monospace;background:#f4f4f4}"
+        "pre{padding:.6em;overflow-wrap:break-word;white-space:pre-wrap}"
+        "table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:.3em .6em}"
+        "img{max-width:100%}"
+        "</style></head><body>" + body + "</body></html>"
+    )
+
+
+def _md_to_pdf(md: str) -> bytes:
+    """Markdown -> HTML -> PDF (#27). weasyprint laedt native Libs (cairo/pango) erst hier.
+
+    Externe Ressourcen (file://, http(s)://) werden ueber den url_fetcher blockiert
+    (LFR/SSRF-Schutz, analog #261).
+    """
+    import weasyprint  # local import: native Libs nur hier noetig (Tests mocken das Modul)
+
+    html = _wrap_html(_markdown_to_html(md))
+    document = weasyprint.HTML(string=html, url_fetcher=_block_external_resources)
+    return document.write_pdf()
 
 
 def _remove_background(data: bytes) -> bytes:
@@ -440,3 +476,26 @@ async def raster_to_png(
         raise HTTPException(status_code=500, detail="raster conversion failed") from exc
 
     return Response(content=result, media_type="image/png")
+
+
+@app.post("/md-to-pdf", dependencies=[Depends(require_internal_key)])
+async def md_to_pdf(markdown: Annotated[str, Form()]) -> Response:
+    """Konvertiert Markdown zu PDF (#27). Eingabe als Form-Feld 'markdown'."""
+    text = markdown.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty markdown")
+    if len(markdown.encode("utf-8")) > MAX_MARKDOWN_BYTES:
+        raise HTTPException(status_code=413, detail="Markdown too large")
+
+    try:
+        pdf = _md_to_pdf(text)
+    except ExternalResourceError as exc:
+        logger.warning("md-to-pdf blocked external resource")
+        raise HTTPException(
+            status_code=422, detail="markdown references external resources"
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 — Wrap any weasyprint/markdown failure
+        logger.error("md-to-pdf failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="markdown conversion failed") from exc
+
+    return Response(content=pdf, media_type="application/pdf")

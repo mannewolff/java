@@ -48,6 +48,28 @@ class RestClientPythonToolsAdapterTest {
     server.shutdown();
   }
 
+  // ----- md-to-pdf (#27) ---------------------------------------------------
+
+  @Test
+  void convertMarkdownToPdfShouldPostMarkdownAndReturnPdfBytes() throws Exception {
+    final byte[] pdf = "%PDF-1.4".getBytes(StandardCharsets.UTF_8);
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "application/pdf")
+            .setBody(new Buffer().write(pdf)));
+
+    final ToolImageResult result = adapter.convertMarkdownToPdf("# Titel");
+
+    assertThat(result.bytes()).isEqualTo(pdf);
+    assertThat(result.contentType()).isEqualTo("application/pdf");
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    assertThat(request.getPath()).isEqualTo("/md-to-pdf");
+    final String body = request.getBody().readString(StandardCharsets.UTF_8);
+    assertThat(body).contains("markdown").contains("Titel");
+  }
+
   // ----- internal auth header (#265) ---------------------------------------
 
   private RestClientPythonToolsAdapter adapterWithKey(String internalKey) {

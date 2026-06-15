@@ -1,0 +1,7 @@
+# Test-Overrides. Die eigentliche DB-Verbindung kommt im Integrationstest aus dem
+# MariaDB-Testcontainer (@ServiceConnection); dieser Wert stellt nur sicher, dass der
+# Placeholder ${DB_PASSWORD} aus der Prod-application.yml im Testkontext aufloest,
+# nachdem der unsichere Default entfernt wurde (#270).
+spring:
+  datasource:
+    password: test

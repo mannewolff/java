@@ -15,18 +15,37 @@ from __future__ import annotations
 
 import io
 import logging
-import traceback
+import os
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
 
 logger = logging.getLogger("python-tools")
+
+# Internal-Auth (#265, Defense-in-Depth): Shared Secret zwischen Spring und python-tools.
+# Default leer => deny. Spring sendet den Key als X-Internal-Key-Header; ist hier kein Key
+# konfiguriert, werden alle geschuetzten Endpoints abgelehnt (fail-closed). /health bleibt frei.
+INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
+INTERNAL_KEY_HEADER: str = "X-Internal-Key"
+
+
+def require_internal_key(
+    x_internal_key: Annotated[str | None, Header()] = None,
+) -> None:
+    """Lehnt Requests ohne gueltigen X-Internal-Key mit 401 ab (Default leer = deny)."""
+    if not INTERNAL_API_KEY or x_internal_key != INTERNAL_API_KEY:
+        raise HTTPException(status_code=401, detail="invalid internal key")
+
 
 ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
     {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 )
 MAX_BYTES: int = 10 * 1024 * 1024  # 10 MiB
+# Explizites Pixel-Limit gegen Decompression-Bombs (#264): ~50 MP deckt reale Fotos
+# (z. B. 8000x6000) ab, blockt aber stark komprimierte Riesen-Bilder, die unter MAX_BYTES
+# passen, beim Dekodieren aber den Speicher sprengen wuerden.
+MAX_IMAGE_PIXELS_LIMIT: int = 50_000_000
 
 OG_DEFAULT_WIDTH: int = 1200
 OG_DEFAULT_HEIGHT: int = 630
@@ -55,6 +74,42 @@ MEDIA_TO_PILLOW: dict[str, str] = {
 }
 
 app = FastAPI(title="python-tools", version="0.1.0")
+
+
+class ExternalResourceError(Exception):
+    """SVG verweist auf eine externe Ressource (file://, http(s)://) — blockiert (#261)."""
+
+
+class ImageTooLargeError(Exception):
+    """Bild ueberschreitet das Pixel-Limit (Decompression-Bomb-Schutz, #264)."""
+
+
+def _open_image(data: bytes):  # type: ignore[no-untyped-def]
+    """Oeffnet Bild-Bytes mit Pillow und erzwingt das Pixel-Limit (#264).
+
+    `Image.open` liest nur den Header (kein Vollbild-Dekodieren), daher ist der
+    Groessen-Check guenstig und greift, bevor Speicher fuer das Bild alloziert wird.
+    Setzt zusaetzlich Pillows globalen MAX_IMAGE_PIXELS-Guard als zweite Verteidigungslinie.
+    """
+    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+
+    # Pillows eigenen (globalen, hohen) Guard abschalten und stattdessen unser explizites
+    # Limit deterministisch pruefen — so ist die Reaktion immer ein sauberes 4xx statt
+    # einer DecompressionBombError/Warning mit uneinheitlichem Verhalten.
+    Image.MAX_IMAGE_PIXELS = None
+    img = Image.open(io.BytesIO(data))
+    if img.size[0] * img.size[1] > MAX_IMAGE_PIXELS_LIMIT:
+        raise ImageTooLargeError(f"{img.size[0]}x{img.size[1]} exceeds pixel limit")
+    return img
+
+
+def _block_external_resources(url: str, *args: object, **kwargs: object) -> bytes:
+    """url_fetcher fuer cairosvg, der jede externe Aufloesung verweigert.
+
+    Verhindert Local File Read (file://) und SSRF (http:// auf interne Hosts/Metadaten)
+    ueber `<image href=...>` o. ae. in hochgeladenen SVGs.
+    """
+    raise ExternalResourceError(url)
 
 
 def _remove_background(data: bytes) -> bytes:
@@ -91,7 +146,7 @@ def _crop_to_og(
     """Cover-fit crop auf width x height; format 'jpeg' oder 'png'."""
     from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
 
-    src = Image.open(io.BytesIO(data))
+    src = _open_image(data)
     src = src.convert("RGBA" if format == "png" else "RGB")
     src_w, src_h = src.size
 
@@ -129,7 +184,7 @@ def _resize(
     """Skaliert das Bild auf (width, height) per LANCZOS. Returnt (bytes, media_type)."""
     from PIL import Image  # local import: keeps Pillow out of test imports when patched
 
-    src = Image.open(io.BytesIO(data))
+    src = _open_image(data)
     source_format = (src.format or "PNG").upper()
 
     if output_format == "auto":
@@ -192,7 +247,7 @@ def _raster_to_png(
     """
     from PIL import Image  # local import: keeps Pillow out of test imports when patched
 
-    img = Image.open(io.BytesIO(data))
+    img = _open_image(data)
 
     if width is not None and height is not None:
         img = img.resize((width, height), Image.LANCZOS)
@@ -226,7 +281,8 @@ def _svg_to_png(
     """
     import cairosvg  # local import: keeps cairosvg out of test imports when patched
 
-    kwargs: dict[str, object] = {"bytestring": data}
+    # Externe Ressourcen (file://, http://) im SVG blocken — gegen LFR/SSRF (#261).
+    kwargs: dict[str, object] = {"bytestring": data, "url_fetcher": _block_external_resources}
     if width is not None:
         kwargs["output_width"] = width
     if height is not None:
@@ -242,7 +298,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/remove-bg")
+@app.post("/remove-bg", dependencies=[Depends(require_internal_key)])
 async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
     """Nimmt ein hochgeladenes Bild, entfernt den Hintergrund, gibt PNG zurueck."""
     contents = await _read_and_validate(file)
@@ -251,14 +307,12 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
         result = _remove_background(contents)
     except Exception as exc:  # noqa: BLE001 — Wrap any rembg failure
         logger.error("rembg failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Background removal failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="background removal failed") from exc
 
     return Response(content=result, media_type="image/png")
 
 
-@app.post("/crop")
+@app.post("/crop", dependencies=[Depends(require_internal_key)])
 async def crop(
     file: Annotated[UploadFile, File()],
     y_offset: Annotated[float, Form(ge=0.0, le=1.0)] = 0.5,
@@ -281,17 +335,18 @@ async def crop(
             height=height,
             format=format,
         )
+    except ImageTooLargeError as exc:
+        logger.warning("crop rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Crop failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="crop failed") from exc
 
     media_type = "image/png" if format == "png" else "image/jpeg"
     return Response(content=result, media_type=media_type)
 
 
-@app.post("/resize")
+@app.post("/resize", dependencies=[Depends(require_internal_key)])
 async def resize(
     file: Annotated[UploadFile, File()],
     width: Annotated[int, Form(ge=RESIZE_MIN_DIMENSION, le=RESIZE_MAX_DIMENSION)],
@@ -310,16 +365,17 @@ async def resize(
             output_format=output_format,
             quality=quality,
         )
+    except ImageTooLargeError as exc:
+        logger.warning("resize rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("resize failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Resize failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="resize failed") from exc
 
     return Response(content=result, media_type=media_type)
 
 
-@app.post("/palette")
+@app.post("/palette", dependencies=[Depends(require_internal_key)])
 async def palette(
     file: Annotated[UploadFile, File()],
     count: Annotated[int, Form(ge=2, le=10)] = 6,
@@ -331,14 +387,12 @@ async def palette(
         colors = _extract_palette(contents, count=count)
     except Exception as exc:  # noqa: BLE001 — Wrap any colorthief failure
         logger.error("palette failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Palette extraction failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="palette extraction failed") from exc
 
     return {"colors": colors}
 
 
-@app.post("/svg-to-png")
+@app.post("/svg-to-png", dependencies=[Depends(require_internal_key)])
 async def svg_to_png(
     file: Annotated[UploadFile, File()],
     width: Annotated[int | None, Form(ge=SVG_MIN_DIMENSION, le=SVG_MAX_DIMENSION)] = None,
@@ -355,16 +409,19 @@ async def svg_to_png(
             height=height,
             background=background,
         )
+    except ExternalResourceError as exc:
+        logger.warning("svg-to-png blocked external resource")
+        raise HTTPException(
+            status_code=422, detail="SVG references external resources"
+        ) from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any cairosvg failure
         logger.error("svg-to-png failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"SVG conversion failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="SVG conversion failed") from exc
 
     return Response(content=result, media_type="image/png")
 
 
-@app.post("/raster-to-png")
+@app.post("/raster-to-png", dependencies=[Depends(require_internal_key)])
 async def raster_to_png(
     file: Annotated[UploadFile, File()],
     width: Annotated[int | None, Form(ge=1, le=8192)] = None,
@@ -375,10 +432,11 @@ async def raster_to_png(
 
     try:
         result = _raster_to_png(contents, width=width, height=height)
+    except ImageTooLargeError as exc:
+        logger.warning("raster-to-png rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("raster-to-png failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Raster conversion failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="raster conversion failed") from exc
 
     return Response(content=result, media_type="image/png")

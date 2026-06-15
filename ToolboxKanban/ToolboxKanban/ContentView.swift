@@ -11,37 +11,12 @@ struct ContentView: View {
   @Environment(AuthState.self) private var authState
 
   var body: some View {
-    if authState.isAuthenticated {
-      TicketsPlaceholderView()
+    if authState.isRestoring {
+      ProgressView("Anmeldung wird wiederhergestellt…")
+    } else if authState.isAuthenticated {
+      TicketsView()
     } else {
       LoginView()
-    }
-  }
-}
-
-/// Platzhalter für den Tickets-Screen (wird in #244 durch echten Screen ersetzt).
-struct TicketsPlaceholderView: View {
-  @Environment(AuthState.self) private var authState
-
-  var body: some View {
-    NavigationStack {
-      VStack(spacing: 24) {
-        Image(systemName: "checkmark.seal.fill")
-          .font(.system(size: 64))
-          .foregroundStyle(.green)
-        Text("Angemeldet!")
-          .font(.title.bold())
-        Text("Kanban-Board folgt in #244.")
-          .foregroundStyle(.secondary)
-      }
-      .navigationTitle("Toolbox Kanban")
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Abmelden") {
-            authState.logout()
-          }
-        }
-      }
     }
   }
 }
@@ -62,8 +37,10 @@ private final class MockLoggedInService: AuthServiceProtocol {
       accessToken: "preview-token", refreshToken: nil, idToken: nil,
       expiresIn: 300, tokenType: "Bearer", scope: "openid")
   }
+  func refresh(refreshToken: String) async throws -> TokenResponse { try await authenticate() }
 }
 
 private final class MockLoggedOutService: AuthServiceProtocol {
   func authenticate() async throws -> TokenResponse { throw AuthError.cancelled }
+  func refresh(refreshToken: String) async throws -> TokenResponse { throw AuthError.cancelled }
 }

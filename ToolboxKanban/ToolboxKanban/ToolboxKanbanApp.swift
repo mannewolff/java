@@ -13,6 +13,7 @@ struct ToolboxKanbanApp: App {
     WindowGroup {
       ContentView()
         .environment(authState)
+        .task { await authState.restore() }
     }
   }
 }

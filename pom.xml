@@ -518,6 +518,15 @@
                       JaCoCo-Report/-Check wurden stillschweigend uebersprungen (Gate war No-op).
                     -->
                     <argLine>@{jacocoArgLine} -Djdk.attach.allowAttachSelf=true</argLine>
+                    <!--
+                      #270: application.yml hat keinen DB_PASSWORD-Default mehr (fail-fast).
+                      Tests bekommen den Wert hier, damit der Placeholder aufloest, ohne die
+                      Haupt-application.yml per test-resources zu ueberschatten. Die echte
+                      DB-Verbindung kommt im IT aus dem Testcontainer (@ServiceConnection).
+                    -->
+                    <environmentVariables>
+                        <DB_PASSWORD>test</DB_PASSWORD>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>
@@ -542,6 +551,10 @@
                       und der 100%-Check wuerde fehlschlagen.
                     -->
                     <argLine>@{jacocoArgLine} -Djdk.attach.allowAttachSelf=true</argLine>
+                    <!-- #270: DB_PASSWORD fuer IT-JVMs (kein Default mehr in application.yml). -->
+                    <environmentVariables>
+                        <DB_PASSWORD>test</DB_PASSWORD>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>

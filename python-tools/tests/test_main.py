@@ -22,9 +22,19 @@ TINY_PNG_BYTES: bytes = bytes.fromhex(
 )
 
 
+TEST_INTERNAL_KEY = "test-internal-key"
+
+
+@pytest.fixture(autouse=True)
+def _set_internal_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Setzt für alle Tests einen Internal-Key (#265), sonst greift Default-deny."""
+    monkeypatch.setattr(main, "INTERNAL_API_KEY", TEST_INTERNAL_KEY)
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    with TestClient(main.app) as test_client:
+    # Default-Header, damit die bestehenden Endpoint-Tests den Internal-Auth-Gate (#265) passieren.
+    with TestClient(main.app, headers={"X-Internal-Key": TEST_INTERNAL_KEY}) as test_client:
         yield test_client
 
 
@@ -141,9 +151,10 @@ def test_remove_bg_returns_500_when_rembg_raises(client: TestClient) -> None:
     # Then
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Background removal failed:")
-    assert "RuntimeError" in detail
-    assert "model crashed" in detail
+    assert detail == "background removal failed"
+    # Kein Leak des internen Exception-Typs/-Texts (#266).
+    assert "RuntimeError" not in detail
+    assert "model crashed" not in detail
 
 
 def test_remove_bg_requires_file_field(client: TestClient) -> None:
@@ -505,9 +516,9 @@ def test_crop_returns_500_when_pillow_raises(
     # Then
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Crop failed:")
-    assert "RuntimeError" in detail
-    assert "pillow crashed" in detail
+    assert detail == "crop failed"
+    assert "RuntimeError" not in detail
+    assert "pillow crashed" not in detail
 
 
 # ---------------------------------------------------------------------------
@@ -681,8 +692,8 @@ def test_resize_returns_500_when_pillow_raises(
 
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Resize failed:")
-    assert "RuntimeError" in detail
+    assert detail == "resize failed"
+    assert "RuntimeError" not in detail
 
 
 def test_resize_preserves_whole_image_not_a_crop(client: TestClient) -> None:
@@ -819,8 +830,8 @@ def test_palette_returns_500_when_colorthief_raises(
 
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Palette extraction failed:")
-    assert "RuntimeError" in detail
+    assert detail == "palette extraction failed"
+    assert "RuntimeError" not in detail
 
 
 def test_rgb_to_hex_formats_lowercase_hex() -> None:
@@ -990,8 +1001,10 @@ def test_svg_to_png_wraps_cairosvg_exception_as_500(client: TestClient) -> None:
 
     # Then
     assert response.status_code == 500
-    assert "SVG conversion failed" in response.json()["detail"]
-    assert "ValueError" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert detail == "SVG conversion failed"
+    assert "ValueError" not in detail
+    assert "bad svg" not in detail
 
 
 def test_svg_to_png_invokes_cairosvg_with_bytestring_only_when_no_options() -> None:
@@ -1012,7 +1025,10 @@ def test_svg_to_png_invokes_cairosvg_with_bytestring_only_when_no_options() -> N
 
     # Then
     assert result == b"fake-png"
-    assert captured == {"bytestring": b"<svg/>"}
+    assert captured == {
+        "bytestring": b"<svg/>",
+        "url_fetcher": main._block_external_resources,
+    }
 
 
 def test_svg_to_png_invokes_cairosvg_with_all_options() -> None:
@@ -1034,10 +1050,33 @@ def test_svg_to_png_invokes_cairosvg_with_all_options() -> None:
     # Then
     assert captured == {
         "bytestring": b"<svg/>",
+        "url_fetcher": main._block_external_resources,
         "output_width": 64,
         "output_height": 32,
         "background_color": "#abcdef",
     }
+
+
+def test_block_external_resources_rejects_any_url() -> None:
+    """Der url_fetcher verweigert jede externe Aufloesung (LFR/SSRF-Schutz, #261)."""
+    with pytest.raises(main.ExternalResourceError):
+        main._block_external_resources("file:///etc/passwd")
+    with pytest.raises(main.ExternalResourceError):
+        main._block_external_resources("http://169.254.169.254/latest/meta-data/")
+
+
+def test_svg_to_png_returns_422_on_external_resource(client: TestClient) -> None:
+    """Blockierte externe Ressource -> sauberes 422 statt 500 (#261)."""
+    with patch.object(
+        main, "_svg_to_png", side_effect=main.ExternalResourceError("file:///etc/passwd")
+    ):
+        response = client.post(
+            "/svg-to-png",
+            files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+        )
+
+    assert response.status_code == 422
+    assert "external" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -1138,4 +1177,106 @@ def test_raster_to_png_returns_500_when_pillow_raises(
     )
 
     assert response.status_code == 500
-    assert "Raster conversion failed" in response.json()["detail"]
+    assert response.json()["detail"] == "raster conversion failed"
+
+
+# ---------------------------------------------------------------------------
+# Pixel-Limit / Decompression-Bomb tests (#264)
+# ---------------------------------------------------------------------------
+
+
+def test_open_image_rejects_oversized(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bild über dem Pixel-Limit -> ImageTooLargeError (kein Vollbild-Dekodieren)."""
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    with pytest.raises(main.ImageTooLargeError):
+        main._open_image(_solid_image_bytes(200, 150))
+
+
+def test_open_image_accepts_within_limit() -> None:
+    """Normales Bild unter dem Limit wird geöffnet."""
+    img = main._open_image(_solid_image_bytes(20, 10))
+    assert img.size == (20, 10)
+
+
+def test_resize_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/resize",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+        data={"width": "10", "height": "10"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+def test_crop_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/crop",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+def test_raster_to_png_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/raster-to-png",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+# ---------------------------------------------------------------------------
+# Internal-Auth tests (#265)
+# ---------------------------------------------------------------------------
+
+
+def test_health_is_public_without_key() -> None:
+    """/health bleibt ohne Internal-Key erreichbar (Docker-Healthcheck)."""
+    with TestClient(main.app) as c:
+        assert c.get("/health").status_code == 200
+
+
+def test_tool_endpoint_rejects_missing_key() -> None:
+    """Tool-Endpoint ohne X-Internal-Key -> 401 (vor jeder Body-Verarbeitung)."""
+    with TestClient(main.app) as c:
+        response = c.post(
+            "/resize",
+            files={"file": ("x.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+            data={"width": "10", "height": "10"},
+        )
+    assert response.status_code == 401
+
+
+def test_tool_endpoint_rejects_wrong_key() -> None:
+    """Falscher X-Internal-Key -> 401."""
+    with TestClient(main.app, headers={"X-Internal-Key": "wrong"}) as c:
+        response = c.post(
+            "/resize",
+            files={"file": ("x.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+            data={"width": "10", "height": "10"},
+        )
+    assert response.status_code == 401
+
+
+def test_tool_endpoint_denies_when_no_key_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ist kein Key konfiguriert (leer), wird auch mit Header abgelehnt (default deny)."""
+    monkeypatch.setattr(main, "INTERNAL_API_KEY", "")
+    with TestClient(main.app, headers={"X-Internal-Key": "anything"}) as c:
+        response = c.post(
+            "/resize",
+            files={"file": ("x.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+            data={"width": "10", "height": "10"},
+        )
+    assert response.status_code == 401

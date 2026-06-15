@@ -13,6 +13,8 @@ import org.mwolff.api.auth.infrastructure.SecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = MeController.class)
@@ -20,6 +22,11 @@ import org.springframework.test.web.servlet.MockMvc;
 class MeControllerTest {
 
   @Autowired private MockMvc mockMvc;
+
+  // SecurityConfig erwartet einen JwtDecoder. Im WebMvcTest-Slice wird er nicht
+  // auto-konfiguriert; ihn explizit zu mocken macht den Test selbstständig (vorher
+  // hing er flaky am Spring-Context-Cache).
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   @Test
   void shouldReturnUnauthorizedWhenNoJwtPresent() throws Exception {

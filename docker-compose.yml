@@ -75,6 +75,10 @@ services:
   python-tools:
     build: ./python-tools
     restart: unless-stopped
+    environment:
+      # Internal-Auth (#265): muss mit dem Wert beim api-Service übereinstimmen.
+      # WICHTIG: python-tools NICHT nach außen mappen (kein ports:) — nur intern erreichbar.
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 10s
@@ -98,11 +102,17 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PYTHON_TOOLS_URL: http://python-tools:8000
+      # #265: Shared-Secret für Internal-Auth gegen python-tools (X-Internal-Key).
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       # #229: Shared-Secret, gegen das die increment-Endpunkte den X-Version-Token-Header
       # pruefen. Muss mit dem Wert uebereinstimmen, den scripts/increment-version.sh sendet.
       APP_VERSION_INCREMENT_SECRET: ${APP_VERSION_INCREMENT_SECRET}
     ports:
-      - "8080:8080"
+      # Default-secure: nur Loopback (analog Keycloak). Auf Prod spricht der Reverse-Proxy
+      # localhost an; ohne Host-Firewall wäre die API (inkl. /actuator/health) sonst direkt
+      # aus dem Internet erreichbar, am Proxy vorbei (#269). Dev: http://localhost:8080.
+      # Wer den Port extern braucht, macht das im docker-compose.override.yml explizit auf.
+      - "127.0.0.1:8080:8080"
 
 volumes:
   mariadb-data:

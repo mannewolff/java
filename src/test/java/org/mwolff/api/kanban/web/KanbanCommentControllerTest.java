@@ -193,4 +193,19 @@ class KanbanCommentControllerTest {
         .perform(delete("/api/kanban/items/5/comments/9").with(userJwt()))
         .andExpect(status().isForbidden());
   }
+
+  @Test
+  void listShouldReturn400WhenItemIdNotPositive() throws Exception {
+    // @Min(1) auf @PathVariable itemId (#268).
+    mockMvc
+        .perform(get("/api/kanban/items/0/comments").with(userJwt()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void deleteShouldReturn400WhenCommentIdNotPositive() throws Exception {
+    mockMvc
+        .perform(delete("/api/kanban/items/5/comments/0").with(userJwt()))
+        .andExpect(status().isBadRequest());
+  }
 }

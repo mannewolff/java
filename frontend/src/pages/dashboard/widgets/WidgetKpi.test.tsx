@@ -728,4 +728,83 @@ describe('WidgetKpi', () => {
       expect(parsed.unit).toBe('kg');
     });
   });
+
+  describe('Progress-Gauge (#271)', () => {
+    function makeProgress(overrides: Record<string, unknown> = {}): WidgetDto {
+      return {
+        id: 10,
+        type: 'KPI',
+        posX: 0,
+        posY: 0,
+        width: 2,
+        height: 2,
+        config: JSON.stringify({
+          style: 'progress',
+          value: 75,
+          min: 0,
+          max: 100,
+          color: '#4caf50',
+          display: 'percent',
+          unit: '',
+          label: '',
+          ...overrides,
+        }),
+      };
+    }
+
+    it('rendert den Fortschrittsring mit aria-label', () => {
+      render(<WidgetKpi widget={makeProgress()} onChange={vi.fn()} onDelete={vi.fn()} />);
+      expect(screen.getByRole('img', { name: 'Fortschrittsanzeige' })).toBeInTheDocument();
+    });
+
+    it('zeigt Prozentwert in der Mitte', () => {
+      render(<WidgetKpi widget={makeProgress({ value: 50 })} onChange={vi.fn()} onDelete={vi.fn()} />);
+      expect(screen.getByText('50%')).toBeInTheDocument();
+    });
+
+    it('clampt Wert auf [min, max]', () => {
+      render(<WidgetKpi widget={makeProgress({ value: 150, max: 100 })} onChange={vi.fn()} onDelete={vi.fn()} />);
+      expect(screen.getByText('100%')).toBeInTheDocument();
+    });
+
+    it('clampt negativen Wert auf min', () => {
+      render(<WidgetKpi widget={makeProgress({ value: -10, min: 0 })} onChange={vi.fn()} onDelete={vi.fn()} />);
+      expect(screen.getByText('0%')).toBeInTheDocument();
+    });
+
+    it('zeigt Wert+Einheit wenn display=value', () => {
+      render(
+        <WidgetKpi
+          widget={makeProgress({ value: 75, display: 'value', unit: 'kg' })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      expect(screen.getByText(/75/)).toBeInTheDocument();
+      expect(screen.getByText(/kg/)).toBeInTheDocument();
+    });
+
+    it('speichert Farbe beim Apply', async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<WidgetKpi widget={makeProgress({ color: '#ff0000' })} onChange={onChange} onDelete={vi.fn()} />);
+      await user.click(screen.getByRole('button', { name: 'KPI bearbeiten' }));
+      await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+      const next = onChange.mock.calls[0][0] as WidgetDto;
+      const parsed = JSON.parse(next.config) as { color: string };
+      expect(parsed.color).toBe('#ff0000');
+    });
+
+    it('lädt Wert aus Zeitreihe', async () => {
+      latest.mockResolvedValue({ id: 1, timestamp: '', value: 80 });
+      render(
+        <WidgetKpi
+          widget={makeProgress({ timeSeriesId: 1 })}
+          onChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      await waitFor(() => expect(screen.getByText('80%')).toBeInTheDocument());
+    });
+  });
 });

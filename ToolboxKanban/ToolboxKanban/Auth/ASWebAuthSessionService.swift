@@ -15,7 +15,7 @@ final class ASWebAuthSessionService: NSObject, AuthServiceProtocol {
   /// Hält die laufende Session im Speicher, damit sie nicht vorzeitig dealloziiert wird.
   private var activeSession: ASWebAuthenticationSession?
 
-  init(config: OIDCConfig = .development) {
+  init(config: OIDCConfig = .current) {
     self.config = config
   }
 
@@ -26,6 +26,10 @@ final class ASWebAuthSessionService: NSObject, AuthServiceProtocol {
     let callbackURL = try await launchWebSession(authURL: request.url, scheme: config.redirectScheme)
     let code = try AuthCallback.extractCode(from: callbackURL, expectedState: state)
     return try await TokenExchange(config: config).exchange(code: code, codeVerifier: pkce.codeVerifier)
+  }
+
+  func refresh(refreshToken: String) async throws -> TokenResponse {
+    try await TokenExchange(config: config).refresh(refreshToken: refreshToken)
   }
 
   private func launchWebSession(authURL: URL, scheme: String) async throws -> URL {

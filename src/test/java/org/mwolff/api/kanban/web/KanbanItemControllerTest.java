@@ -245,4 +245,23 @@ class KanbanItemControllerTest {
         .perform(patch("/api/kanban/items/5/restore").with(userJwt()))
         .andExpect(status().isNotFound());
   }
+
+  @Test
+  void archiveShouldReturn400WhenIdNotPositive() throws Exception {
+    // @Min(1) auf @PathVariable id (#268): 0 darf die Geschäftslogik nicht erreichen.
+    mockMvc
+        .perform(delete("/api/kanban/items/0").with(userJwt()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void updateShouldReturn400WhenIdNotPositive() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/kanban/items/0")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"x\",\"body\":\"y\"}"))
+        .andExpect(status().isBadRequest());
+  }
 }

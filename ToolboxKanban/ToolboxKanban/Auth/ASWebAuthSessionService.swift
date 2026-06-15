@@ -28,6 +28,10 @@ final class ASWebAuthSessionService: NSObject, AuthServiceProtocol {
     return try await TokenExchange(config: config).exchange(code: code, codeVerifier: pkce.codeVerifier)
   }
 
+  func refresh(refreshToken: String) async throws -> TokenResponse {
+    try await TokenExchange(config: config).refresh(refreshToken: refreshToken)
+  }
+
   private func launchWebSession(authURL: URL, scheme: String) async throws -> URL {
     try await withCheckedThrowingContinuation { continuation in
       let session = ASWebAuthenticationSession(

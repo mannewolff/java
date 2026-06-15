@@ -73,4 +73,5 @@ private final class PreviewAuthService: AuthServiceProtocol {
       accessToken: "preview-token", refreshToken: nil, idToken: nil,
       expiresIn: 300, tokenType: "Bearer", scope: "openid")
   }
+  func refresh(refreshToken: String) async throws -> TokenResponse { try await authenticate() }
 }

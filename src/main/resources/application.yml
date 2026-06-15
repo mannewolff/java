@@ -4,7 +4,9 @@ spring:
   datasource:
     url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:api}
     username: ${DB_USER:api}
-    password: ${DB_PASSWORD:api}
+    # Kein Default: fehlt DB_PASSWORD, schlägt der Start fehl (fail-fast) statt still
+    # ein schwaches Default-Passwort zu verwenden (#270). Dev-Wert kommt aus .env.
+    password: ${DB_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
   jpa:
     hibernate:

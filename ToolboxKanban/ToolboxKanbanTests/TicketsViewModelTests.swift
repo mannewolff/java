@@ -122,4 +122,35 @@ struct TicketsViewModelTests {
     let ok = await vm.create(title: "X", body: "", column: .backlog)
     #expect(ok == false)
   }
+
+  // MARK: - Löschen (#247)
+
+  @Test func deleteSucceedsAndReloads() async {
+    let service = MockKanbanService(result: .success([]))
+    let vm = TicketsViewModel(service: service, onUnauthorized: {})
+    let ok = await vm.delete(id: 42)
+    #expect(ok == true)
+    #expect(service.deleteCallCount == 1)
+    #expect(service.lastDeletedId == 42)
+    #expect(service.fetchCallCount == 1)
+  }
+
+  @Test func deleteUnauthorizedTriggersCallbackAndReturnsFalse() async {
+    var calledBack = false
+    let service = MockKanbanService(
+      result: .success([]), deleteResult: .failure(APIError.unauthorized))
+    let vm = TicketsViewModel(service: service, onUnauthorized: { calledBack = true })
+    let ok = await vm.delete(id: 1)
+    #expect(ok == false)
+    #expect(calledBack == true)
+    #expect(service.fetchCallCount == 0)
+  }
+
+  @Test func deleteFailureReturnsFalse() async {
+    let service = MockKanbanService(
+      result: .success([]), deleteResult: .failure(APIError.httpStatus(500)))
+    let vm = TicketsViewModel(service: service, onUnauthorized: {})
+    let ok = await vm.delete(id: 1)
+    #expect(ok == false)
+  }
 }

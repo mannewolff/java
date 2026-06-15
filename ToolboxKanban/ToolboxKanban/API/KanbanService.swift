@@ -15,6 +15,9 @@ protocol KanbanServiceProtocol {
 
   /// Legt ein neues Item an (#246) und liefert das erzeugte Item zurück.
   func createItem(title: String, body: String, column: KanbanColumn) async throws -> KanbanItem
+
+  /// Archiviert ein Item (Soft-Delete, #247): DELETE /api/kanban/items/{id} → 204.
+  func deleteItem(id: Int) async throws
 }
 
 final class KanbanService: KanbanServiceProtocol {
@@ -59,6 +62,11 @@ final class KanbanService: KanbanServiceProtocol {
     } catch {
       throw APIError.decoding
     }
+  }
+
+  func deleteItem(id: Int) async throws {
+    let request = try await authorizedRequest(path: "api/kanban/items/\(id)", method: "DELETE")
+    _ = try await send(request)
   }
 
   /// Request-Body für POST /api/kanban/items.

@@ -11,16 +11,21 @@ import Foundation
 final class MockKanbanService: KanbanServiceProtocol {
   private let result: Result<[KanbanItem], Error>
   private let createResult: Result<KanbanItem, Error>
+  private let deleteResult: Result<Void, Error>
   private(set) var fetchCallCount = 0
   private(set) var createCallCount = 0
   private(set) var lastCreateArgs: (title: String, body: String, column: KanbanColumn)?
+  private(set) var deleteCallCount = 0
+  private(set) var lastDeletedId: Int?
 
   init(
     result: Result<[KanbanItem], Error>,
-    createResult: Result<KanbanItem, Error> = .success(.fixture())
+    createResult: Result<KanbanItem, Error> = .success(.fixture()),
+    deleteResult: Result<Void, Error> = .success(())
   ) {
     self.result = result
     self.createResult = createResult
+    self.deleteResult = deleteResult
   }
 
   func fetchItems() async throws -> [KanbanItem] {
@@ -32,6 +37,12 @@ final class MockKanbanService: KanbanServiceProtocol {
     createCallCount += 1
     lastCreateArgs = (title, body, column)
     return try createResult.get()
+  }
+
+  func deleteItem(id: Int) async throws {
+    deleteCallCount += 1
+    lastDeletedId = id
+    try deleteResult.get()
   }
 }
 

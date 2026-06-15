@@ -81,8 +81,16 @@ struct TicketsView: View {
           "Keine Tickets", systemImage: "tray",
           description: Text("Für diesen Filter sind keine Tickets vorhanden."))
       } else {
-        List(items) { TicketRow(item: $0) }
-          .listStyle(.plain)
+        List(items) { item in
+          NavigationLink {
+            TicketDetailView(item: item) { id in
+              await viewModel.delete(id: id)
+            }
+          } label: {
+            TicketRow(item: item)
+          }
+        }
+        .listStyle(.plain)
       }
     case .failed(let message):
       ContentUnavailableView {

@@ -70,4 +70,19 @@ final class TicketsViewModel {
       return false
     }
   }
+
+  /// Archiviert ein Item und lädt die Liste neu (#247). Gibt `true` bei Erfolg
+  /// zurück; bei 401 wird `onUnauthorized` ausgelöst und `false` geliefert.
+  func delete(id: Int) async -> Bool {
+    do {
+      try await service.deleteItem(id: id)
+      await load()
+      return true
+    } catch APIError.unauthorized {
+      onUnauthorized()
+      return false
+    } catch {
+      return false
+    }
+  }
 }

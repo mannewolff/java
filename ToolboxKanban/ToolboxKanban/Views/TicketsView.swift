@@ -91,6 +91,7 @@ struct TicketsView: View {
           }
         }
         .listStyle(.plain)
+        .refreshable { await viewModel.load() }
       }
     case .failed(let message):
       ContentUnavailableView {

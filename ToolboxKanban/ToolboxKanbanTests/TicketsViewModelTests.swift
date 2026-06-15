@@ -153,4 +153,21 @@ struct TicketsViewModelTests {
     let ok = await vm.delete(id: 1)
     #expect(ok == false)
   }
+
+  // MARK: - Pull-to-Refresh (#248)
+
+  @Test func reloadKeepsSelectedFilter() async {
+    let items = [
+      KanbanItem.fixture(id: 1, column: .backlog),
+      KanbanItem.fixture(id: 2, column: .done),
+    ]
+    let vm = TicketsViewModel(
+      service: MockKanbanService(result: .success(items)), onUnauthorized: {})
+    await vm.load()
+    vm.selectedColumn = .done
+    // Erneutes Laden (Pull-to-Refresh) darf den aktiven Filter nicht zurücksetzen.
+    await vm.load()
+    #expect(vm.selectedColumn == .done)
+    #expect(vm.filteredItems.map(\.id) == [2])
+  }
 }

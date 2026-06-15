@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import io
 import logging
-import traceback
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -251,9 +250,7 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
         result = _remove_background(contents)
     except Exception as exc:  # noqa: BLE001 — Wrap any rembg failure
         logger.error("rembg failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Background removal failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="background removal failed") from exc
 
     return Response(content=result, media_type="image/png")
 
@@ -283,9 +280,7 @@ async def crop(
         )
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Crop failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="crop failed") from exc
 
     media_type = "image/png" if format == "png" else "image/jpeg"
     return Response(content=result, media_type=media_type)
@@ -312,9 +307,7 @@ async def resize(
         )
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("resize failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Resize failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="resize failed") from exc
 
     return Response(content=result, media_type=media_type)
 
@@ -331,9 +324,7 @@ async def palette(
         colors = _extract_palette(contents, count=count)
     except Exception as exc:  # noqa: BLE001 — Wrap any colorthief failure
         logger.error("palette failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Palette extraction failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="palette extraction failed") from exc
 
     return {"colors": colors}
 
@@ -357,9 +348,7 @@ async def svg_to_png(
         )
     except Exception as exc:  # noqa: BLE001 — Wrap any cairosvg failure
         logger.error("svg-to-png failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"SVG conversion failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="SVG conversion failed") from exc
 
     return Response(content=result, media_type="image/png")
 
@@ -377,8 +366,6 @@ async def raster_to_png(
         result = _raster_to_png(contents, width=width, height=height)
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("raster-to-png failed", exc_info=True)
-        traceback.print_exc()
-        detail = f"Raster conversion failed: {type(exc).__name__}: {exc}"
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail="raster conversion failed") from exc
 
     return Response(content=result, media_type="image/png")

@@ -141,9 +141,10 @@ def test_remove_bg_returns_500_when_rembg_raises(client: TestClient) -> None:
     # Then
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Background removal failed:")
-    assert "RuntimeError" in detail
-    assert "model crashed" in detail
+    assert detail == "background removal failed"
+    # Kein Leak des internen Exception-Typs/-Texts (#266).
+    assert "RuntimeError" not in detail
+    assert "model crashed" not in detail
 
 
 def test_remove_bg_requires_file_field(client: TestClient) -> None:
@@ -505,9 +506,9 @@ def test_crop_returns_500_when_pillow_raises(
     # Then
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Crop failed:")
-    assert "RuntimeError" in detail
-    assert "pillow crashed" in detail
+    assert detail == "crop failed"
+    assert "RuntimeError" not in detail
+    assert "pillow crashed" not in detail
 
 
 # ---------------------------------------------------------------------------
@@ -681,8 +682,8 @@ def test_resize_returns_500_when_pillow_raises(
 
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Resize failed:")
-    assert "RuntimeError" in detail
+    assert detail == "resize failed"
+    assert "RuntimeError" not in detail
 
 
 def test_resize_preserves_whole_image_not_a_crop(client: TestClient) -> None:
@@ -819,8 +820,8 @@ def test_palette_returns_500_when_colorthief_raises(
 
     assert response.status_code == 500
     detail = response.json()["detail"]
-    assert detail.startswith("Palette extraction failed:")
-    assert "RuntimeError" in detail
+    assert detail == "palette extraction failed"
+    assert "RuntimeError" not in detail
 
 
 def test_rgb_to_hex_formats_lowercase_hex() -> None:
@@ -990,8 +991,10 @@ def test_svg_to_png_wraps_cairosvg_exception_as_500(client: TestClient) -> None:
 
     # Then
     assert response.status_code == 500
-    assert "SVG conversion failed" in response.json()["detail"]
-    assert "ValueError" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert detail == "SVG conversion failed"
+    assert "ValueError" not in detail
+    assert "bad svg" not in detail
 
 
 def test_svg_to_png_invokes_cairosvg_with_bytestring_only_when_no_options() -> None:
@@ -1138,4 +1141,4 @@ def test_raster_to_png_returns_500_when_pillow_raises(
     )
 
     assert response.status_code == 500
-    assert "Raster conversion failed" in response.json()["detail"]
+    assert response.json()["detail"] == "raster conversion failed"

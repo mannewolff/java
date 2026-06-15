@@ -116,7 +116,8 @@ public class KanbanItemController {
   }
 
   @DeleteMapping("/{id}/force")
-  public ResponseEntity<Void> forceDelete(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
+  public ResponseEntity<Void> forceDelete(
+      JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     forceDeleteUseCase.execute(auth.getToken().getSubject(), id);
     return ResponseEntity.noContent().build();
   }

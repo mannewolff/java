@@ -51,7 +51,8 @@ public class KanbanCommentController {
   }
 
   @GetMapping
-  public List<KanbanCommentResponse> list(JwtAuthenticationToken auth, @PathVariable @Min(1) long itemId) {
+  public List<KanbanCommentResponse> list(
+      JwtAuthenticationToken auth, @PathVariable @Min(1) long itemId) {
     return listUseCase.execute(auth.getToken().getSubject(), itemId).stream()
         .map(KanbanCommentResponse::from)
         .toList();
@@ -81,7 +82,9 @@ public class KanbanCommentController {
 
   @DeleteMapping("/{commentId}")
   public ResponseEntity<Void> delete(
-      JwtAuthenticationToken auth, @PathVariable @Min(1) long itemId, @PathVariable @Min(1) long commentId) {
+      JwtAuthenticationToken auth,
+      @PathVariable @Min(1) long itemId,
+      @PathVariable @Min(1) long commentId) {
     deleteUseCase.execute(auth.getToken().getSubject(), author(auth), itemId, commentId);
     return ResponseEntity.noContent().build();
   }

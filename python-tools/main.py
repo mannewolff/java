@@ -56,6 +56,19 @@ MEDIA_TO_PILLOW: dict[str, str] = {
 app = FastAPI(title="python-tools", version="0.1.0")
 
 
+class ExternalResourceError(Exception):
+    """SVG verweist auf eine externe Ressource (file://, http(s)://) — blockiert (#261)."""
+
+
+def _block_external_resources(url: str, *args: object, **kwargs: object) -> bytes:
+    """url_fetcher fuer cairosvg, der jede externe Aufloesung verweigert.
+
+    Verhindert Local File Read (file://) und SSRF (http:// auf interne Hosts/Metadaten)
+    ueber `<image href=...>` o. ae. in hochgeladenen SVGs.
+    """
+    raise ExternalResourceError(url)
+
+
 def _remove_background(data: bytes) -> bytes:
     """Wrap rembg.remove lazily so tests can run ohne rembg-Installation."""
     from rembg import remove  # local import: keeps rembg out of test imports
@@ -225,7 +238,8 @@ def _svg_to_png(
     """
     import cairosvg  # local import: keeps cairosvg out of test imports when patched
 
-    kwargs: dict[str, object] = {"bytestring": data}
+    # Externe Ressourcen (file://, http://) im SVG blocken — gegen LFR/SSRF (#261).
+    kwargs: dict[str, object] = {"bytestring": data, "url_fetcher": _block_external_resources}
     if width is not None:
         kwargs["output_width"] = width
     if height is not None:
@@ -346,6 +360,11 @@ async def svg_to_png(
             height=height,
             background=background,
         )
+    except ExternalResourceError as exc:
+        logger.warning("svg-to-png blocked external resource")
+        raise HTTPException(
+            status_code=422, detail="SVG references external resources"
+        ) from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any cairosvg failure
         logger.error("svg-to-png failed", exc_info=True)
         raise HTTPException(status_code=500, detail="SVG conversion failed") from exc

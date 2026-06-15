@@ -1015,7 +1015,10 @@ def test_svg_to_png_invokes_cairosvg_with_bytestring_only_when_no_options() -> N
 
     # Then
     assert result == b"fake-png"
-    assert captured == {"bytestring": b"<svg/>"}
+    assert captured == {
+        "bytestring": b"<svg/>",
+        "url_fetcher": main._block_external_resources,
+    }
 
 
 def test_svg_to_png_invokes_cairosvg_with_all_options() -> None:
@@ -1037,10 +1040,33 @@ def test_svg_to_png_invokes_cairosvg_with_all_options() -> None:
     # Then
     assert captured == {
         "bytestring": b"<svg/>",
+        "url_fetcher": main._block_external_resources,
         "output_width": 64,
         "output_height": 32,
         "background_color": "#abcdef",
     }
+
+
+def test_block_external_resources_rejects_any_url() -> None:
+    """Der url_fetcher verweigert jede externe Aufloesung (LFR/SSRF-Schutz, #261)."""
+    with pytest.raises(main.ExternalResourceError):
+        main._block_external_resources("file:///etc/passwd")
+    with pytest.raises(main.ExternalResourceError):
+        main._block_external_resources("http://169.254.169.254/latest/meta-data/")
+
+
+def test_svg_to_png_returns_422_on_external_resource(client: TestClient) -> None:
+    """Blockierte externe Ressource -> sauberes 422 statt 500 (#261)."""
+    with patch.object(
+        main, "_svg_to_png", side_effect=main.ExternalResourceError("file:///etc/passwd")
+    ):
+        response = client.post(
+            "/svg-to-png",
+            files={"file": ("input.svg", io.BytesIO(TINY_SVG_BYTES), "image/svg+xml")},
+        )
+
+    assert response.status_code == 422
+    assert "external" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 
 import org.mwolff.api.kanban.application.ArchiveItemUseCase;
 import org.mwolff.api.kanban.application.CreateItemUseCase;
@@ -22,6 +23,7 @@ import org.mwolff.api.kanban.web.dto.UpdateKanbanItemRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/kanban/items")
+@Validated
 public class KanbanItemController {
 
   private final ListItemsUseCase listUseCase;
@@ -91,7 +94,7 @@ public class KanbanItemController {
   @PutMapping("/{id}")
   public KanbanItemResponse updateContent(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody UpdateKanbanItemRequest body) {
     return KanbanItemResponse.from(
         updateContentUseCase.execute(auth.getToken().getSubject(), id, body.title(), body.body()));
@@ -100,26 +103,26 @@ public class KanbanItemController {
   @PutMapping("/{id}/move")
   public KanbanItemResponse move(
       JwtAuthenticationToken auth,
-      @PathVariable long id,
+      @PathVariable @Min(1) long id,
       @Valid @RequestBody MoveKanbanItemRequest body) {
     return KanbanItemResponse.from(
         moveUseCase.execute(auth.getToken().getSubject(), id, body.column(), body.position()));
   }
 
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> archive(JwtAuthenticationToken auth, @PathVariable long id) {
+  public ResponseEntity<Void> archive(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     archiveUseCase.execute(auth.getToken().getSubject(), id);
     return ResponseEntity.noContent().build();
   }
 
   @DeleteMapping("/{id}/force")
-  public ResponseEntity<Void> forceDelete(JwtAuthenticationToken auth, @PathVariable long id) {
+  public ResponseEntity<Void> forceDelete(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     forceDeleteUseCase.execute(auth.getToken().getSubject(), id);
     return ResponseEntity.noContent().build();
   }
 
   @PatchMapping("/{id}/restore")
-  public KanbanItemResponse restore(JwtAuthenticationToken auth, @PathVariable long id) {
+  public KanbanItemResponse restore(JwtAuthenticationToken auth, @PathVariable @Min(1) long id) {
     return KanbanItemResponse.from(restoreUseCase.execute(auth.getToken().getSubject(), id));
   }
 }

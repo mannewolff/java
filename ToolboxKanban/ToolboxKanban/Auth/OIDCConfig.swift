@@ -40,4 +40,23 @@ struct OIDCConfig: Equatable {
     redirectURI: "org.mwolff.toolboxkanban://callback",
     scopes: ["openid", "profile", "email", "offline_access"]
   )
+
+  /// Produktions-Konfiguration: Keycloak hinter HTTPS (Realm `toolbox`, #263).
+  /// Issuer-Host gemäß infra/keycloak/README (Reverse-Proxy auf :8081).
+  static let production = OIDCConfig(
+    issuer: URL(string: "https://toolboxauth.mwolff.org/realms/toolbox")!,
+    clientID: "toolbox-ios",
+    redirectURI: "org.mwolff.toolboxkanban://callback",
+    scopes: ["openid", "profile", "email", "offline_access"]
+  )
+
+  /// Build-abhängige Auswahl: Debug-Builds nutzen Dev (localhost-HTTP), Release-Builds
+  /// erzwingen die Prod-Config über HTTPS. So landet niemals eine HTTP-Issuer-URL im Release.
+  static var current: OIDCConfig {
+    #if DEBUG
+      return .development
+    #else
+      return .production
+    #endif
+  }
 }

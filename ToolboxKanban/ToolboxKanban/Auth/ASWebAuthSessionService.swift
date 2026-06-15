@@ -15,7 +15,7 @@ final class ASWebAuthSessionService: NSObject, AuthServiceProtocol {
   /// Hält die laufende Session im Speicher, damit sie nicht vorzeitig dealloziiert wird.
   private var activeSession: ASWebAuthenticationSession?
 
-  init(config: OIDCConfig = .development) {
+  init(config: OIDCConfig = .current) {
     self.config = config
   }
 

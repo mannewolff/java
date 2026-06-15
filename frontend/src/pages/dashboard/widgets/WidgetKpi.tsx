@@ -33,13 +33,14 @@ import { ApiError } from '../../../api/client';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 type KpiColor = 'neutral' | 'success' | 'warning' | 'error';
-type KpiStyle = 'number' | 'gauge' | 'timeseries';
+type KpiStyle = 'number' | 'gauge' | 'timeseries' | 'progress';
 /** Was die Gauge mittig anzeigt: Prozent-Verhältnis oder den tatsächlichen Wert + Einheit. */
 type GaugeDisplay = 'percent' | 'value';
 
 const COLORS: ReadonlyArray<KpiColor> = ['neutral', 'success', 'warning', 'error'];
 const STYLES: ReadonlyArray<{ value: KpiStyle; label: string }> = [
   { value: 'gauge', label: 'Gauge (Tacho)' },
+  { value: 'progress', label: 'Gauge (Fortschritt)' },
   { value: 'number', label: 'Zahl (Number)' },
   { value: 'timeseries', label: 'Zeitreihe' },
 ];
@@ -78,6 +79,20 @@ interface GaugeConfig {
   refreshSeconds?: number;
 }
 
+interface ProgressConfig {
+  style: 'progress';
+  value: number;
+  label: string;
+  min: number;
+  max: number;
+  /** Farbe des Rings als Hex-String, z. B. '#4caf50'. */
+  color: string;
+  display: GaugeDisplay;
+  unit: string;
+  timeSeriesId?: number | null;
+  refreshSeconds?: number;
+}
+
 interface TimeSeriesConfig {
   style: 'timeseries';
   timeSeriesId: number | null;
@@ -91,14 +106,14 @@ interface DisplayConfig {
   backgroundColor?: string;
 }
 
-type KpiConfig = (NumberConfig | GaugeConfig | TimeSeriesConfig) & DisplayConfig;
+type KpiConfig = (NumberConfig | GaugeConfig | ProgressConfig | TimeSeriesConfig) & DisplayConfig;
 
 function isKpiColor(v: unknown): v is KpiColor {
   return typeof v === 'string' && (COLORS as readonly string[]).includes(v);
 }
 
 function isKpiStyle(v: unknown): v is KpiStyle {
-  return v === 'gauge' || v === 'number' || v === 'timeseries';
+  return v === 'gauge' || v === 'number' || v === 'timeseries' || v === 'progress';
 }
 
 const NUMBER_DEFAULTS = {
@@ -106,6 +121,16 @@ const NUMBER_DEFAULTS = {
   label: '',
   trend: null as number | null,
   color: 'neutral' as KpiColor,
+};
+
+const PROGRESS_DEFAULTS = {
+  value: 75,
+  label: '',
+  min: 0,
+  max: 100,
+  color: '#4caf50',
+  display: 'percent' as GaugeDisplay,
+  unit: '',
 };
 
 const GAUGE_DEFAULTS = {
@@ -154,6 +179,22 @@ function parseConfig(raw: string): KpiConfig {
         typeof parsed.refreshSeconds === 'number'
           ? clampRefresh(parsed.refreshSeconds)
           : 60,
+      ...display,
+    };
+  }
+  if (style === 'progress') {
+    return {
+      style: 'progress',
+      value: typeof parsed.value === 'number' ? parsed.value : PROGRESS_DEFAULTS.value,
+      label: typeof parsed.label === 'string' ? parsed.label : PROGRESS_DEFAULTS.label,
+      min: typeof parsed.min === 'number' ? parsed.min : PROGRESS_DEFAULTS.min,
+      max: typeof parsed.max === 'number' ? parsed.max : PROGRESS_DEFAULTS.max,
+      color: typeof parsed.color === 'string' && parsed.color !== '' ? parsed.color : PROGRESS_DEFAULTS.color,
+      display: parsed.display === 'value' ? 'value' : 'percent',
+      unit: typeof parsed.unit === 'string' ? parsed.unit : PROGRESS_DEFAULTS.unit,
+      timeSeriesId: typeof parsed.timeSeriesId === 'number' ? parsed.timeSeriesId : null,
+      refreshSeconds:
+        typeof parsed.refreshSeconds === 'number' ? clampRefresh(parsed.refreshSeconds) : 60,
       ...display,
     };
   }
@@ -282,6 +323,24 @@ export default function WidgetKpi({
   const [draftGaugeDisplay, setDraftGaugeDisplay] = useState<GaugeDisplay>(gaugeConfig.display);
   const [draftGaugeUnit, setDraftGaugeUnit] = useState<string>(gaugeConfig.unit);
 
+  // Progress-Drafts
+  const progressConfig: ProgressConfig =
+    config.style === 'progress'
+      ? config
+      : { style: 'progress', ...PROGRESS_DEFAULTS };
+  const [draftProgressValue, setDraftProgressValue] = useState(String(progressConfig.value));
+  const [draftProgressMin, setDraftProgressMin] = useState(String(progressConfig.min));
+  const [draftProgressMax, setDraftProgressMax] = useState(String(progressConfig.max));
+  const [draftProgressColor, setDraftProgressColor] = useState(progressConfig.color);
+  const [draftProgressDisplay, setDraftProgressDisplay] = useState<GaugeDisplay>(progressConfig.display);
+  const [draftProgressUnit, setDraftProgressUnit] = useState(progressConfig.unit);
+  const [draftProgressSeriesId, setDraftProgressSeriesId] = useState<string>(
+    progressConfig.timeSeriesId == null ? '' : String(progressConfig.timeSeriesId),
+  );
+  const [draftProgressRefresh, setDraftProgressRefresh] = useState<string>(
+    String(progressConfig.refreshSeconds ?? 60),
+  );
+
   // TimeSeries-Drafts
   const tsConfig: TimeSeriesConfig =
     config.style === 'timeseries'
@@ -320,6 +379,15 @@ export default function WidgetKpi({
       setDraftGaugeRefresh(String(config.refreshSeconds ?? 60));
       setDraftGaugeDisplay(config.display);
       setDraftGaugeUnit(config.unit);
+    } else if (config.style === 'progress') {
+      setDraftProgressValue(String(config.value));
+      setDraftProgressMin(String(config.min));
+      setDraftProgressMax(String(config.max));
+      setDraftProgressColor(config.color);
+      setDraftProgressDisplay(config.display);
+      setDraftProgressUnit(config.unit);
+      setDraftProgressSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
+      setDraftProgressRefresh(String(config.refreshSeconds ?? 60));
     } else {
       setDraftSeriesId(config.timeSeriesId == null ? '' : String(config.timeSeriesId));
       setDraftRefresh(String(config.refreshSeconds));
@@ -366,6 +434,20 @@ export default function WidgetKpi({
         unit: draftGaugeUnit.trim(),
         timeSeriesId: draftGaugeSeriesId === '' ? null : Number.parseInt(draftGaugeSeriesId, 10),
         refreshSeconds: clampRefresh(parseOrDefault(draftGaugeRefresh, 60)),
+        ...display,
+      };
+    } else if (draftStyle === 'progress') {
+      next = {
+        style: 'progress',
+        value: parseOrDefault(draftProgressValue, PROGRESS_DEFAULTS.value),
+        label: draftLabel,
+        min: parseOrDefault(draftProgressMin, PROGRESS_DEFAULTS.min),
+        max: parseOrDefault(draftProgressMax, PROGRESS_DEFAULTS.max),
+        color: draftProgressColor.trim() !== '' ? draftProgressColor.trim() : PROGRESS_DEFAULTS.color,
+        display: draftProgressDisplay,
+        unit: draftProgressUnit.trim(),
+        timeSeriesId: draftProgressSeriesId === '' ? null : Number.parseInt(draftProgressSeriesId, 10),
+        refreshSeconds: clampRefresh(parseOrDefault(draftProgressRefresh, 60)),
         ...display,
       };
     } else {
@@ -433,6 +515,8 @@ export default function WidgetKpi({
         <NumberView config={config} />
       ) : config.style === 'gauge' ? (
         <GaugeView config={config} />
+      ) : config.style === 'progress' ? (
+        <ProgressView config={config} />
       ) : (
         <TimeSeriesView config={config} />
       )}
@@ -608,6 +692,101 @@ export default function WidgetKpi({
                     type="number"
                     value={draftGaugeRefresh}
                     onChange={(e) => setDraftGaugeRefresh(e.target.value)}
+                    fullWidth
+                    inputProps={{ min: MIN_REFRESH_SECONDS, max: MAX_REFRESH_SECONDS, step: 1 }}
+                    helperText={`${MIN_REFRESH_SECONDS} bis ${MAX_REFRESH_SECONDS} Sekunden`}
+                  />
+                )}
+              </>
+            )}
+            {draftStyle === 'progress' && (
+              <>
+                <TextField
+                  label="Wert"
+                  type="number"
+                  value={draftProgressValue}
+                  onChange={(e) => setDraftProgressValue(e.target.value)}
+                  fullWidth
+                  inputProps={{ step: 'any' }}
+                />
+                <TextField
+                  select
+                  label="Mittelanzeige"
+                  value={draftProgressDisplay}
+                  onChange={(e) => setDraftProgressDisplay(e.target.value as GaugeDisplay)}
+                  fullWidth
+                >
+                  <MenuItem value="percent">Prozent</MenuItem>
+                  <MenuItem value="value">Wert</MenuItem>
+                </TextField>
+                {draftProgressDisplay === 'value' && (
+                  <TextField
+                    label="Einheit"
+                    value={draftProgressUnit}
+                    onChange={(e) => setDraftProgressUnit(e.target.value)}
+                    fullWidth
+                    placeholder="z. B. kg"
+                    helperText="Im Zeitreihen-Modus wird die Einheit der Serie verwendet."
+                  />
+                )}
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    label="Min"
+                    type="number"
+                    value={draftProgressMin}
+                    onChange={(e) => setDraftProgressMin(e.target.value)}
+                    fullWidth
+                    inputProps={{ step: 'any' }}
+                  />
+                  <TextField
+                    label="Max"
+                    type="number"
+                    value={draftProgressMax}
+                    onChange={(e) => setDraftProgressMax(e.target.value)}
+                    fullWidth
+                    inputProps={{ step: 'any' }}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body2" sx={{ flexShrink: 0 }}>
+                    Farbe
+                  </Typography>
+                  <Box
+                    component="input"
+                    type="color"
+                    value={draftProgressColor}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setDraftProgressColor(e.target.value)
+                    }
+                    sx={{ width: 48, height: 36, border: 'none', cursor: 'pointer', p: 0 }}
+                    aria-label="Ring-Farbe wählen"
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {draftProgressColor}
+                  </Typography>
+                </Stack>
+                <TextField
+                  select
+                  label="Zeitreihe (optional — überschreibt statischen Wert)"
+                  value={draftProgressSeriesId}
+                  onChange={(e) => setDraftProgressSeriesId(e.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">
+                    <em>— statischer Wert —</em>
+                  </MenuItem>
+                  {(seriesList ?? []).map((ts) => (
+                    <MenuItem key={ts.id} value={String(ts.id)}>
+                      {ts.name} ({ts.unit})
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {draftProgressSeriesId !== '' && (
+                  <TextField
+                    label="Refresh-Intervall (Sekunden)"
+                    type="number"
+                    value={draftProgressRefresh}
+                    onChange={(e) => setDraftProgressRefresh(e.target.value)}
                     fullWidth
                     inputProps={{ min: MIN_REFRESH_SECONDS, max: MAX_REFRESH_SECONDS, step: 1 }}
                     helperText={`${MIN_REFRESH_SECONDS} bis ${MAX_REFRESH_SECONDS} Sekunden`}
@@ -913,6 +1092,133 @@ function GaugeView({ config }: { config: GaugeConfig }): JSX.Element {
               {config.rangeLabel}
             </text>
           )}
+        </svg>
+      </Box>
+      {config.label && (
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', mb: 0.5 }}>
+          {config.label}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+const PROGRESS_CIRCUMFERENCE = 2 * Math.PI * 50;
+
+function ProgressView({ config }: { config: ProgressConfig }): JSX.Element {
+  const [dynamicValue, setDynamicValue] = useState<number | null>(null);
+  const [tsLoading, setTsLoading] = useState(false);
+  const [tsError, setTsError] = useState<string | null>(null);
+  const [seriesUnit, setSeriesUnit] = useState<string | null>(null);
+  const theme = useTheme();
+
+  useEffect(() => {
+    if (config.timeSeriesId == null || config.display !== 'value') {
+      setSeriesUnit(null);
+      return;
+    }
+    const id = config.timeSeriesId;
+    let cancelled = false;
+    getTimeSeries(id)
+      .then((s) => { if (!cancelled) setSeriesUnit(s.unit); })
+      .catch(() => { if (!cancelled) setSeriesUnit(null); });
+    return () => { cancelled = true; };
+  }, [config.timeSeriesId, config.display]);
+
+  useEffect(() => {
+    if (config.timeSeriesId == null) {
+      setDynamicValue(null);
+      setTsError(null);
+      return;
+    }
+    const id = config.timeSeriesId;
+    const refreshMs = (config.refreshSeconds ?? 60) * 1000;
+    let cancelled = false;
+
+    async function tick(): Promise<void> {
+      setTsLoading(true);
+      try {
+        const entry = await getLatestEntry(id);
+        if (!cancelled) { setDynamicValue(entry.value); setTsError(null); }
+      } catch (e) {
+        if (!cancelled) setTsError(e instanceof ApiError ? e.message : 'Fehler beim Laden');
+      } finally {
+        if (!cancelled) setTsLoading(false);
+      }
+    }
+
+    void tick();
+    const handle = window.setInterval(() => void tick(), refreshMs);
+    return () => { cancelled = true; window.clearInterval(handle); };
+  }, [config.timeSeriesId, config.refreshSeconds]);
+
+  if (config.timeSeriesId != null && tsLoading && dynamicValue === null) {
+    return (
+      <Typography variant="caption" color="text.secondary" aria-label="KPI-Progress-Loading">
+        Lade…
+      </Typography>
+    );
+  }
+  if (tsError != null) {
+    return (
+      <Typography variant="caption" color="error" aria-label="KPI-Progress-Error">
+        {tsError}
+      </Typography>
+    );
+  }
+
+  const effectiveValue =
+    config.timeSeriesId != null && dynamicValue != null ? dynamicValue : config.value;
+  const span = Math.max(1, config.max - config.min);
+  const clamped = Math.max(config.min, Math.min(config.max, effectiveValue));
+  const ratio = (clamped - config.min) / span;
+  const dashOffset = PROGRESS_CIRCUMFERENCE * (1 - ratio);
+
+  const effectiveUnit = config.timeSeriesId != null ? (seriesUnit ?? '') : config.unit;
+  const centerText =
+    config.display === 'value'
+      ? formatGaugeValue(effectiveValue, effectiveUnit)
+      : `${Math.round(ratio * 100)}%`;
+  const centerFontSize = config.display === 'value' ? 14 : 18;
+
+  return (
+    <Box
+      sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
+      aria-label="KPI-Progress-Gauge"
+    >
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+        <svg viewBox="0 0 120 120" width="100%" height="100%" role="img" aria-label="Fortschrittsanzeige">
+          <circle
+            cx={60}
+            cy={60}
+            r={50}
+            fill="none"
+            stroke={theme.palette.action.disabledBackground}
+            strokeWidth={10}
+          />
+          <circle
+            cx={60}
+            cy={60}
+            r={50}
+            fill="none"
+            stroke={config.color}
+            strokeWidth={10}
+            strokeLinecap="round"
+            strokeDasharray={PROGRESS_CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+            transform="rotate(-90 60 60)"
+          />
+          <text
+            x={60}
+            y={60}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={centerFontSize}
+            fontWeight="700"
+            fill={theme.palette.text.primary}
+          >
+            {centerText}
+          </text>
         </svg>
       </Box>
       {config.label && (

@@ -1168,3 +1168,58 @@ def test_raster_to_png_returns_500_when_pillow_raises(
 
     assert response.status_code == 500
     assert response.json()["detail"] == "raster conversion failed"
+
+
+# ---------------------------------------------------------------------------
+# Pixel-Limit / Decompression-Bomb tests (#264)
+# ---------------------------------------------------------------------------
+
+
+def test_open_image_rejects_oversized(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bild über dem Pixel-Limit -> ImageTooLargeError (kein Vollbild-Dekodieren)."""
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    with pytest.raises(main.ImageTooLargeError):
+        main._open_image(_solid_image_bytes(200, 150))
+
+
+def test_open_image_accepts_within_limit() -> None:
+    """Normales Bild unter dem Limit wird geöffnet."""
+    img = main._open_image(_solid_image_bytes(20, 10))
+    assert img.size == (20, 10)
+
+
+def test_resize_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/resize",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+        data={"width": "10", "height": "10"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+def test_crop_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/crop",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+def test_raster_to_png_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/raster-to-png",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"

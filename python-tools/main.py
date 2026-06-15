@@ -26,6 +26,10 @@ ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
     {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 )
 MAX_BYTES: int = 10 * 1024 * 1024  # 10 MiB
+# Explizites Pixel-Limit gegen Decompression-Bombs (#264): ~50 MP deckt reale Fotos
+# (z. B. 8000x6000) ab, blockt aber stark komprimierte Riesen-Bilder, die unter MAX_BYTES
+# passen, beim Dekodieren aber den Speicher sprengen wuerden.
+MAX_IMAGE_PIXELS_LIMIT: int = 50_000_000
 
 OG_DEFAULT_WIDTH: int = 1200
 OG_DEFAULT_HEIGHT: int = 630
@@ -58,6 +62,29 @@ app = FastAPI(title="python-tools", version="0.1.0")
 
 class ExternalResourceError(Exception):
     """SVG verweist auf eine externe Ressource (file://, http(s)://) — blockiert (#261)."""
+
+
+class ImageTooLargeError(Exception):
+    """Bild ueberschreitet das Pixel-Limit (Decompression-Bomb-Schutz, #264)."""
+
+
+def _open_image(data: bytes):  # type: ignore[no-untyped-def]
+    """Oeffnet Bild-Bytes mit Pillow und erzwingt das Pixel-Limit (#264).
+
+    `Image.open` liest nur den Header (kein Vollbild-Dekodieren), daher ist der
+    Groessen-Check guenstig und greift, bevor Speicher fuer das Bild alloziert wird.
+    Setzt zusaetzlich Pillows globalen MAX_IMAGE_PIXELS-Guard als zweite Verteidigungslinie.
+    """
+    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+
+    # Pillows eigenen (globalen, hohen) Guard abschalten und stattdessen unser explizites
+    # Limit deterministisch pruefen — so ist die Reaktion immer ein sauberes 4xx statt
+    # einer DecompressionBombError/Warning mit uneinheitlichem Verhalten.
+    Image.MAX_IMAGE_PIXELS = None
+    img = Image.open(io.BytesIO(data))
+    if img.size[0] * img.size[1] > MAX_IMAGE_PIXELS_LIMIT:
+        raise ImageTooLargeError(f"{img.size[0]}x{img.size[1]} exceeds pixel limit")
+    return img
 
 
 def _block_external_resources(url: str, *args: object, **kwargs: object) -> bytes:
@@ -103,7 +130,7 @@ def _crop_to_og(
     """Cover-fit crop auf width x height; format 'jpeg' oder 'png'."""
     from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
 
-    src = Image.open(io.BytesIO(data))
+    src = _open_image(data)
     src = src.convert("RGBA" if format == "png" else "RGB")
     src_w, src_h = src.size
 
@@ -141,7 +168,7 @@ def _resize(
     """Skaliert das Bild auf (width, height) per LANCZOS. Returnt (bytes, media_type)."""
     from PIL import Image  # local import: keeps Pillow out of test imports when patched
 
-    src = Image.open(io.BytesIO(data))
+    src = _open_image(data)
     source_format = (src.format or "PNG").upper()
 
     if output_format == "auto":
@@ -204,7 +231,7 @@ def _raster_to_png(
     """
     from PIL import Image  # local import: keeps Pillow out of test imports when patched
 
-    img = Image.open(io.BytesIO(data))
+    img = _open_image(data)
 
     if width is not None and height is not None:
         img = img.resize((width, height), Image.LANCZOS)
@@ -292,6 +319,9 @@ async def crop(
             height=height,
             format=format,
         )
+    except ImageTooLargeError as exc:
+        logger.warning("crop rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)
         raise HTTPException(status_code=500, detail="crop failed") from exc
@@ -319,6 +349,9 @@ async def resize(
             output_format=output_format,
             quality=quality,
         )
+    except ImageTooLargeError as exc:
+        logger.warning("resize rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("resize failed", exc_info=True)
         raise HTTPException(status_code=500, detail="resize failed") from exc
@@ -383,6 +416,9 @@ async def raster_to_png(
 
     try:
         result = _raster_to_png(contents, width=width, height=height)
+    except ImageTooLargeError as exc:
+        logger.warning("raster-to-png rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("raster-to-png failed", exc_info=True)
         raise HTTPException(status_code=500, detail="raster conversion failed") from exc

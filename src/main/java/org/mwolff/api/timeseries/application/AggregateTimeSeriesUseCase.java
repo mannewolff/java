@@ -79,11 +79,12 @@ public class AggregateTimeSeriesUseCase {
       result.add(e.getValue().toBucket(e.getKey()));
     }
     // Limit greift auf die juengsten N Buckets — die Liste ist nach bucketStart aufsteigend.
+    // Bedingungslos zugeschnitten: max(0, …) deckt size <= limit mit ab; eine if-Grenze
+    // size > limit waere bei size == limit ein aequivalenter Mutant (#207).
     if (limit.isPresent()) {
       final int effectiveLimit = Math.min(Math.max(1, limit.get()), MAX_LIMIT);
-      if (result.size() > effectiveLimit) {
-        return new ArrayList<>(result.subList(result.size() - effectiveLimit, result.size()));
-      }
+      return new ArrayList<>(
+          result.subList(Math.max(0, result.size() - effectiveLimit), result.size()));
     }
     return result;
   }
@@ -107,12 +108,10 @@ public class AggregateTimeSeriesUseCase {
     void add(BigDecimal value) {
       count++;
       sum = sum.add(value);
-      if (min == null || value.compareTo(min) < 0) {
-        min = value;
-      }
-      if (max == null || value.compareTo(max) > 0) {
-        max = value;
-      }
+      // BigDecimal.min/max statt Vergleich+Zuweisung: die Grenz-Conditionals waren bei
+      // Wertgleichheit aequivalente Mutanten (#207).
+      min = min == null ? value : min.min(value);
+      max = max == null ? value : max.max(value);
       // Liste ist nach Timestamp aufsteigend sortiert — der jeweils zuletzt
       // verarbeitete Eintrag im Bucket hat automatisch den juengsten Timestamp.
       last = value;

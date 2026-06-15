@@ -62,28 +62,23 @@ public class MoveItemUseCase {
   /**
    * Same-Column-Reorder: schiebt die Items zwischen Quell- und Ziel-Position um eins, sodass am
    * Ende die Ziel-Position frei ist. Liefert die (geclampte) Ziel-Position zurück.
+   *
+   * <p>Richtungsfrei formuliert: Alle Items im Intervall [lo, hi] (ohne das bewegte Item selbst)
+   * rutschen um eine Position Richtung Quell-Lücke. Bei {@code clamped == fromPosition} ist das
+   * Intervall leer — eine separate Richtungs-Verzweigung wäre dort ein äquivalenter Mutant (#207).
    */
   private int reindexWithinSameColumn(
       String userSub, KanbanColumn column, int fromPosition, int toPosition) {
     final List<KanbanItem> column_ = items.findByUserAndColumn(userSub, column);
     final int max = column_.size() - 1; // Größte gültige Position für ein bestehendes Item.
     final int clamped = Math.max(0, Math.min(toPosition, max));
-    if (clamped == fromPosition) {
-      return clamped;
-    }
-    if (clamped > fromPosition) {
-      // Item wandert nach unten — alles dazwischen rutscht um 1 nach oben.
-      for (final KanbanItem other : column_) {
-        if (other.position() > fromPosition && other.position() <= clamped) {
-          items.updatePosition(other.id(), other.position() - 1);
-        }
-      }
-    } else {
-      // Item wandert nach oben — alles dazwischen rutscht um 1 nach unten.
-      for (final KanbanItem other : column_) {
-        if (other.position() >= clamped && other.position() < fromPosition) {
-          items.updatePosition(other.id(), other.position() + 1);
-        }
+    final int lo = Math.min(clamped, fromPosition);
+    final int hi = Math.max(clamped, fromPosition);
+    final int shift = Integer.signum(fromPosition - clamped);
+    for (final KanbanItem other : column_) {
+      final int pos = other.position();
+      if (pos >= lo && pos <= hi && pos != fromPosition) {
+        items.updatePosition(other.id(), pos + shift);
       }
     }
     return clamped;

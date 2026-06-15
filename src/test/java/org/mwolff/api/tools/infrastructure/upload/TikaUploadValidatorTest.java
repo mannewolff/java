@@ -56,6 +56,18 @@ class TikaUploadValidatorTest {
   }
 
   @Test
+  void exceedsMaxSizeAcceptsExactlyMaxBytes() {
+    // Grenzwert == MAX ist erlaubt — killt ConditionalsBoundary auf dem Size-Guard (#207),
+    // ohne einen 10-MiB-Payload allokieren zu muessen.
+    assertThat(TikaUploadValidator.exceedsMaxSize(TikaUploadValidator.MAX_BYTES)).isFalse();
+  }
+
+  @Test
+  void exceedsMaxSizeRejectsOneByteOverMax() {
+    assertThat(TikaUploadValidator.exceedsMaxSize(TikaUploadValidator.MAX_BYTES + 1)).isTrue();
+  }
+
+  @Test
   void shouldRejectPlainTextEvenWhenLabelledAsPng() {
     final UploadedImage image =
         new UploadedImage("Hello, world".getBytes(), "image/png", "fake.png");

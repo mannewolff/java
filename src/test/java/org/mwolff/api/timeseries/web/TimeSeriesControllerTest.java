@@ -1,5 +1,6 @@
 package org.mwolff.api.timeseries.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -501,6 +502,19 @@ class TimeSeriesControllerTest {
                 .contentType("text/csv")
                 .content(big))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void isBulkBodyTooLargeShouldAcceptBodyOfExactlyMaxBytes() {
+    // Grenzwert == MAX ist erlaubt — killt ConditionalsBoundary auf dem Size-Guard (PIT #207).
+    assertThat(TimeSeriesController.isBulkBodyTooLarge(TimeSeriesController.MAX_BULK_BYTES))
+        .isFalse();
+  }
+
+  @Test
+  void isBulkBodyTooLargeShouldRejectBodyOneByteOverMax() {
+    assertThat(TimeSeriesController.isBulkBodyTooLarge(TimeSeriesController.MAX_BULK_BYTES + 1))
+        .isTrue();
   }
 
   @Test

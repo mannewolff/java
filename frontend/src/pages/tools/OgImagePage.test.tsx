@@ -201,4 +201,79 @@ describe('OgImagePage', () => {
 
     expect(screen.queryByRole('img', { name: /Beitragsbild Vorschau/i })).not.toBeInTheDocument();
   });
+
+  it('shows PNG download button after upload', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      routeFetchByUrl({
+        '/api/tools/crop-og': jpegResponse,
+        '/api/tools/palette': () => paletteResponse(['#000000']),
+      }),
+    );
+    renderOg();
+    const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
+
+    await userEvent.upload(input, makePngFile());
+    await screen.findByRole('img', { name: /Beitragsbild Vorschau/i }, { timeout: 2000 });
+
+    expect(screen.getByRole('button', { name: /PNG herunterladen/i })).toBeInTheDocument();
+  });
+
+  it('calls API with format=png when PNG button is clicked', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      routeFetchByUrl({
+        '/api/tools/crop-og': jpegResponse,
+        '/api/tools/palette': () => paletteResponse(['#000000']),
+      }),
+    );
+    renderOg();
+    const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
+
+    await userEvent.upload(input, makePngFile());
+    await screen.findByRole('img', { name: /Beitragsbild Vorschau/i }, { timeout: 2000 });
+
+    await userEvent.click(screen.getByRole('button', { name: /PNG herunterladen/i }));
+
+    await waitFor(() => {
+      const cropCalls = fetchSpy.mock.calls.filter(
+        ([url]) => typeof url === 'string' && url.includes('/api/tools/crop-og'),
+      );
+      const lastBody = cropCalls[cropCalls.length - 1][1]?.body as FormData;
+      expect(lastBody.get('format')).toBe('png');
+    }, { timeout: 2000 });
+  });
+
+  it('disables PNG button while downloading and re-enables after', async () => {
+    let resolvePng!: (r: Response) => void;
+    const pngPromise = new Promise<Response>((resolve) => {
+      resolvePng = resolve;
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('crop-og')) {
+          const body = init?.body as FormData | undefined;
+          return body?.get('format') === 'png'
+            ? pngPromise
+            : Promise.resolve(jpegResponse());
+        }
+        if (url.includes('palette')) return Promise.resolve(paletteResponse(['#000000']));
+        throw new Error(`unexpected fetch: ${url}`);
+      },
+    );
+
+    renderOg();
+    const input = screen.getByLabelText(/Bild auswählen/i) as HTMLInputElement;
+    await userEvent.upload(input, makePngFile());
+    await screen.findByRole('img', { name: /Beitragsbild Vorschau/i }, { timeout: 2000 });
+
+    const pngButton = screen.getByRole('button', { name: /PNG herunterladen/i });
+    await userEvent.click(pngButton);
+
+    await waitFor(() => expect(pngButton).toBeDisabled(), { timeout: 1000 });
+
+    resolvePng(jpegResponse());
+
+    await waitFor(() => expect(pngButton).not.toBeDisabled(), { timeout: 1000 });
+  });
 });

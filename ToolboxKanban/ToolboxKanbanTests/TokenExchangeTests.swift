@@ -8,6 +8,10 @@ import Testing
 
 @testable import ToolboxKanban
 
+// @Suite(.serialized) verhindert parallele Ausführung: MockURLProtocol-State
+// (handler, lastRequestBody) ist shared mutable static — bei parallelem Lauf
+// überschreiben sich die Tests gegenseitig.
+@Suite(.serialized)
 struct TokenExchangeTests {
 
   private let tokenJSON = """
@@ -43,6 +47,7 @@ struct TokenExchangeTests {
   }
 
   @Test func exchangePostsCodeAndVerifierAndReturnsTokens() async throws {
+    MockURLProtocol.lastRequestBody = nil
     MockURLProtocol.handler = { _ in (200, Data(self.tokenJSON.utf8)) }
     let exchange = TokenExchange(config: .development, session: MockURLProtocol.makeSession())
 
@@ -57,6 +62,7 @@ struct TokenExchangeTests {
   }
 
   @Test func exchangeThrowsHTTPStatusOnError() async {
+    MockURLProtocol.lastRequestBody = nil
     MockURLProtocol.handler = { _ in (400, Data(#"{"error":"invalid_grant"}"#.utf8)) }
     let exchange = TokenExchange(config: .development, session: MockURLProtocol.makeSession())
 
@@ -66,6 +72,7 @@ struct TokenExchangeTests {
   }
 
   @Test func refreshPostsRefreshGrant() async throws {
+    MockURLProtocol.lastRequestBody = nil
     MockURLProtocol.handler = { _ in (200, Data(self.tokenJSON.utf8)) }
     let exchange = TokenExchange(config: .development, session: MockURLProtocol.makeSession())
 

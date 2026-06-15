@@ -61,7 +61,7 @@ class UseCasesTest {
 
   @Test
   void cropOgShouldValidateAndDelegate() {
-    final CropOgParams params = new CropOgParams(0.5, 0.5, 88, 1200, 630);
+    final CropOgParams params = new CropOgParams(0.5, 0.5, 88, 1200, 630, "jpeg");
     given(validator.validateImage(image)).willReturn(validated);
     given(tools.cropOg(validated, params)).willReturn(okImage);
 
@@ -74,7 +74,7 @@ class UseCasesTest {
 
   @Test
   void cropOgShouldShortCircuitOnInvalidUpload() {
-    final CropOgParams params = new CropOgParams(0.5, 0.5, 88, 1200, 630);
+    final CropOgParams params = new CropOgParams(0.5, 0.5, 88, 1200, 630, "jpeg");
     willThrow(new InvalidUploadException("FILE_TOO_LARGE", "huge"))
         .given(validator)
         .validateImage(image);

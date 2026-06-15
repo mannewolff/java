@@ -4,6 +4,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 
 import org.mwolff.api.tools.application.CropOgImageUseCase;
 import org.mwolff.api.tools.domain.CropOgParams;
@@ -49,15 +50,19 @@ public class CropOgController {
       @RequestParam(value = "height", defaultValue = DEFAULT_HEIGHT)
           @Min(MIN_DIMENSION)
           @Max(MAX_DIMENSION)
-          int height) {
+          int height,
+      @RequestParam(value = "format", defaultValue = "jpeg") @Pattern(regexp = "^(jpeg|png)$")
+          String format) {
     final ToolImageResult result =
         useCase.execute(
             UploadedImageMapper.toDomain(file),
-            new CropOgParams(yOffset, xOffset, quality, width, height));
-    final String filename = "featured-" + width + "x" + height + ".jpg";
-    // /crop liefert immer JPEG aus dem python-tools-Service — explizit auf den Web-Vertrag setzen.
+            new CropOgParams(yOffset, xOffset, quality, width, height, format));
+    final boolean isPng = "png".equals(format);
+    final MediaType contentType = isPng ? MediaType.IMAGE_PNG : MediaType.IMAGE_JPEG;
+    final String ext = isPng ? "png" : "jpg";
+    final String filename = "featured-" + width + "x" + height + "." + ext;
     return ResponseEntity.ok()
-        .contentType(MediaType.IMAGE_JPEG)
+        .contentType(contentType)
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
         .body(result.bytes());
   }

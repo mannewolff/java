@@ -47,13 +47,16 @@ class JpaStoredImageAdapterTest {
         ArgumentCaptor.forClass(StoredImageEntity.class);
     when(repository.save(captor.capture())).thenReturn(persisted);
 
-    final StoredImage result = adapter.save(StoredImage.of(SUB, "image/png", new byte[] {1, 2, 3}));
+    final StoredImage result =
+        adapter.save(StoredImage.of(SUB, "image/png", new byte[] {1, 2, 3}, "hash-1"));
 
     final StoredImageEntity sent = captor.getValue();
     assertThat(sent.getUserSub()).isEqualTo(SUB);
     assertThat(sent.getContentType()).isEqualTo("image/png");
     assertThat(sent.getSizeBytes()).isEqualTo(3);
     assertThat(sent.getData()).containsExactly(1, 2, 3);
+    // Hash muss mit in die Entity — killt VoidMethodCall auf setHash (#207).
+    assertThat(sent.getHash()).isEqualTo("hash-1");
 
     assertThat(result.id()).isEqualTo(7L);
     assertThat(result.userSub()).isEqualTo(SUB);

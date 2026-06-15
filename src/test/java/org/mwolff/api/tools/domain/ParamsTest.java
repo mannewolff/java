@@ -76,38 +76,38 @@ class ParamsTest {
 
   @Test
   void cropOgParamsShouldRejectInvalidOffsets() {
-    assertThatThrownBy(() -> new CropOgParams(-0.1, 0.5, 80, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(-0.1, 0.5, 80, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("yOffset");
-    assertThatThrownBy(() -> new CropOgParams(1.5, 0.5, 80, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(1.5, 0.5, 80, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("yOffset");
-    assertThatThrownBy(() -> new CropOgParams(0.5, -0.1, 80, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, -0.1, 80, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("xOffset");
-    assertThatThrownBy(() -> new CropOgParams(0.5, 1.5, 80, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 1.5, 80, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("xOffset");
   }
 
   @Test
   void cropOgParamsShouldRejectQualityAboveMaximum() {
-    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 96, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 96, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("quality");
   }
 
   @Test
   void cropOgParamsShouldRejectQualityBelowMinimum() {
-    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 49, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 49, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("quality");
   }
 
   @Test
   void cropOgParamsShouldAcceptQualityBoundaries() {
-    assertThat(new CropOgParams(0.5, 0.5, 50, 1200, 630).quality()).isEqualTo(50);
-    assertThat(new CropOgParams(0.5, 0.5, 95, 1200, 630).quality()).isEqualTo(95);
+    assertThat(new CropOgParams(0.5, 0.5, 50, 1200, 630, "jpeg").quality()).isEqualTo(50);
+    assertThat(new CropOgParams(0.5, 0.5, 95, 1200, 630, "jpeg").quality()).isEqualTo(95);
   }
 
   @Test
@@ -119,25 +119,45 @@ class ParamsTest {
 
   @Test
   void cropOgParamsShouldRejectInvalidQualityOrDimensions() {
-    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 0, 1200, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 0, 1200, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("quality");
-    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 80, 0, 630))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 80, 0, 630, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("width");
-    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 80, 1200, 0))
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 80, 1200, 0, "jpeg"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("height");
   }
 
   @Test
   void cropOgParamsShouldExposeFieldsWhenValid() {
-    final CropOgParams params = new CropOgParams(0.3, 0.7, 88, 1200, 630);
+    final CropOgParams params = new CropOgParams(0.3, 0.7, 88, 1200, 630, "jpeg");
     assertThat(params.yOffset()).isEqualTo(0.3);
     assertThat(params.xOffset()).isEqualTo(0.7);
     assertThat(params.quality()).isEqualTo(88);
     assertThat(params.width()).isEqualTo(1200);
     assertThat(params.height()).isEqualTo(630);
+    assertThat(params.format()).isEqualTo("jpeg");
+  }
+
+  @Test
+  void cropOgParamsShouldAcceptPngFormat() {
+    final CropOgParams params = new CropOgParams(0.5, 0.5, 88, 1200, 630, "png");
+    assertThat(params.format()).isEqualTo("png");
+  }
+
+  @Test
+  void cropOgParamsShouldRejectInvalidFormat() {
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 88, 1200, 630, "gif"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("format");
+  }
+
+  @Test
+  void cropOgParamsShouldRejectNullFormat() {
+    assertThatThrownBy(() -> new CropOgParams(0.5, 0.5, 88, 1200, 630, null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test

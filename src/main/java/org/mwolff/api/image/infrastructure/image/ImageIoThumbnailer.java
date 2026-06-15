@@ -25,13 +25,29 @@ class ImageIoThumbnailer implements ImageThumbnailer {
   @Override
   public byte[] toThumbnailPng(final byte[] source, final int maxEdge) {
     final BufferedImage original = decode(source);
-    final int w = original.getWidth();
-    final int h = original.getHeight();
-    // Kein Upscaling: Faktor maximal 1.0.
-    final double scale = Math.min(1.0, (double) maxEdge / Math.max(w, h));
-    final int targetW = Math.max(1, (int) Math.round(w * scale));
-    final int targetH = Math.max(1, (int) Math.round(h * scale));
+    final int[] target = targetSize(original.getWidth(), original.getHeight(), maxEdge);
+    return encodePng(renderScaledArgb(original, target[0], target[1]));
+  }
 
+  /**
+   * Ziel-Abmessungen {@code [breite, hoehe]}: laengere Kante auf {@code maxEdge}, kein Upscaling
+   * (Faktor maximal 1.0), Untergrenze 1 px pro Kante.
+   */
+  static int[] targetSize(final int w, final int h, final int maxEdge) {
+    final double scale = Math.min(1.0, (double) maxEdge / Math.max(w, h));
+    return new int[] {
+      Math.max(1, (int) Math.round(w * scale)), Math.max(1, (int) Math.round(h * scale))
+    };
+  }
+
+  /**
+   * Reines AWT-Render-Plumbing — per {@code excludedMethods} von der Mutation ausgenommen (siehe
+   * pom.xml, #207): RenderingHints und {@code dispose()} sind Qualitaets- bzw.
+   * Resource-Seiteneffekte ohne deterministisch beobachtbares Verhalten; die fachliche Logik
+   * (Mass-Berechnung) liegt mutationsgetestet in {@link #targetSize(int, int, int)}.
+   */
+  private static BufferedImage renderScaledArgb(
+      final BufferedImage original, final int targetW, final int targetH) {
     final BufferedImage scaled = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
     final Graphics2D g = scaled.createGraphics();
     try {
@@ -43,7 +59,7 @@ class ImageIoThumbnailer implements ImageThumbnailer {
     } finally {
       g.dispose();
     }
-    return encodePng(scaled);
+    return scaled;
   }
 
   private static BufferedImage decode(final byte[] source) {

@@ -62,6 +62,7 @@ public class RestClientPythonToolsAdapter implements PythonToolsPort {
     body.add("quality", Integer.toString(params.quality()));
     body.add("width", Integer.toString(params.width()));
     body.add("height", Integer.toString(params.height()));
+    body.add("format", params.format());
     return postForImage(CROP_PATH, body, "crop");
   }
 

@@ -15,7 +15,10 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "python-tools")
 @Validated
 public record PythonToolsProperties(
-    @NotEmpty String url, @NotNull Duration connectTimeout, @NotNull Duration readTimeout) {
+    @NotEmpty String url,
+    @NotNull Duration connectTimeout,
+    @NotNull Duration readTimeout,
+    String internalKey) {
 
   public PythonToolsProperties {
     if (connectTimeout == null) {
@@ -23,6 +26,9 @@ public record PythonToolsProperties(
     }
     if (readTimeout == null) {
       readTimeout = Duration.ofSeconds(30);
+    }
+    if (internalKey == null) {
+      internalKey = "";
     }
   }
 }

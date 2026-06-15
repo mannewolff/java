@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +46,47 @@ class RestClientPythonToolsAdapterTest {
   @AfterEach
   void tearDown() throws IOException {
     server.shutdown();
+  }
+
+  // ----- internal auth header (#265) ---------------------------------------
+
+  private RestClientPythonToolsAdapter adapterWithKey(String internalKey) {
+    final PythonToolsProperties props =
+        new PythonToolsProperties(
+            server.url("/").toString(), Duration.ofSeconds(5), Duration.ofSeconds(5), internalKey);
+    final RestClient client =
+        new PythonToolsConfig().pythonToolsRestClient(RestClient.builder(), props);
+    return new RestClientPythonToolsAdapter(client);
+  }
+
+  @Test
+  void shouldSendInternalKeyHeaderWhenConfigured() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write("png".getBytes(StandardCharsets.UTF_8))));
+
+    adapterWithKey("secret-key").removeBackground(image);
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    assertThat(request.getHeader("X-Internal-Key")).isEqualTo("secret-key");
+  }
+
+  @Test
+  void shouldNotSendInternalKeyHeaderWhenBlank() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "image/png")
+            .setBody(new Buffer().write("png".getBytes(StandardCharsets.UTF_8))));
+
+    adapterWithKey("").removeBackground(image);
+
+    final RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+    assertThat(request).isNotNull();
+    assertThat(request.getHeader("X-Internal-Key")).isNull();
   }
 
   // ----- resize ------------------------------------------------------------

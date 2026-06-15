@@ -25,6 +25,12 @@ public class PythonToolsConfig {
             .build();
     final JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(http1Client);
     requestFactory.setReadTimeout(properties.readTimeout());
-    return builder.baseUrl(properties.url()).requestFactory(requestFactory).build();
+    builder.baseUrl(properties.url()).requestFactory(requestFactory);
+    // Internal-Auth (#265): Shared Secret als Default-Header mitschicken, sofern konfiguriert.
+    // python-tools lehnt Requests ohne gültigen X-Internal-Key mit 401 ab.
+    if (!properties.internalKey().isBlank()) {
+      builder.defaultHeader("X-Internal-Key", properties.internalKey());
+    }
+    return builder.build();
   }
 }

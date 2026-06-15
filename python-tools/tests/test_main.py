@@ -22,9 +22,19 @@ TINY_PNG_BYTES: bytes = bytes.fromhex(
 )
 
 
+TEST_INTERNAL_KEY = "test-internal-key"
+
+
+@pytest.fixture(autouse=True)
+def _set_internal_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Setzt für alle Tests einen Internal-Key (#265), sonst greift Default-deny."""
+    monkeypatch.setattr(main, "INTERNAL_API_KEY", TEST_INTERNAL_KEY)
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    with TestClient(main.app) as test_client:
+    # Default-Header, damit die bestehenden Endpoint-Tests den Internal-Auth-Gate (#265) passieren.
+    with TestClient(main.app, headers={"X-Internal-Key": TEST_INTERNAL_KEY}) as test_client:
         yield test_client
 
 
@@ -1223,3 +1233,50 @@ def test_raster_to_png_returns_422_for_oversized(
     )
     assert response.status_code == 422
     assert response.json()["detail"] == "image too large"
+
+
+# ---------------------------------------------------------------------------
+# Internal-Auth tests (#265)
+# ---------------------------------------------------------------------------
+
+
+def test_health_is_public_without_key() -> None:
+    """/health bleibt ohne Internal-Key erreichbar (Docker-Healthcheck)."""
+    with TestClient(main.app) as c:
+        assert c.get("/health").status_code == 200
+
+
+def test_tool_endpoint_rejects_missing_key() -> None:
+    """Tool-Endpoint ohne X-Internal-Key -> 401 (vor jeder Body-Verarbeitung)."""
+    with TestClient(main.app) as c:
+        response = c.post(
+            "/resize",
+            files={"file": ("x.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+            data={"width": "10", "height": "10"},
+        )
+    assert response.status_code == 401
+
+
+def test_tool_endpoint_rejects_wrong_key() -> None:
+    """Falscher X-Internal-Key -> 401."""
+    with TestClient(main.app, headers={"X-Internal-Key": "wrong"}) as c:
+        response = c.post(
+            "/resize",
+            files={"file": ("x.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+            data={"width": "10", "height": "10"},
+        )
+    assert response.status_code == 401
+
+
+def test_tool_endpoint_denies_when_no_key_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ist kein Key konfiguriert (leer), wird auch mit Header abgelehnt (default deny)."""
+    monkeypatch.setattr(main, "INTERNAL_API_KEY", "")
+    with TestClient(main.app, headers={"X-Internal-Key": "anything"}) as c:
+        response = c.post(
+            "/resize",
+            files={"file": ("x.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+            data={"width": "10", "height": "10"},
+        )
+    assert response.status_code == 401

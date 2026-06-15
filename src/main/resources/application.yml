@@ -41,6 +41,8 @@ python-tools:
   url: ${PYTHON_TOOLS_URL:http://localhost:8000}
   connect-timeout: ${PYTHON_TOOLS_CONNECT_TIMEOUT:5s}
   read-timeout: ${PYTHON_TOOLS_READ_TIMEOUT:30s}
+  # Internal-Auth (#265): Shared Secret, das Spring als X-Internal-Key-Header sendet.
+  internal-key: ${INTERNAL_API_KEY:}
 
 management:
   endpoints:

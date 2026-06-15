@@ -15,12 +15,28 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
 
 logger = logging.getLogger("python-tools")
+
+# Internal-Auth (#265, Defense-in-Depth): Shared Secret zwischen Spring und python-tools.
+# Default leer => deny. Spring sendet den Key als X-Internal-Key-Header; ist hier kein Key
+# konfiguriert, werden alle geschuetzten Endpoints abgelehnt (fail-closed). /health bleibt frei.
+INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
+INTERNAL_KEY_HEADER: str = "X-Internal-Key"
+
+
+def require_internal_key(
+    x_internal_key: Annotated[str | None, Header()] = None,
+) -> None:
+    """Lehnt Requests ohne gueltigen X-Internal-Key mit 401 ab (Default leer = deny)."""
+    if not INTERNAL_API_KEY or x_internal_key != INTERNAL_API_KEY:
+        raise HTTPException(status_code=401, detail="invalid internal key")
+
 
 ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
     {"image/png", "image/jpeg", "image/jpg", "image/webp"}
@@ -282,7 +298,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/remove-bg")
+@app.post("/remove-bg", dependencies=[Depends(require_internal_key)])
 async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
     """Nimmt ein hochgeladenes Bild, entfernt den Hintergrund, gibt PNG zurueck."""
     contents = await _read_and_validate(file)
@@ -296,7 +312,7 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
     return Response(content=result, media_type="image/png")
 
 
-@app.post("/crop")
+@app.post("/crop", dependencies=[Depends(require_internal_key)])
 async def crop(
     file: Annotated[UploadFile, File()],
     y_offset: Annotated[float, Form(ge=0.0, le=1.0)] = 0.5,
@@ -330,7 +346,7 @@ async def crop(
     return Response(content=result, media_type=media_type)
 
 
-@app.post("/resize")
+@app.post("/resize", dependencies=[Depends(require_internal_key)])
 async def resize(
     file: Annotated[UploadFile, File()],
     width: Annotated[int, Form(ge=RESIZE_MIN_DIMENSION, le=RESIZE_MAX_DIMENSION)],
@@ -359,7 +375,7 @@ async def resize(
     return Response(content=result, media_type=media_type)
 
 
-@app.post("/palette")
+@app.post("/palette", dependencies=[Depends(require_internal_key)])
 async def palette(
     file: Annotated[UploadFile, File()],
     count: Annotated[int, Form(ge=2, le=10)] = 6,
@@ -376,7 +392,7 @@ async def palette(
     return {"colors": colors}
 
 
-@app.post("/svg-to-png")
+@app.post("/svg-to-png", dependencies=[Depends(require_internal_key)])
 async def svg_to_png(
     file: Annotated[UploadFile, File()],
     width: Annotated[int | None, Form(ge=SVG_MIN_DIMENSION, le=SVG_MAX_DIMENSION)] = None,
@@ -405,7 +421,7 @@ async def svg_to_png(
     return Response(content=result, media_type="image/png")
 
 
-@app.post("/raster-to-png")
+@app.post("/raster-to-png", dependencies=[Depends(require_internal_key)])
 async def raster_to_png(
     file: Annotated[UploadFile, File()],
     width: Annotated[int | None, Form(ge=1, le=8192)] = None,

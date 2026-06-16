@@ -24,6 +24,12 @@ describe('MarkdownToPdfPage', () => {
     vi.restoreAllMocks();
   });
 
+  it('renders "PDF erzeugen" button in the toolbar row next to "Markdown-Datei"', () => {
+    renderPage();
+    const toolbar = screen.getByRole('button', { name: /Markdown-Datei/i }).closest('div');
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: /PDF erzeugen/i }));
+  });
+
   it('disables "PDF erzeugen" until markdown is entered', async () => {
     renderPage();
     const button = screen.getByRole('button', { name: /PDF erzeugen/i });
@@ -33,7 +39,26 @@ describe('MarkdownToPdfPage', () => {
     expect(button).toBeEnabled();
   });
 
-  it('converts markdown and shows the PDF preview + download', async () => {
+  it('shows markdown preview tab as active by default', () => {
+    renderPage();
+    const previewTab = screen.getByRole('tab', { name: /Vorschau/i });
+    expect(previewTab).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('renders markdown input as HTML in preview tab', async () => {
+    renderPage();
+    await userEvent.type(screen.getByLabelText('Markdown'), '# Mein Titel');
+    const heading = await screen.findByRole('heading', { level: 1, name: /Mein Titel/i });
+    expect(heading).toBeInTheDocument();
+  });
+
+  it('disables PDF tab when no PDF has been generated', () => {
+    renderPage();
+    const pdfTab = screen.getByRole('tab', { name: /PDF/i });
+    expect(pdfTab).toHaveClass('Mui-disabled');
+  });
+
+  it('converts markdown, switches to PDF tab automatically, shows iframe and download', async () => {
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'application/pdf' });
     const spy = vi.spyOn(api, 'convertMarkdownToPdf').mockResolvedValue(blob);
 
@@ -49,9 +74,11 @@ describe('MarkdownToPdfPage', () => {
       'href',
       'blob:fake-pdf',
     );
+    const pdfTab = screen.getByRole('tab', { name: /PDF/i });
+    expect(pdfTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('shows no preview when conversion fails', async () => {
+  it('shows no PDF iframe when conversion fails', async () => {
     vi.spyOn(api, 'convertMarkdownToPdf').mockRejectedValue(new Error('boom'));
 
     renderPage();
@@ -59,8 +86,7 @@ describe('MarkdownToPdfPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /PDF erzeugen/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Noch kein PDF/i)).toBeInTheDocument();
+      expect(screen.queryByTitle('PDF-Vorschau')).not.toBeInTheDocument();
     });
-    expect(screen.queryByTitle('PDF-Vorschau')).not.toBeInTheDocument();
   });
 });

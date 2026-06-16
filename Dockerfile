@@ -3,7 +3,16 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-RUN npm run build
+# Optional build-arg overrides for local Docker builds (via docker-compose.override.yml).
+# When not passed, the ARG is empty and NOT exported — Vite then reads .env.production
+# automatically (production Keycloak). When passed (local dev), they override .env.production.
+ARG VITE_KEYCLOAK_URL
+ARG VITE_KEYCLOAK_REALM
+ARG VITE_KEYCLOAK_CLIENT_ID
+RUN if [ -n "${VITE_KEYCLOAK_URL}" ];     then export VITE_KEYCLOAK_URL="${VITE_KEYCLOAK_URL}"; fi \
+ && if [ -n "${VITE_KEYCLOAK_REALM}" ];   then export VITE_KEYCLOAK_REALM="${VITE_KEYCLOAK_REALM}"; fi \
+ && if [ -n "${VITE_KEYCLOAK_CLIENT_ID}" ]; then export VITE_KEYCLOAK_CLIENT_ID="${VITE_KEYCLOAK_CLIENT_ID}"; fi \
+ && npm run build
 
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace

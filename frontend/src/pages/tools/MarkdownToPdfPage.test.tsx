@@ -24,6 +24,12 @@ describe('MarkdownToPdfPage', () => {
     vi.restoreAllMocks();
   });
 
+  it('renders "PDF erzeugen" button in the toolbar row next to "Markdown-Datei"', () => {
+    renderPage();
+    const toolbar = screen.getByRole('button', { name: /Markdown-Datei/i }).closest('div');
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: /PDF erzeugen/i }));
+  });
+
   it('disables "PDF erzeugen" until markdown is entered', async () => {
     renderPage();
     const button = screen.getByRole('button', { name: /PDF erzeugen/i });

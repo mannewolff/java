@@ -140,6 +140,20 @@ export default function MarkdownToPdfPage(): JSX.Element {
               hidden
               aria-label="Markdown-Datei auswählen"
             />
+            <Button
+              variant="contained"
+              onClick={handleConvert}
+              disabled={!canConvert}
+              startIcon={
+                isProcessing ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <PictureAsPdfIcon />
+                )
+              }
+            >
+              PDF erzeugen
+            </Button>
             <Typography variant="caption" color="text.secondary">
               .md / .markdown, max 1 MB
             </Typography>
@@ -155,22 +169,8 @@ export default function MarkdownToPdfPage(): JSX.Element {
             inputProps={{ 'aria-label': 'Markdown', maxLength: MAX_CHARS }}
             sx={{ flex: 1 }}
           />
-          <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-            <Button
-              variant="contained"
-              onClick={handleConvert}
-              disabled={!canConvert}
-              startIcon={
-                isProcessing ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <PictureAsPdfIcon />
-                )
-              }
-            >
-              PDF erzeugen
-            </Button>
-            {pdfUrl && (
+          {pdfUrl && (
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
               <Button
                 variant="outlined"
                 startIcon={<DownloadIcon />}
@@ -180,8 +180,8 @@ export default function MarkdownToPdfPage(): JSX.Element {
               >
                 PDF herunterladen
               </Button>
-            )}
-          </Stack>
+            </Stack>
+          )}
         </Paper>
 
         <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 480 }}>

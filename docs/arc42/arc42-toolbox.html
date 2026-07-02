@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architekturdokumentation Toolbox (arc42)</title>
+<style>
+  :root {
+    --teal-dark:   #243539;
+    --teal:        #2F8C97;
+    --teal-deep:   #1E5F68;
+    --teal-mid:    #5F7A7F;
+    --ice:         #EDF5F6;
+    --ice-light:   #BFE0E3;
+    --white:       #FFFFFF;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: "Calibri", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--teal-dark);
+    background: var(--white);
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ---- Titelseite (dunkel, Sandwich) ---- */
+  .cover {
+    background: var(--teal-dark);
+    color: var(--white);
+    min-height: 100vh;
+    padding: 90px 64px 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .cover .knight { font-size: 64px; line-height: 1; color: var(--teal); }
+  .cover h1 {
+    font-size: 48px; font-weight: 700; margin: 28px 0 8px; color: var(--white);
+    letter-spacing: -0.5px;
+  }
+  .cover .subtitle { font-size: 22px; font-weight: 700; color: var(--ice-light); margin: 0; }
+  .cover .tagline { font-style: italic; font-size: 16px; color: var(--ice); margin-top: 18px; max-width: 620px; }
+  .cover .badges { margin-top: 26px; }
+  .badge {
+    display: inline-block; background: var(--teal); color: var(--white);
+    border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 700;
+    margin: 0 8px 8px 0;
+  }
+  .cover .meta { font-size: 13px; color: var(--teal-mid); }
+  .cover .meta strong { color: var(--ice); }
+
+  /* ---- Inhaltsbereich (hell) ---- */
+  .content { padding: 56px 64px; max-width: 1000px; margin: 0 auto; }
+
+  h2 {
+    font-size: 30px; font-weight: 700; color: var(--teal-dark);
+    margin: 64px 0 6px; padding-top: 12px;
+  }
+  h2 .num { color: var(--teal); }
+  h2:first-of-type { margin-top: 0; }
+  .lead { color: var(--teal-mid); font-size: 15px; margin: 0 0 22px; }
+
+  h3 { font-size: 20px; font-weight: 700; color: var(--teal); margin: 34px 0 8px; }
+  h4 { font-size: 16px; font-weight: 700; color: var(--teal-deep); margin: 22px 0 6px; }
+
+  p { margin: 10px 0; }
+
+  /* ---- Tabellen ---- */
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;
+    background: var(--white);
+  }
+  thead th {
+    background: var(--teal-dark); color: var(--white); text-align: left;
+    padding: 9px 12px; font-weight: 700;
+  }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid var(--ice-light); vertical-align: top; }
+  tbody tr:nth-child(even) { background: var(--ice); }
+
+  /* ---- Karten ---- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 16px; margin: 18px 0; }
+  .card {
+    background: var(--ice); border: 1px solid var(--ice-light); border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .card h4 { margin-top: 0; }
+  .card .icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%; background: var(--white);
+    color: var(--teal); font-size: 18px; margin-bottom: 10px;
+  }
+
+  ul { margin: 10px 0; padding-left: 0; list-style: none; }
+  ul li { position: relative; padding-left: 26px; margin: 6px 0; }
+  ul li::before { content: "✓"; position: absolute; left: 0; color: var(--teal); font-weight: 700; }
+  ol { padding-left: 22px; }
+  ol li { margin: 6px 0; }
+
+  code, pre {
+    font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+    font-size: 13px;
+  }
+  code { background: var(--ice); color: var(--teal-deep); padding: 1px 6px; border-radius: 4px; }
+  pre {
+    background: var(--teal-dark); color: var(--ice); padding: 18px 20px;
+    border-radius: 8px; overflow-x: auto; line-height: 1.45; margin: 16px 0;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+
+  .toc { background: var(--ice); border-radius: 8px; padding: 22px 28px; margin: 0 0 18px; }
+  .toc h3 { margin-top: 0; }
+  .toc ol { list-style: none; padding: 0; counter-reset: toc; }
+  .toc ol li { padding-left: 38px; position: relative; margin: 7px 0; }
+  .toc ol li::before {
+    counter-increment: toc; content: counter(toc);
+    position: absolute; left: 0; top: 0;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--teal); color: var(--white); font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .toc a { color: var(--teal-dark); text-decoration: none; font-weight: 600; }
+  .toc a:hover { color: var(--teal); }
+
+  .note {
+    border-left: 4px solid var(--teal); background: var(--ice);
+    padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 16px 0;
+  }
+
+  /* ---- Abschluss (dunkel, Sandwich) ---- */
+  .closing {
+    background: var(--teal-dark); color: var(--ice);
+    padding: 64px; margin-top: 72px; text-align: center;
+  }
+  .closing .knight { font-size: 44px; color: var(--teal); }
+  .closing h2 { color: var(--white); border: none; margin: 16px 0 8px; padding: 0; }
+  .closing p { color: var(--ice-light); max-width: 640px; margin: 8px auto; }
+
+  footer { text-align: center; font-size: 11px; color: var(--teal-mid); padding: 22px; }
+
+  @media print {
+    .cover { min-height: 0; height: 100vh; page-break-after: always; }
+    h2 { page-break-after: avoid; }
+    table, pre, .card { page-break-inside: avoid; }
+    .closing { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ TITELSEITE ============ -->
+<section class="cover">
+  <div>
+    <div class="knight">♘</div>
+    <h1>Architekturdokumentation</h1>
+    <p class="subtitle">Toolbox Dashboard</p>
+    <p class="tagline">Eine Architektur, die sich führen lässt. Klare Schichten, klare Grenzen, jede Entscheidung begründet.</p>
+    <div class="badges">
+      <span class="badge">arc42</span>
+      <span class="badge">Java 21 · Spring Boot 3.5</span>
+      <span class="badge">React 18</span>
+      <span class="badge">Keycloak 26</span>
+      <span class="badge">MariaDB 11</span>
+    </div>
+  </div>
+  <div class="meta">
+    <p><strong>Projekt:</strong> Toolbox (toolbox.mwolff.org)<br>
+    <strong>Autor:</strong> Manfred Wolff<br>
+    <strong>Stand:</strong> Juni 2026<br>
+    <strong>Vorlage:</strong> arc42 (arc42.org), gekürzt auf die belegten Kapitel</p>
+    <p>© 2026 Manfred Wolff · mwolff.org</p>
+  </div>
+</section>
+
+<!-- ============ INHALT ============ -->
+<main class="content">
+
+  <nav class="toc">
+    <h3>Inhalt</h3>
+    <ol>
+      <li><a href="#k1">Einführung und Ziele</a></li>
+      <li><a href="#k2">Randbedingungen</a></li>
+      <li><a href="#k3">Kontextabgrenzung</a></li>
+      <li><a href="#k4">Lösungsstrategie</a></li>
+      <li><a href="#k5">Bausteinsicht</a></li>
+      <li><a href="#k6">Laufzeitsicht</a></li>
+      <li><a href="#k7">Verteilungssicht</a></li>
+      <li><a href="#k8">Querschnittliche Konzepte</a></li>
+      <li><a href="#k9">Architekturentscheidungen</a></li>
+      <li><a href="#k10">Qualitätsanforderungen</a></li>
+      <li><a href="#k11">Risiken und technische Schulden</a></li>
+      <li><a href="#k12">Glossar</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 -->
+  <h2 id="k1"><span class="num">1.</span> Einführung und Ziele</h2>
+  <p class="lead">Was die Toolbox ist, was sie leisten soll und für wen.</p>
+  <p>Die Toolbox ist eine Web-Anwendung im Dashboard-Stil: links die Navigation, rechts der Inhaltsbereich. Sie bündelt persönliche Werkzeuge an einem Ort, statt sie über verstreute Einzeltools zu verteilen. Die Anwendung ist als Single-User-Werkzeug konzipiert und läuft produktiv unter <code>toolbox.mwolff.org</code>.</p>
+
+  <h3>Kernfunktionen</h3>
+  <div class="cards">
+    <div class="card"><div class="icon">▦</div><h4>Dashboards</h4>Konfigurierbare Grid-Widgets (Textbox, KPI, Kanban-Vorschau) mit eigenem Layout pro Dashboard.</div>
+    <div class="card"><div class="icon">▣</div><h4>Bild-Tools</h4>Hintergrund entfernen (rembg/U2Net), Resize (LANCZOS), Crop für OG-Bilder, SVG nach PNG, Farbpalette.</div>
+    <div class="card"><div class="icon">▤</div><h4>Kanban</h4>Vier Spalten, Drag&amp;Drop, Kommentare, Soft-Delete und automatisches Aufräumen erledigter Karten.</div>
+    <div class="card"><div class="icon">∿</div><h4>Zeitreihen</h4>Datenpunkt-Ingestion per Maschinen-Token (ohne Login), Visualisierung im Frontend.</div>
+    <div class="card"><div class="icon">⚿</div><h4>Passwort-Generator</h4>Rein clientseitig, ohne Server-Roundtrip.</div>
+    <div class="card"><div class="icon">⎙</div><h4>Markdown nach PDF</h4>Live-Vorschau im Frontend, Rendering über weasyprint.</div>
+  </div>
+
+  <h3>Qualitätsziele</h3>
+  <table>
+    <thead><tr><th>Priorität</th><th>Ziel</th><th>Bedeutung für die Architektur</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Sicherheit</td><td>Auth über Keycloak, bearer-only Backend, keine Secrets in Logs, interner Service abgeschottet.</td></tr>
+      <tr><td>2</td><td>Korrektheit</td><td>TDD-Pflicht, 100 % Line- und Branch-Coverage, 100 % Mutation Score (PIT).</td></tr>
+      <tr><td>3</td><td>Wartbarkeit</td><td>Hexagonale Schichten pro Feature, durch ArchUnit erzwungen.</td></tr>
+      <tr><td>4</td><td>Datenintegrität</td><td>Versionierte Migrationen (Flyway), User-Isolation auf Applikationsebene.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Stakeholder</h3>
+  <table>
+    <thead><tr><th>Rolle</th><th>Erwartung</th></tr></thead>
+    <tbody>
+      <tr><td>Owner / Entwickler (Manfred Wolff)</td><td>Schnelle Iteration, hohe Code-Qualität, ein einziger Ort für alle Werkzeuge.</td></tr>
+      <tr><td>Betrieb (derselbe)</td><td>Reproduzierbares Deployment per Docker Compose, einfacher Rollout.</td></tr>
+      <tr><td>Externe Systeme</td><td>Stabile Ingest-Schnittstelle für Zeitreihen-Daten.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 2 -->
+  <h2 id="k2"><span class="num">2.</span> Randbedingungen</h2>
+  <p class="lead">Was vorgegeben ist und nicht zur Diskussion steht.</p>
+
+  <h3>Technische Randbedingungen</h3>
+  <table>
+    <thead><tr><th>Bereich</th><th>Festlegung</th></tr></thead>
+    <tbody>
+      <tr><td>Backend</td><td>Java 21 (LTS), Spring Boot 3.5, Maven, Spring Data JPA, Spring Web</td></tr>
+      <tr><td>Datenbank</td><td>MariaDB 11, Schema-Migrationen über Flyway, keine H2 in Tests</td></tr>
+      <tr><td>Frontend</td><td>TypeScript (strict), React 18, React Router 6, Vite 5, Material UI 6 + Emotion</td></tr>
+      <tr><td>Microservice</td><td>Python 3.12, FastAPI, uv-verwaltet (Pillow, rembg, colorthief, cairosvg, weasyprint)</td></tr>
+      <tr><td>Identity</td><td>Keycloak 26, PKCE Public Client + bearer-only Resource Server</td></tr>
+      <tr><td>Container</td><td>Docker Multi-Stage (Node + Maven + JRE 21), Docker Compose für den lokalen Stack</td></tr>
+      <tr><td>Test Backend</td><td>JUnit 5, AssertJ, Mockito, Testcontainers (MariaDB), ArchUnit, PIT</td></tr>
+      <tr><td>Test Frontend</td><td>Vitest + React Testing Library</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Organisatorische Randbedingungen</h3>
+  <table>
+    <thead><tr><th>Bereich</th><th>Festlegung</th></tr></thead>
+    <tbody>
+      <tr><td>Entwicklungsmodell</td><td>Solo-Developer, KI-nativer Workflow (Code und Guides KI-generiert, menschlich geführt)</td></tr>
+      <tr><td>Prozess</td><td>9-Schritte-Workflow, GitHub-Issues und Plan-Mode verbindlich, Push nur auf Anweisung</td></tr>
+      <tr><td>Qualitätsgate</td><td><code>mvn verify</code> und <code>npm run build</code> müssen vor jedem Push grün sein</td></tr>
+      <tr><td>Priorisierung</td><td>Sicherheit vor Korrektheit vor Komfort, festgeschrieben in CLAUDE.md</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 3 -->
+  <h2 id="k3"><span class="num">3.</span> Kontextabgrenzung</h2>
+  <p class="lead">Die Toolbox und ihre Nachbarn.</p>
+  <p>Im Zentrum steht das Spring-Backend. Es spricht mit drei externen Bausteinen: dem Browser-Frontend, Keycloak für die Identität und dem python-tools-Microservice für die Bildverarbeitung. Persistenz läuft gegen MariaDB.</p>
+
+  <pre><code>                         Browser (React SPA)
+                                │
+              OIDC / PKCE       │      REST + JWT Bearer
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                        │
+   ┌──────────┐          ┌─────────────┐                 │
+   │ Keycloak │◄────────►│ Spring Boot │                 │
+   │   26     │ JWK-Set  │   API 3.5   │                 │
+   └────┬─────┘          └──┬───────┬──┘                 │
+        │ JDBC              │ JDBC  │ HTTP/1.1 + X-Internal-Key
+        ▼                   ▼       ▼
+   ┌─────────────────────────┐  ┌──────────────────┐
+   │       MariaDB 11        │  │ python-tools      │
+   │ Schemas: api, keycloak  │  │ FastAPI (intern)  │
+   └─────────────────────────┘  └──────────────────┘</code></pre>
+
+  <h3>Schnittstellen im Überblick</h3>
+  <table>
+    <thead><tr><th>Quelle</th><th>Ziel</th><th>Protokoll / Auth</th><th>Zweck</th></tr></thead>
+    <tbody>
+      <tr><td>Browser</td><td>Spring API</td><td>REST, JWT Bearer</td><td>Alle fachlichen Aufrufe unter <code>/api/*</code></td></tr>
+      <tr><td>Browser</td><td>Keycloak</td><td>OIDC (PKCE)</td><td>Login, Token-Ausstellung</td></tr>
+      <tr><td>Spring</td><td>Keycloak</td><td>HTTP, JWK-Set</td><td>Lokale JWT-Validierung</td></tr>
+      <tr><td>Spring</td><td>python-tools</td><td>HTTP/1.1, X-Internal-Key</td><td>Bildoperationen, Markdown nach PDF</td></tr>
+      <tr><td>Spring / Keycloak</td><td>MariaDB</td><td>JDBC, Passwort</td><td>Persistenz (getrennte Schemas)</td></tr>
+      <tr><td>Externes System</td><td>Spring API</td><td>REST, Ingest-Token</td><td>Zeitreihen-Datenpunkte ohne Login</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 4 -->
+  <h2 id="k4"><span class="num">4.</span> Lösungsstrategie</h2>
+  <p class="lead">Die Leitplanken, aus denen alles andere folgt.</p>
+  <table>
+    <thead><tr><th>Ansatz</th><th>Umsetzung</th></tr></thead>
+    <tbody>
+      <tr><td>Hexagonale Architektur</td><td>Pro Feature die Schichten <code>domain</code>, <code>application</code>, <code>infrastructure</code>, <code>web</code>. Die Domäne bleibt framework-frei, ArchUnit erzwingt die Pakethierarchie.</td></tr>
+      <tr><td>Proxy zu python-tools</td><td>Spring kapselt den Microservice: validiert den Upload, ergänzt das Shared-Secret, mappt Upstream-Fehler auf HTTP 502, ohne Details nach außen zu geben.</td></tr>
+      <tr><td>SPA + bearer-only</td><td>Frontend hält das Token (PKCE), Backend ist zustandslos und prüft jedes JWT lokal über das JWK-Set. Nicht-API-Routen liefert der <code>SpaForwardingController</code> auf <code>index.html</code> aus.</td></tr>
+      <tr><td>Geplante Aufräum-Jobs</td><td>Ein <code>@Scheduled</code>-Job räumt erledigte Kanban-Karten nach einer konfigurierbaren Aufbewahrungsfrist auf.</td></tr>
+      <tr><td>Strikte Testpyramide</td><td>Viele Unit-Tests, Slice-Tests pro Web-Schicht, Integrationstests gegen echte MariaDB (Testcontainers). 100 % Coverage und Mutation Score sind Pflicht.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 5 -->
+  <h2 id="k5"><span class="num">5.</span> Bausteinsicht</h2>
+  <p class="lead">Wie das System von innen aufgebaut ist.</p>
+
+  <h3>Backend: Features als hexagonale Module</h3>
+  <p>Das Backend liegt unter <code>org.mwolff.api</code>. Jedes Feature ist ein eigenständiges Modul mit identischer Schichtung.</p>
+  <table>
+    <thead><tr><th>Modul</th><th>Aufgabe</th><th>Wichtige Bausteine</th></tr></thead>
+    <tbody>
+      <tr><td><code>auth</code></td><td>Sicherheit, Identität</td><td><code>SecurityConfig</code>, <code>JwtAuthoritiesConverter</code>, <code>MeController</code></td></tr>
+      <tr><td><code>common</code></td><td>Querschnitt</td><td><code>GlobalExceptionHandler</code>, <code>SpaForwardingController</code>, <code>OpenApiConfig</code></td></tr>
+      <tr><td><code>dashboard</code></td><td>Dashboards + Widgets</td><td><code>Dashboard</code>, <code>Widget</code>, <code>DashboardController</code>, <code>JpaDashboardRepository</code></td></tr>
+      <tr><td><code>kanban</code></td><td>Kanban-Board</td><td><code>KanbanItem</code>, <code>KanbanSettings</code>, <code>DoneItemCleanupJob</code>, mehrere Controller</td></tr>
+      <tr><td><code>tools</code></td><td>Bild-Tool-Proxy</td><td><code>BackgroundRemovalController</code>, <code>PythonToolsClient</code>, <code>InvalidUploadException</code></td></tr>
+      <tr><td><code>timeseries</code></td><td>Zeitreihen</td><td><code>TimeSeries</code>, <code>TimeSeriesDataPoint</code>, <code>TimeSeriesController</code></td></tr>
+      <tr><td><code>ingest</code></td><td>Token-Ingestion</td><td><code>IngestController</code>, <code>IngestSecurityConfig</code>, <code>InMemoryRateLimiter</code></td></tr>
+      <tr><td><code>image</code></td><td>Bild-Speicher</td><td><code>StoredImage</code>, <code>ImageController</code></td></tr>
+      <tr><td><code>appversion</code></td><td>Versionierung + Deploy-Hook</td><td><code>AppVersion</code>, <code>AppVersionController</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Frontend: React-App</h3>
+  <table>
+    <thead><tr><th>Bereich</th><th>Inhalt</th></tr></thead>
+    <tbody>
+      <tr><td><code>auth/</code></td><td><code>AuthProvider</code> (react-oidc-context), <code>oidcConfig</code>, <code>useAuth</code></td></tr>
+      <tr><td><code>api/</code></td><td><code>client.ts</code> (fetch-Wrapper mit Bearer + Fehler-Mapping), je ein Modul pro Domäne</td></tr>
+      <tr><td><code>layout/</code></td><td><code>AppShell</code> (Drawer + AppBar + Content), Navigation</td></tr>
+      <tr><td><code>pages/</code></td><td>Dashboards, Settings, <code>kanban/</code>, <code>timeseries/</code>, <code>tools/</code> (je eine Seite pro Werkzeug)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>python-tools: FastAPI-Microservice</h3>
+  <p>Eine schlanke FastAPI-App (<code>main.py</code>) mit den Endpunkten <code>/remove-bg</code>, <code>/crop</code>, <code>/palette</code>, <code>/resize</code>, <code>/svg-to-png</code>, <code>/md-to-pdf</code> und <code>/health</code>. Jeder Aufruf prüft den Header <code>X-Internal-Key</code> und die Dateigröße. Externe Ressourcen sind beim PDF-Rendering bewusst blockiert.</p>
+
+  <!-- 6 -->
+  <h2 id="k6"><span class="num">6.</span> Laufzeitsicht</h2>
+  <p class="lead">Drei Abläufe, die das Zusammenspiel zeigen.</p>
+
+  <h3>Login (PKCE)</h3>
+  <ol>
+    <li>Der Browser startet den Authorization-Code-Flow mit PKCE gegen Keycloak.</li>
+    <li>Nach erfolgreichem Login erhält das Frontend einen Code und tauscht ihn (mit <code>code_verifier</code>) gegen JWTs.</li>
+    <li>Die Tokens landen in der Browser-Session. Jeder API-Aufruf trägt <code>Authorization: Bearer &lt;JWT&gt;</code>.</li>
+    <li>Spring validiert das JWT lokal über das JWK-Set von Keycloak, ohne Rückfrage pro Request.</li>
+  </ol>
+
+  <h3>Bild-Tool ausführen (Hintergrund entfernen)</h3>
+  <ol>
+    <li>Browser sendet <code>POST /api/tools/remove-background</code> mit Datei und Bearer-Token.</li>
+    <li>Spring prüft Rolle <code>USER</code>, validiert den Upload (MIME, Größe) und ruft python-tools per <code>RestClient</code> auf, mit <code>X-Internal-Key</code>.</li>
+    <li>python-tools verifiziert das Secret, entfernt den Hintergrund (rembg) und liefert ein PNG mit Alphakanal zurück.</li>
+    <li>Spring gibt das Ergebnis an den Browser weiter, optionale Ablage im Bild-Speicher.</li>
+  </ol>
+
+  <h3>Zeitreihen-Ingestion ohne Login</h3>
+  <ol>
+    <li>Ein externes System sendet <code>POST /api/ingest/{token}</code> mit dem Datenpunkt.</li>
+    <li>Eine eigene Filter-Chain (<code>IngestSecurityConfig</code>, hohe Priorität) prüft den gehashten Token und die Gültigkeit.</li>
+    <li>Ein Rate-Limiter pro Token greift, danach wird der Datenpunkt persistiert.</li>
+    <li>Antwort <code>202 Accepted</code>.</li>
+  </ol>
+
+  <!-- 7 -->
+  <h2 id="k7"><span class="num">7.</span> Verteilungssicht</h2>
+  <p class="lead">Vier Container, ein Docker-Netz.</p>
+  <p>Der gesamte Stack läuft als Docker Compose, lokal wie produktiv. Nur API und Keycloak sind von außen erreichbar (in Produktion hinter einem Reverse-Proxy mit TLS). MariaDB und python-tools bleiben rein intern.</p>
+  <table>
+    <thead><tr><th>Service</th><th>Container-Port</th><th>Von außen</th><th>Aufgabe</th></tr></thead>
+    <tbody>
+      <tr><td>api (Spring Boot)</td><td>8080</td><td>127.0.0.1:8080, prod über Proxy</td><td>API + ausgelieferter React-Build</td></tr>
+      <tr><td>keycloak</td><td>8080</td><td>127.0.0.1:8081, prod über Proxy</td><td>Identity, zwei Realms (dev/prod)</td></tr>
+      <tr><td>python-tools</td><td>8000</td><td>nein (nur intern)</td><td>Bildverarbeitung, PDF</td></tr>
+      <tr><td>mariadb</td><td>3306</td><td>nein (nur intern)</td><td>Persistenz, Schemas <code>api</code> + <code>keycloak</code></td></tr>
+    </tbody>
+  </table>
+
+  <h4>Build und Rollout</h4>
+  <p>Der Multi-Stage-Dockerbuild baut das Frontend (Node), packt das Spring-JAR inklusive React-Build nach <code>classpath:/static</code> (Maven, JDK 21) und liefert ein schlankes JRE-21-Image mit Non-Root-User aus. Auf dem Server folgt <code>docker compose up -d</code>. In Produktion serviert eine Domain alles, daher kein CORS.</p>
+  <div class="note">Das Keycloak-Schema und die Realms werden nur beim ersten Start importiert. Bei bestehendem Volume greift der manuelle Fallback aus <code>infra/keycloak/README.md</code>. Theme-Änderungen werden erst nach <code>force-recreate</code> sichtbar.</div>
+
+  <!-- 8 -->
+  <h2 id="k8"><span class="num">8.</span> Querschnittliche Konzepte</h2>
+  <p class="lead">Was an vielen Stellen gleich gelöst ist.</p>
+
+  <h3>Sicherheit</h3>
+  <ul>
+    <li>Authentifizierung über Keycloak (PKCE), Autorisierung über Realm-Rollen <code>PENDING</code>, <code>USER</code>, <code>ADMIN</code>, gemappt durch <code>JwtAuthoritiesConverter</code>.</li>
+    <li>Neue Registrierungen landen in <code>PENDING</code> und werden vom Admin manuell auf <code>USER</code> gesetzt.</li>
+    <li>Interner Service abgeschottet per Shared-Secret (<code>X-Internal-Key</code>), Ingest-Tokens nur gehasht (SHA-256) in der DB.</li>
+    <li>Keine Secrets, Tokens oder PII in Logs, keine Stacktraces nach außen.</li>
+  </ul>
+
+  <h3>Fehlerbehandlung</h3>
+  <table>
+    <thead><tr><th>Exception</th><th>Antwort</th></tr></thead>
+    <tbody>
+      <tr><td><code>MethodArgumentNotValidException</code></td><td>HTTP 400 mit Feld-Fehlern</td></tr>
+      <tr><td><code>InvalidUploadException</code></td><td>HTTP 400 mit Code und Meldung</td></tr>
+      <tr><td><code>PythonToolsException</code></td><td>HTTP 502, generisch (kein Upstream-Leak)</td></tr>
+      <tr><td>unbehandelt</td><td>HTTP 500 ohne Stacktrace</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Testing</h3>
+  <table>
+    <thead><tr><th>Ebene</th><th>Werkzeug</th><th>Ziel</th></tr></thead>
+    <tbody>
+      <tr><td>Unit</td><td>JUnit 5, AssertJ, Mockito</td><td>100 % Lines + Branches</td></tr>
+      <tr><td>Slice</td><td><code>@WebMvcTest</code></td><td>Web-Schicht isoliert</td></tr>
+      <tr><td>Architektur</td><td>ArchUnit</td><td>Pakethierarchie erzwungen</td></tr>
+      <tr><td>Integration</td><td><code>@SpringBootTest</code> + Testcontainers</td><td>Persistenz gegen echte MariaDB</td></tr>
+      <tr><td>Mutation</td><td>PIT</td><td>100 % Mutation Score</td></tr>
+      <tr><td>Frontend</td><td>Vitest + RTL</td><td>Komponenten und Hooks</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Datenbank-Migrationen</h3>
+  <p>Flyway versioniert das Schema (<code>V1__…sql</code> aufwärts). Migrationen sind one-way, Rollback erfolgt bewusst manuell. <code>baseline-on-migrate</code> akzeptiert bestehende Schemata. Spätere Wellen ergänzen unter anderem Kanban-Kommentare, Soft-Delete, Bild-Speicher mit User-Isolation und das Versions-Tracking.</p>
+
+  <!-- 9 -->
+  <h2 id="k9"><span class="num">9.</span> Architekturentscheidungen</h2>
+  <p class="lead">Die Weichenstellungen, die das System prägen, mit Begründung.</p>
+  <table>
+    <thead><tr><th>Entscheidung</th><th>Begründung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Keycloak statt eigenem Auth</td><td>OIDC-Standard, Realm als Code, Self-Registration mit Admin-Freigabe. Fokus auf Features statt Auth-Plumbing.</td><td>Ein zusätzlicher Container, zwei Realms als JSON.</td></tr>
+      <tr><td>python-tools als eigener Service</td><td>Bildverarbeitung braucht System-Bibliotheken (cairo, pango, rembg-Modelle). Isolation hält das Spring-Image schlank.</td><td>HTTP-Overhead, internes Secret, HTTP/1.1 wegen uvicorn erzwungen.</td></tr>
+      <tr><td>MariaDB 11</td><td>MySQL-kompatible Patterns, guter Testcontainers-Support, eine DB für App und Keycloak.</td><td>Keine Postgres-spezifischen Features.</td></tr>
+      <tr><td>Flyway statt Liquibase</td><td>SQL-nativ, Git-freundlich, geringere Komplexität.</td><td>Migrationen sind one-way.</td></tr>
+      <tr><td>React 18 + MUI 6</td><td>Reifes Ökosystem, dnd-kit für Kanban, react-grid-layout für Dashboards, gute Test-Tools.</td><td>Bundle-Größe, mit Lazy-Loading abgefedert.</td></tr>
+      <tr><td>Token in Browser-Session</td><td>Kein BFF-Overhead für ein Single-User-Tool, XSS-Risiko durch React-Escaping gering gehalten.</td><td>Token endet mit dem Tab, bewusst so gewollt.</td></tr>
+      <tr><td>Shared-Secret statt mTLS</td><td>Einfacher im Docker-Netz, ausreichend bei Container-Isolation.</td><td>Secret-Rotation manuell.</td></tr>
+      <tr><td>Soft-Delete im Kanban</td><td>Undo, Audit-Spur, sauberer logischer Löschpfad.</td><td>Queries filtern auf nicht-gelöschte Karten, Cleanup-Job nötig.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 10 -->
+  <h2 id="k10"><span class="num">10.</span> Qualitätsanforderungen</h2>
+  <p class="lead">Woran sich die Architektur messen lässt.</p>
+  <table>
+    <thead><tr><th>Qualität</th><th>Szenario</th><th>Maßnahme im System</th></tr></thead>
+    <tbody>
+      <tr><td>Sicherheit</td><td>Ein nicht freigegebener User darf keine fachlichen Endpunkte erreichen.</td><td>Rolle <code>PENDING</code> ohne Rechte, <code>hasRole("USER")</code> auf den Controllern.</td></tr>
+      <tr><td>Korrektheit</td><td>Eine Änderung darf keine Logik ungetestet lassen.</td><td>100 % Coverage und Mutation Score als Gate vor dem Push.</td></tr>
+      <tr><td>Wartbarkeit</td><td>Ein Feature lässt sich isoliert ändern, ohne Schichtgrenzen zu verletzen.</td><td>Hexagonale Module, durch ArchUnit erzwungen.</td></tr>
+      <tr><td>Robustheit</td><td>Fällt python-tools aus, bleibt das Backend kontrolliert.</td><td>Timeouts (5s/30s), Fehler-Mapping auf HTTP 502.</td></tr>
+      <tr><td>Datenintegrität</td><td>Schemaänderungen sind nachvollziehbar und reproduzierbar.</td><td>Versionierte Flyway-Migrationen.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 11 -->
+  <h2 id="k11"><span class="num">11.</span> Risiken und technische Schulden</h2>
+  <p class="lead">Was ich im Blick behalte.</p>
+  <table>
+    <thead><tr><th>Punkt</th><th>Einschätzung</th><th>Umgang</th></tr></thead>
+    <tbody>
+      <tr><td>Dashboard-Bundle an der Größengrenze</td><td>mittel</td><td>Lazy-Loading der Widget-Typen.</td></tr>
+      <tr><td>rembg-Modell im Image (rund 180 MB)</td><td>gering</td><td>Vorab im Build geladen, Startzeit akzeptiert.</td></tr>
+      <tr><td>Keycloak-Schema-Init nur beim ersten Start</td><td>gering</td><td>Manueller SQL-Fallback dokumentiert.</td></tr>
+      <tr><td>Datenverlust bei MariaDB-Crash</td><td>geringe Wahrscheinlichkeit, hoher Impact</td><td>Backup-Policy in Produktion, Realms als Code wiederherstellbar.</td></tr>
+      <tr><td>Ingest-Token-Leak</td><td>gering</td><td>Nur Hash in DB, Rate-Limiting, Rotation vorgesehen.</td></tr>
+      <tr><td>Kein Multi-User / kein horizontales Scale-Out</td><td>gering (Single-User-Tool)</td><td>Backend bereits zustandslos, Migration bliebe aufwendig.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 12 -->
+  <h2 id="k12"><span class="num">12.</span> Glossar</h2>
+  <table>
+    <thead><tr><th>Begriff</th><th>Bedeutung</th></tr></thead>
+    <tbody>
+      <tr><td>PKCE</td><td>Proof Key for Code Exchange, sicherer OAuth2-Flow für Public Clients.</td></tr>
+      <tr><td>Bearer-only</td><td>Ressourcen-Server, der nur Tokens prüft und selbst keine Logins durchführt.</td></tr>
+      <tr><td>Realm</td><td>Keycloak-Mandant mit eigenen Usern, Rollen und Clients (hier <code>toolbox-dev</code>, <code>toolbox</code>).</td></tr>
+      <tr><td>Hexagonale Architektur</td><td>Ports-und-Adapter-Stil: Domäne im Kern, Technik außen.</td></tr>
+      <tr><td>Ingest-Token</td><td>Maschinentoken für die Datenpunkt-Aufnahme ohne Benutzer-Login.</td></tr>
+      <tr><td>Soft-Delete</td><td>Logisches Löschen über Flags statt physischer Entfernung.</td></tr>
+      <tr><td>Mutation Score</td><td>Anteil künstlich eingebauter Fehler, die Tests erkennen (PIT).</td></tr>
+    </tbody>
+  </table>
+
+</main>
+
+<!-- ============ ABSCHLUSS (dunkel, Sandwich) ============ -->
+<section class="closing">
+  <div class="knight">♘</div>
+  <h2>Der Mensch bleibt am Steuer</h2>
+  <p>Diese Architektur ist bewusst geführt. Klare Schichten, abgeschottete Dienste und ein Qualitätsgate, das keine Abkürzung erlaubt. Jede Entscheidung ist begründet und damit später revidierbar.</p>
+</section>
+
+<footer>© 2026 Manfred Wolff · mwolff.org · Architekturdokumentation Toolbox nach arc42</footer>
+
+</body>
+</html>

@@ -18,6 +18,25 @@ vi.mock('../../api/kanban', () => ({
   updateKanbanSettings: vi.fn(),
 }));
 
+// Listenansicht wird als Stub gemockt — hier testen wir nur den View-Toggle, nicht die Liste.
+vi.mock('./KanbanListView', () => ({
+  default: () => <div data-testid="list-view-stub">ListView-Stub</div>,
+}));
+
+function installMemoryLocalStorage(): void {
+  const store = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, String(v)),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+    key: (i: number) => [...store.keys()][i] ?? null,
+    get length() {
+      return store.size;
+    },
+  });
+}
+
 import {
   archiveKanbanItem,
   createKanbanItem,
@@ -59,6 +78,7 @@ function makeItem(overrides = {}) {
 
 describe('KanbanPage', () => {
   beforeEach(() => {
+    installMemoryLocalStorage();
     list.mockReset();
     create.mockReset();
     update.mockReset();
@@ -68,7 +88,10 @@ describe('KanbanPage', () => {
     getSettings.mockResolvedValue({ doneRetentionDays: 5 });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('zeigt den Empty-State, wenn das Board leer ist', async () => {
     list.mockResolvedValueOnce({
@@ -291,5 +314,28 @@ describe('KanbanPage', () => {
 
     await waitFor(() => expect(putSettings).toHaveBeenCalledTimes(1));
     expect(putSettings).toHaveBeenCalledWith(5);
+  });
+
+  it('wechselt über den View-Toggle zur Listenansicht und persistiert die Wahl', async () => {
+    list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Noch keine Kanban-Items')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+
+    expect(screen.getByTestId('list-view-stub')).toBeInTheDocument();
+    expect(screen.queryByText('Noch keine Kanban-Items')).not.toBeInTheDocument();
+    expect(localStorage.getItem('kanban.view')).toBe('list');
+  });
+
+  it('startet in der Listenansicht, wenn localStorage "list" gespeichert hat', async () => {
+    localStorage.setItem('kanban.view', 'list');
+    list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
+
+    renderPage();
+
+    expect(await screen.findByTestId('list-view-stub')).toBeInTheDocument();
   });
 });

@@ -50,6 +50,17 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
+  void saveAndReadItemFromReady() {
+    final KanbanItem saved = persist(USER_A, "Ready-Item", "body", KanbanColumn.READY, 0);
+
+    assertThat(adapter.findById(saved.id()))
+        .hasValueSatisfying(i -> assertThat(i.column()).isEqualTo(KanbanColumn.READY));
+    assertThat(adapter.findByUserAndColumn(USER_A, KanbanColumn.READY))
+        .extracting(KanbanItem::id)
+        .containsExactly(saved.id());
+  }
+
+  @Test
   void findByUserAndColumnReturnsSorted() {
     final KanbanItem a = persist(USER_A, "A", "", KanbanColumn.BACKLOG, 0);
     final KanbanItem b = persist(USER_A, "B", "", KanbanColumn.BACKLOG, 1);

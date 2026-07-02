@@ -85,9 +85,37 @@ class KanbanUseCasesTest {
 
     assertThat(result).containsOnlyKeys(KanbanColumn.values());
     assertThat(result.get(KanbanColumn.BACKLOG)).hasSize(2);
+    assertThat(result.get(KanbanColumn.READY)).isEmpty();
     assertThat(result.get(KanbanColumn.IN_PROGRESS)).hasSize(1);
     assertThat(result.get(KanbanColumn.IN_REVIEW)).isEmpty();
     assertThat(result.get(KanbanColumn.DONE)).isEmpty();
+  }
+
+  @Test
+  void createShouldAllowReadyAsExplicitColumn() {
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.READY)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", KanbanColumn.READY);
+
+    assertThat(created.column()).isEqualTo(KanbanColumn.READY);
+  }
+
+  @Test
+  void moveFromBacklogToReadyReindexesSource() {
+    final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    given(items.findById(1L)).willReturn(Optional.of(a));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.READY)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.READY, 0);
+
+    assertThat(moved.column()).isEqualTo(KanbanColumn.READY);
+    verify(items).updatePosition(2L, 0);
   }
 
   // ----- create -------------------------------------------------------------

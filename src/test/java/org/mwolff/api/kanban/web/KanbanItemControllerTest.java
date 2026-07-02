@@ -88,6 +88,7 @@ class KanbanItemControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.BACKLOG").isArray())
         .andExpect(jsonPath("$.BACKLOG[0].id").value(1))
+        .andExpect(jsonPath("$.READY").isEmpty())
         .andExpect(jsonPath("$.IN_PROGRESS").isEmpty())
         .andExpect(jsonPath("$.IN_REVIEW").isEmpty())
         .andExpect(jsonPath("$.DONE").isEmpty());
@@ -112,6 +113,21 @@ class KanbanItemControllerTest {
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(7))
         .andExpect(jsonPath("$.column").value("BACKLOG"));
+  }
+
+  @Test
+  void createShouldAcceptReadyColumn() throws Exception {
+    given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.READY)))
+        .willReturn(item(11L, KanbanColumn.READY, 0));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Neu\",\"body\":\"b\",\"column\":\"READY\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.column").value("READY"));
   }
 
   @Test

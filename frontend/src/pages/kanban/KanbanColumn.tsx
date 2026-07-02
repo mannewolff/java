@@ -3,6 +3,7 @@ import { Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/m
 import type { SvgIconProps } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import InboxIcon from '@mui/icons-material/Inbox';
+import FlagIcon from '@mui/icons-material/Flag';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -15,6 +16,7 @@ import KanbanCard from './KanbanCard';
 /** Icon + Akzentfarbe je Spalte (#189). Icons sind dekorativ — das Label liefert den Text. */
 const COLUMN_HEADER: Record<KanbanColumnId, { Icon: ComponentType<SvgIconProps>; color: string }> = {
   BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
+  READY: { Icon: FlagIcon, color: 'primary.main' },
   IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
   IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
   DONE: { Icon: CheckCircleIcon, color: 'success.main' },

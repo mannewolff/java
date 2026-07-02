@@ -53,6 +53,7 @@ const SHOW_ARCHIVED_KEY = 'kanban.showArchived';
 
 const COLUMN_LABELS: Record<KanbanColumnId, string> = {
   BACKLOG: 'Backlog',
+  READY: 'Ready',
   IN_PROGRESS: 'In Progress',
   IN_REVIEW: 'In Review',
   DONE: 'Done',
@@ -320,7 +321,7 @@ export default function KanbanPage(): JSX.Element {
           <ViewKanbanIcon sx={{ fontSize: 56, color: 'action.disabled' }} />
           <Typography variant="h6">Noch keine Kanban-Items</Typography>
           <Typography variant="body2">
-            Leg dein erstes Item an — Drag&amp;Drop zwischen den vier Spalten organisiert deinen
+            Leg dein erstes Item an — Drag&amp;Drop zwischen den fünf Spalten organisiert deinen
             Workflow.
           </Typography>
           <Button

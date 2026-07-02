@@ -6,7 +6,7 @@ import KanbanPage from './KanbanPage';
 import { NotifyProvider } from '../../notify/NotifyProvider';
 
 vi.mock('../../api/kanban', () => ({
-  KANBAN_COLUMNS: ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
+  KANBAN_COLUMNS: ['BACKLOG', 'READY', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
   listKanbanItems: vi.fn(),
   createKanbanItem: vi.fn(),
   updateKanbanItem: vi.fn(),
@@ -73,6 +73,7 @@ describe('KanbanPage', () => {
   it('zeigt den Empty-State, wenn das Board leer ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -85,9 +86,10 @@ describe('KanbanPage', () => {
     );
   });
 
-  it('zeigt die vier Spalten mit Items, wenn das Board befüllt ist', async () => {
+  it('zeigt die fünf Spalten mit Items, wenn das Board befüllt ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Backlog-Item' })],
+      READY: [makeItem({ id: 4, title: 'Ready-Item', column: 'READY' })],
       IN_PROGRESS: [makeItem({ id: 2, title: 'In-Progress-Item', column: 'IN_PROGRESS' })],
       IN_REVIEW: [],
       DONE: [],
@@ -96,8 +98,10 @@ describe('KanbanPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Backlog-Item')).toBeInTheDocument());
+    expect(screen.getByText('Ready-Item')).toBeInTheDocument();
     expect(screen.getByText('In-Progress-Item')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte Backlog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Spalte Ready')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte In Progress')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte In Review')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte Done')).toBeInTheDocument();
@@ -106,6 +110,7 @@ describe('KanbanPage', () => {
   it('legt ein neues Item via Drawer an', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -113,6 +118,7 @@ describe('KanbanPage', () => {
     create.mockResolvedValueOnce(makeItem({ id: 7, title: 'Neu' }));
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 7, title: 'Neu' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -135,6 +141,7 @@ describe('KanbanPage', () => {
   it('Drawer "Übernehmen" ist disabled, solange Titel leer ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -153,6 +160,7 @@ describe('KanbanPage', () => {
   it('zeigt den Archivieren-Confirm-Dialog und ruft die API nach Bestätigung', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Weg damit' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -160,6 +168,7 @@ describe('KanbanPage', () => {
     archive.mockResolvedValueOnce(undefined);
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -180,6 +189,7 @@ describe('KanbanPage', () => {
   it('öffnet den Edit-Drawer mit Inhalt und ruft updateKanbanItem', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Alt', body: 'AlterBody' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -187,6 +197,7 @@ describe('KanbanPage', () => {
     update.mockResolvedValueOnce(makeItem({ id: 1, title: 'Neu', body: 'AlterBody' }));
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Neu', body: 'AlterBody' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -211,6 +222,7 @@ describe('KanbanPage', () => {
     const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [
@@ -242,6 +254,7 @@ describe('KanbanPage', () => {
     getSettings.mockResolvedValue({ doneRetentionDays: 14 });
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -262,6 +275,7 @@ describe('KanbanPage', () => {
     putSettings.mockResolvedValueOnce({ doneRetentionDays: 10 });
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],

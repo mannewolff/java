@@ -23,6 +23,7 @@ import type { SvgIconProps } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import InboxIcon from '@mui/icons-material/Inbox';
+import FlagIcon from '@mui/icons-material/Flag';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -44,11 +45,19 @@ import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 /**
  * Feste Anzeige-Reihenfolge der Spalten im Widget (#221): aktivste Spalte zuerst.
  * Unabhängig von KANBAN_COLUMNS (Board-Reihenfolge) — Done wird ans Ende gestellt.
+ * Ready (GO-Warteschlange) steht zwischen In Progress und Backlog.
  */
-const DISPLAY_ORDER: readonly KanbanColumn[] = ['IN_REVIEW', 'IN_PROGRESS', 'BACKLOG', 'DONE'];
+const DISPLAY_ORDER: readonly KanbanColumn[] = [
+  'IN_REVIEW',
+  'IN_PROGRESS',
+  'READY',
+  'BACKLOG',
+  'DONE',
+];
 
 const COLUMN_LABELS: Record<KanbanColumn, string> = {
   BACKLOG: 'Backlog',
+  READY: 'Ready',
   IN_PROGRESS: 'In Progress',
   IN_REVIEW: 'In Review',
   DONE: 'Done',
@@ -57,6 +66,7 @@ const COLUMN_LABELS: Record<KanbanColumn, string> = {
 /** Status-Icon + Akzentfarbe je Spalte (#191), konsistent mit dem Board-Header (#189). */
 const COLUMN_ICON: Record<KanbanColumn, { Icon: ComponentType<SvgIconProps>; color: string }> = {
   BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
+  READY: { Icon: FlagIcon, color: 'primary.main' },
   IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
   IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
   DONE: { Icon: CheckCircleIcon, color: 'success.main' },
@@ -76,7 +86,9 @@ interface KanbanWidgetConfig {
 }
 
 function isColumn(v: unknown): v is KanbanColumn {
-  return v === 'BACKLOG' || v === 'IN_PROGRESS' || v === 'IN_REVIEW' || v === 'DONE';
+  return (
+    v === 'BACKLOG' || v === 'READY' || v === 'IN_PROGRESS' || v === 'IN_REVIEW' || v === 'DONE'
+  );
 }
 
 function clampLimit(value: unknown): number {

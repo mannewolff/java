@@ -22,9 +22,10 @@ function boardOf(input: Partial<Record<KanbanColumn, KanbanItem[]>>): KanbanBoar
 }
 
 describe('emptyBoard', () => {
-  it('liefert leere Spalten für alle vier Slots', () => {
+  it('liefert leere Spalten für alle fünf Slots', () => {
     const b = emptyBoard();
     expect(b.BACKLOG).toEqual([]);
+    expect(b.READY).toEqual([]);
     expect(b.IN_PROGRESS).toEqual([]);
     expect(b.IN_REVIEW).toEqual([]);
     expect(b.DONE).toEqual([]);
@@ -104,6 +105,16 @@ describe('moveItem — cross column', () => {
     });
     const next = moveItem(b, 1, 'IN_PROGRESS', 99);
     expect(next.IN_PROGRESS.map((i) => i.id)).toEqual([10, 1]);
+  });
+
+  it('verschiebt von BACKLOG nach READY', () => {
+    const b = boardOf({
+      BACKLOG: [item(1, 'BACKLOG', 0)],
+      READY: [item(10, 'READY', 0)],
+    });
+    const next = moveItem(b, 1, 'READY', 0);
+    expect(next.BACKLOG).toEqual([]);
+    expect(next.READY.map((i) => i.id)).toEqual([1, 10]);
   });
 
   it('archiviertes Item wird nicht bewegt — Board bleibt identisch', () => {

@@ -47,7 +47,7 @@ const settings = getKanbanSettings as ReturnType<typeof vi.fn>;
 const updateItem = updateKanbanItem as ReturnType<typeof vi.fn>;
 
 function emptyBoard(): KanbanBoard {
-  return { BACKLOG: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
+  return { BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
 }
 
 function makeItem(id: number, title: string, position: number, body = ''): KanbanItem {
@@ -563,6 +563,38 @@ describe('WidgetKanbanList Multi-Spalten (#168)', () => {
 
     const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { columns: string[] };
     expect(parsed.columns).toEqual(['BACKLOG', 'IN_REVIEW']);
+  });
+
+  it('zeigt Items aus der READY-Spalte mit Flag-Icon (#280)', async () => {
+    const board = emptyBoard();
+    board.READY = [{ ...makeItem(1, 'Startklar', 0), column: 'READY', number: 3 }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['READY'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const li = (await screen.findByRole('button', { name: 'Startklar' })).closest('li')!;
+    expect(li.querySelector('[data-testid="FlagIcon"]')).not.toBeNull();
+  });
+
+  it('Drawer: READY ist als Spalte auswählbar', async () => {
+    listItems.mockResolvedValue(emptyBoard());
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetKanbanList widget={widget({ columns: ['BACKLOG'], limit: 5 })} onChange={onChange} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Kanban-Liste bearbeiten' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Ready' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { columns: string[] };
+    expect(parsed.columns).toEqual(['BACKLOG', 'READY']);
   });
 
   it('Drawer: ohne ausgewählte Spalte ist Übernehmen deaktiviert', async () => {

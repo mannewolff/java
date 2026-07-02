@@ -39,6 +39,7 @@ import {
 } from '../../../api/kanban';
 import { ApiError } from '../../../api/client';
 import KanbanDetailModal from '../../kanban/KanbanDetailModal';
+import { STATUS_COLORS } from '../../kanban/statusColors';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
@@ -63,13 +64,16 @@ const COLUMN_LABELS: Record<KanbanColumn, string> = {
   DONE: 'Done',
 };
 
-/** Status-Icon + Akzentfarbe je Spalte (#191), konsistent mit dem Board-Header (#189). */
-const COLUMN_ICON: Record<KanbanColumn, { Icon: ComponentType<SvgIconProps>; color: string }> = {
-  BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
-  READY: { Icon: FlagIcon, color: 'primary.main' },
-  IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
-  IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
-  DONE: { Icon: CheckCircleIcon, color: 'success.main' },
+/**
+ * Status-Icon je Spalte (#191). Die Akzentfarbe kommt aus {@link STATUS_COLORS} (#288),
+ * damit das Widget-Icon exakt der Board-Header-Farbe derselben Spalte entspricht.
+ */
+const COLUMN_ICON: Record<KanbanColumn, ComponentType<SvgIconProps>> = {
+  BACKLOG: InboxIcon,
+  READY: FlagIcon,
+  IN_PROGRESS: PlayArrowIcon,
+  IN_REVIEW: VisibilityIcon,
+  DONE: CheckCircleIcon,
 };
 
 const MIN_LIMIT = 1;
@@ -306,9 +310,14 @@ export default function WidgetKanbanList({
                   }}
                 >
                   {(() => {
-                    const { Icon, color } = COLUMN_ICON[item.column];
+                    const Icon = COLUMN_ICON[item.column];
                     return (
-                      <Icon fontSize="small" sx={{ color, justifySelf: 'center' }} aria-label={COLUMN_LABELS[item.column]} />
+                      <Icon
+                        fontSize="small"
+                        style={{ color: STATUS_COLORS[item.column].dot }}
+                        sx={{ justifySelf: 'center' }}
+                        aria-label={COLUMN_LABELS[item.column]}
+                      />
                     );
                   })()}
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ textAlign: 'right' }}>

@@ -6,6 +6,7 @@ import { SortableContext } from '@dnd-kit/sortable';
 
 import KanbanCard from './KanbanCard';
 import type { KanbanItem } from '../../api/kanban';
+import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
   return {
@@ -131,6 +132,12 @@ describe('KanbanCard', () => {
   it('archiviertes Item: zeigt Chip "Archiviert"', () => {
     renderCard(makeItem({ archived: true }));
     expect(screen.getByText('Archiviert')).toBeInTheDocument();
+  });
+
+  it('archiviertes Item: Chip ist in der Archiv-Farbe eingefärbt (#289)', () => {
+    renderCard(makeItem({ archived: true }));
+    const chip = screen.getByText('Archiviert').closest('.MuiChip-root');
+    expect(chip).toHaveStyle({ backgroundColor: ARCHIVED_STATUS_COLOR.bg });
   });
 
   it('nicht-archiviertes Item: kein Chip "Archiviert"', () => {

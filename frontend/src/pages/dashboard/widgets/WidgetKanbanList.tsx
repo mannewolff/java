@@ -168,7 +168,7 @@ export default function WidgetKanbanList({
       const board = await listKanbanItems();
       const colRank = (c: KanbanColumn): number => DISPLAY_ORDER.indexOf(c);
       // #221: Items aller gewählten Spalten zusammenführen und automatisch sortieren —
-      // erst nach fester Spalten-Reihenfolge (In Review → In Progress → Backlog → Done),
+      // erst nach fester Spalten-Reihenfolge (In Review → In Progress → Ready → Backlog → Done),
       // innerhalb einer Spalte absteigend nach Issue-Nummer (höhere oben). Danach auf das
       // Gesamt-Limit kürzen.
       const merged = config.columns

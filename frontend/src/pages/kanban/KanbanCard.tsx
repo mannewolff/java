@@ -16,6 +16,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import type { KanbanItem } from '../../api/kanban';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
+import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -120,7 +121,12 @@ export default function KanbanCard({
       </Stack>
 
       {item.archived && (
-        <Chip label="Archiviert" size="small" sx={{ mt: 0.5 }} />
+        <Chip
+          label="Archiviert"
+          size="small"
+          sx={{ mt: 0.5 }}
+          style={{ backgroundColor: ARCHIVED_STATUS_COLOR.bg, color: ARCHIVED_STATUS_COLOR.text }}
+        />
       )}
 
       {showDoneHint && (

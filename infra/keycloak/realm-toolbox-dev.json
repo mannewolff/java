@@ -707,7 +707,7 @@
         "userinfo.token.claim" : "false"
       }
     } ],
-    "defaultClientScopes" : [ ],
+    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
     "optionalClientScopes" : [ "offline_access" ]
   }, {
     "id" : "491706ca-4ae1-45c0-b5e0-9c731dc0df4d",
@@ -767,7 +767,7 @@
         "userinfo.token.claim" : "false"
       }
     } ],
-    "defaultClientScopes" : [ "profile", "email" ],
+    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
     "optionalClientScopes" : [ "offline_access" ]
   } ],
   "clientScopes" : [ {

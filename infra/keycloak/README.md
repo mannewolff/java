@@ -21,6 +21,15 @@ Beide Realms sind strukturell identisch. Sie definieren:
 - TOTP ist optional pro User (nicht erzwungen).
 - Bruteforce-Schutz ist aktiviert.
 
+> **Wichtig — Client-Default-Scopes (#287):** Die tokenausstellenden Clients
+> `toolbox-web` und `toolbox-ios` müssen `basic` in ihren `defaultClientScopes`
+> führen (vollständig: `web-origins, acr, profile, roles, basic, email`). Der
+> `basic`-Scope trägt den Standard-`sub`-Mapper. Fehlt er, enthält das
+> Access-Token **kein `sub`** und das Backend bricht jeden authentifizierten
+> Request mit `NullPointerException: userSub must not be null` ab (betraf jeden
+> neu angelegten User). Beim Editieren der Realm-Exports diese Liste **nicht**
+> auf `profile, email` verkürzen.
+
 Die Files sind **nicht-sensibel**: sie enthalten weder User-Daten noch Client-Secrets
 noch das Keycloak-Master-Realm. Sie können bedenkenlos eingecheckt werden.
 

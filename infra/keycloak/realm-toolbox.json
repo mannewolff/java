@@ -78,6 +78,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "https://toolbox.mwolff.org/##https://toolbox.mwolff.org"
       },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
       "optionalClientScopes": ["offline_access"],
       "protocolMappers": [
         {
@@ -122,6 +123,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "org.mwolff.toolboxkanban://callback"
       },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
       "optionalClientScopes": [
         "offline_access"
       ],

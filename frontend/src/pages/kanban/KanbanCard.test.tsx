@@ -138,3 +138,22 @@ describe('KanbanCard', () => {
     expect(screen.queryByText('Archiviert')).not.toBeInTheDocument();
   });
 });
+
+describe('KanbanCard Kit-Look (#281)', () => {
+  afterEach(() => cleanup());
+
+  it('zeigt nur Nummer und Titel, keinen Body-Auszug mehr', () => {
+    renderCard(makeItem({ number: 3, title: 'Nur Titel', body: 'Sollte nicht erscheinen' }));
+
+    expect(screen.getByText(/#3/)).toBeInTheDocument();
+    expect(screen.getByText('Nur Titel')).toBeInTheDocument();
+    expect(screen.queryByText('Sollte nicht erscheinen')).not.toBeInTheDocument();
+  });
+
+  it('zeigt den Done-Countdown weiterhin, wenn das Item in DONE liegt', () => {
+    const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    renderCard(makeItem({ column: 'DONE', movedToDoneAt: moved }));
+
+    expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
+  });
+});

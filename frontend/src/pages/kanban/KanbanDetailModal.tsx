@@ -26,7 +26,7 @@ import type { KanbanComment, KanbanItem } from '../../api/kanban';
 import { useAuth } from '../../auth/useAuth';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
 import { COLUMN_LABELS } from './columnMeta';
-import { STATUS_COLORS } from './statusColors';
+import { MODAL_BORDER, MODAL_TEXT_PRIMARY, MODAL_TEXT_SECONDARY, STATUS_COLORS } from './statusColors';
 import KanbanCommentForm from './KanbanCommentForm';
 import KanbanCommentList from './KanbanCommentList';
 
@@ -160,8 +160,13 @@ export default function KanbanDetailModal({
       maxWidth="sm"
       fullWidth
       aria-labelledby="kanban-detail-title"
+      PaperProps={{ sx: { borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,.24)' } }}
     >
-      <DialogTitle id="kanban-detail-title">
+      <DialogTitle
+        id="kanban-detail-title"
+        data-testid="kanban-detail-header"
+        style={{ borderBottom: `1px solid ${MODAL_BORDER}` }}
+      >
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Chip
             label={COLUMN_LABELS[item.column]}
@@ -170,14 +175,15 @@ export default function KanbanDetailModal({
               bgcolor: STATUS_COLORS[item.column].bg,
               color: STATUS_COLORS[item.column].text,
               fontWeight: 600,
+              borderRadius: '12px',
             }}
           />
           {item.number > 0 && (
-            <Typography component="span" variant="body2" color="text.secondary">
+            <Typography component="span" variant="body2" style={{ color: MODAL_TEXT_SECONDARY }}>
               #{item.number}
             </Typography>
           )}
-          <Typography component="span" sx={{ fontWeight: 600 }}>
+          <Typography component="span" style={{ fontWeight: 600, color: MODAL_TEXT_PRIMARY }}>
             {item.title}
           </Typography>
         </Stack>

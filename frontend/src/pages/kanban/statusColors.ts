@@ -32,3 +32,13 @@ export const ARCHIVED_STATUS_COLOR: StatusColorSet = {
 
 /** Neutrale Spaltenflaeche (Kit: `#ebecf0`) — kein Status, daher kein eigener Key. */
 export const COLUMN_SURFACE_BG = '#ebecf0';
+
+/**
+ * Kit-Chrome-Farben fuer Modal-Rahmen, Fliess-/Meta-Text und Kommentar-Karten
+ * (Issue #302), 1:1 aus `kit/board-ui.mjs` uebernommen — dieselbe bewusste
+ * Ausnahme von "Farben nur ueber das Theme" wie {@link STATUS_COLORS}.
+ */
+export const MODAL_BORDER = '#e8e8e8';
+export const MODAL_TEXT_PRIMARY = '#344563';
+export const MODAL_TEXT_SECONDARY = '#6b778c';
+export const COMMENT_BG = '#f8f8f8';

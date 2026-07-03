@@ -133,6 +133,22 @@ class KanbanItemControllerTest {
   }
 
   @Test
+  void listWithInvalidIncludeArchivedValueShouldReturnConsistentErrorFormat() throws Exception {
+    // Issue #297: ein von Spring nicht als boolean interpretierbarer Wert fiel bisher auf
+    // Springs generisches Default-Fehlerformat zurueck statt auf das API-eigene JSON-Format.
+    // "yes"/"no"/"on"/"off"/"1"/"0" werden von Springs StringToBooleanConverter bereits als
+    // true/false erkannt — erst ein wirklich unbekannter Wert loest den Type-Mismatch aus.
+    mockMvc
+        .perform(get("/api/kanban/items?includeArchived=maybe").with(userJwt()))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            jsonPath("$.message").value("Ungültiger Wert 'maybe' für Parameter 'includeArchived'"))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.error").exists())
+        .andExpect(jsonPath("$.timestamp").exists());
+  }
+
+  @Test
   void listWithoutJwtShouldReturn401() throws Exception {
     mockMvc.perform(get("/api/kanban/items")).andExpect(status().isUnauthorized());
   }

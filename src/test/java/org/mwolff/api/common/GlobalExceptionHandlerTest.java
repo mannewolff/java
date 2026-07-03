@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 class GlobalExceptionHandlerTest {
 
@@ -100,6 +101,23 @@ class GlobalExceptionHandlerTest {
     @SuppressWarnings("unchecked")
     final Map<String, String> fields = (Map<String, String>) response.getBody().get("fieldErrors");
     assertThat(fields).isEmpty();
+  }
+
+  @Test
+  void shouldMapMethodArgumentTypeMismatchToConsistentBadRequestFormat() throws Exception {
+    // given — z. B. GET /api/kanban/items?includeArchived=yes (Issue #297): Spring lehnt die
+    // Bindung des primitiven booleans ab, bevor der Controller ueberhaupt laeuft.
+    final Method method = ExampleTarget.class.getDeclaredMethod("setName", String.class);
+    final MethodParameter param = new MethodParameter(method, 0);
+    final MethodArgumentTypeMismatchException ex =
+        new MethodArgumentTypeMismatchException(
+            "yes", Boolean.class, "includeArchived", param, null);
+
+    final ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().get("message").toString()).contains("includeArchived");
+    assertThat(response.getBody()).containsKeys("timestamp", "status", "error", "message");
   }
 
   private static ConstraintViolation<?> violationWithPath(String pathStr, String message) {

@@ -42,3 +42,10 @@ export const MODAL_BORDER = '#e8e8e8';
 export const MODAL_TEXT_PRIMARY = '#344563';
 export const MODAL_TEXT_SECONDARY = '#6b778c';
 export const COMMENT_BG = '#f8f8f8';
+
+/**
+ * Kit-Farben fuer den primaeren "Anlegen"-Button im neuen Anlage-Modal (Issue #303),
+ * 1:1 aus dem Referenz-Screenshot uebernommen.
+ */
+export const CREATE_BUTTON_BG = '#0e8a16';
+export const CREATE_BUTTON_HOVER = '#0a6b11';

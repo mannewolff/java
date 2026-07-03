@@ -130,7 +130,7 @@ describe('KanbanPage', () => {
     expect(screen.getByLabelText('Spalte Done')).toBeInTheDocument();
   });
 
-  it('legt ein neues Item via Drawer an', async () => {
+  it('legt ein neues Item via Anlage-Modal an', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
       READY: [],
@@ -155,13 +155,19 @@ describe('KanbanPage', () => {
 
     const titleInput = await screen.findByLabelText('Titel');
     await user.type(titleInput, 'Neu');
-    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith('Neu', '', 'BACKLOG'));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        'Neu',
+        '## Kontext\n\n## Aufgabe\n\n## Akzeptanzkriterium\n\n## Abhängigkeiten\n',
+        'BACKLOG',
+      ),
+    );
     await waitFor(() => expect(screen.getByText('Neu')).toBeInTheDocument());
   });
 
-  it('Drawer "Übernehmen" ist disabled, solange Titel leer ist', async () => {
+  it('Anlegen-Modal "Anlegen" ist disabled, solange Titel leer ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
       READY: [],
@@ -176,7 +182,7 @@ describe('KanbanPage', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Erstes Item anlegen' }));
 
-    const apply = await screen.findByRole('button', { name: 'Übernehmen' });
+    const apply = await screen.findByRole('button', { name: 'Anlegen' });
     expect(apply).toBeDisabled();
   });
 

@@ -50,6 +50,7 @@ import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
 import KanbanEditDrawer from './KanbanEditDrawer';
 import KanbanListView from './KanbanListView';
+import KanbanNewItemModal from './KanbanNewItemModal';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
 
@@ -87,15 +88,11 @@ type LoadState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; board: KanbanBoard };
 
-interface EditTarget {
-  item: KanbanItem | null;
-  defaultColumn: KanbanColumnId;
-}
-
 export default function KanbanPage(): JSX.Element {
   const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<KanbanItem | null>(null);
+  const [createColumn, setCreateColumn] = useState<KanbanColumnId | null>(null);
   const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
   const [pendingArchive, setPendingArchive] = useState<KanbanItem | null>(null);
   const [pendingForceDelete, setPendingForceDelete] = useState<KanbanItem | null>(null);
@@ -157,11 +154,11 @@ export default function KanbanPage(): JSX.Element {
   }
 
   function startCreate(defaultColumn: KanbanColumnId): void {
-    setEditTarget({ item: null, defaultColumn });
+    setCreateColumn(defaultColumn);
   }
 
   function startEdit(item: KanbanItem): void {
-    setEditTarget({ item, defaultColumn: item.column });
+    setEditTarget(item);
   }
 
   async function handleSubmitDetail(title: string, body: string): Promise<void> {
@@ -179,14 +176,21 @@ export default function KanbanPage(): JSX.Element {
   async function handleSubmitEdit(title: string, body: string): Promise<void> {
     if (!editTarget) return;
     try {
-      if (editTarget.item == null) {
-        await createKanbanItem(title, body, editTarget.defaultColumn);
-        notify.success('Item angelegt.');
-      } else {
-        await updateKanbanItem(editTarget.item.id, title, body);
-        notify.success('Item gespeichert.');
-      }
+      await updateKanbanItem(editTarget.id, title, body);
+      notify.success('Item gespeichert.');
       setEditTarget(null);
+      await reload();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
+  }
+
+  async function handleSubmitCreate(title: string, body: string): Promise<void> {
+    if (!createColumn) return;
+    try {
+      await createKanbanItem(title, body, createColumn);
+      notify.success('Item angelegt.');
+      setCreateColumn(null);
       await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
@@ -367,11 +371,17 @@ export default function KanbanPage(): JSX.Element {
 
       {view === 'list' ? <KanbanListView retentionDays={retentionDays} /> : boardBody}
 
+      <KanbanNewItemModal
+        open={createColumn != null}
+        onClose={() => setCreateColumn(null)}
+        onSubmit={handleSubmitCreate}
+      />
+
       <KanbanEditDrawer
         open={editTarget != null}
-        heading={editTarget?.item == null ? 'Neues Item' : 'Item bearbeiten'}
-        initialTitle={editTarget?.item?.title ?? ''}
-        initialBody={editTarget?.item?.body ?? ''}
+        heading="Item bearbeiten"
+        initialTitle={editTarget?.title ?? ''}
+        initialBody={editTarget?.body ?? ''}
         onClose={() => setEditTarget(null)}
         onSubmit={handleSubmitEdit}
       />

@@ -498,6 +498,36 @@ test('main issue get: unbekannte Nummer liefert Fehler', () =>
     assert.match(i.stderrLines.join(''), /nicht gefunden/);
   }));
 
+test('main issue get: nicht-numerische Nummer liefert Validierungsfehler statt NaN (Issue #295)', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const i = io({ baseDir: dir });
+    const code = await main(['issue', 'get', 'abc'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /Ungültige Issue-Nummer.*abc/);
+    assert.doesNotMatch(i.stderrLines.join(''), /NaN/);
+  }));
+
+test('main issue move: nicht-numerische Nummer liefert Validierungsfehler statt NaN (Issue #295)', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const i = io({ baseDir: dir });
+    const code = await main(['issue', 'move', 'abc', 'ready'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /Ungültige Issue-Nummer.*abc/);
+    assert.doesNotMatch(i.stderrLines.join(''), /NaN/);
+  }));
+
+test('main issue comment: nicht-numerische Nummer liefert Validierungsfehler statt NaN (Issue #295)', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const i = io({ baseDir: dir });
+    const code = await main(['issue', 'comment', 'abc', '--text', 'x'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /Ungültige Issue-Nummer.*abc/);
+    assert.doesNotMatch(i.stderrLines.join(''), /NaN/);
+  }));
+
 test('main issue get: liefert id/title/body/status im generischen Format', () =>
   withTempConfigDir(async (dir) => {
     loggedIn(dir);

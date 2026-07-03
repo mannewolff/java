@@ -314,6 +314,16 @@ export function findItemByNumber(items, number) {
   return items.find((i) => i.number === number) || null;
 }
 
+/** Parst ein CLI-Argument als Issue-Nummer; wirft bei nicht-numerischer Eingabe
+ * einen klaren CliError statt ein ungeprueftes NaN durchzureichen. */
+export function parseIssueNumber(numberArg) {
+  const number = Number(numberArg);
+  if (Number.isNaN(number)) {
+    throw new CliError(`Ungültige Issue-Nummer: '${numberArg}'`);
+  }
+  return number;
+}
+
 async function resolveItemByNumber(number, io) {
   const items = await fetchBoardItems(io);
   const item = findItemByNumber(items, number);
@@ -364,7 +374,7 @@ async function cmdIssueCreate(flags, io) {
 }
 
 async function cmdIssueGet(numberArg, io) {
-  const number = Number(numberArg);
+  const number = parseIssueNumber(numberArg);
   const item = await resolveItemByNumber(number, io);
   io.stdout(JSON.stringify(toGenericIssue(item), null, 2) + '\n');
 }
@@ -381,7 +391,7 @@ async function cmdIssueList(flags, io) {
 }
 
 async function cmdIssueMove(numberArg, statusArg, io) {
-  const number = Number(numberArg);
+  const number = parseIssueNumber(numberArg);
   const column = toColumn(statusArg);
   const items = await fetchBoardItems(io);
   const item = findItemByNumber(items, number);
@@ -404,7 +414,7 @@ async function cmdIssueMove(numberArg, statusArg, io) {
 
 async function cmdIssueComment(numberArg, flags, io) {
   if (!flags.text) throw new CliError('--text ist erforderlich');
-  const number = Number(numberArg);
+  const number = parseIssueNumber(numberArg);
   const item = await resolveItemByNumber(number, io);
   const res = await apiFetch(
     `/api/kanban/items/${item.id}/comments`,

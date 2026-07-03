@@ -322,6 +322,21 @@ test('resolveConfig: fällt ohne Flags/Config auf Produktions-Defaults zurück',
   assert.equal(cfg.realm, 'toolbox');
 });
 
+test('resolveConfig: wirft bei einem Flag ohne Wert (boolean true) statt eine kaputte URL zu bauen (Issue #296)', () => {
+  assert.throws(() => resolveConfig({ host: true }, null), (err) => {
+    assert.match(err.message, /--host/);
+    return true;
+  });
+});
+
+test('main auth login: leeres --host-Flag (letztes Argument) liefert Validierungsfehler (Issue #296)', () =>
+  withTempConfigDir(async (dir) => {
+    const i = io({ baseDir: dir });
+    const code = await main(['auth', 'login', '--realm', 'foo', '--host'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /--host/);
+  }));
+
 // --- Kommandos end-to-end (gemockt) --------------------------------------------
 
 test('main auth login: schreibt Config+Tokens und meldet den User', () =>

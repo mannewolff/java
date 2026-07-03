@@ -91,11 +91,20 @@ export function deleteFile(path) {
 
 // --- Config-Aufloesung -------------------------------------------------------
 
+/** Wirft, wenn ein Flag ohne folgenden Wert angegeben wurde (parseArgs liefert dann
+ * boolean true statt eines Strings) — sonst landet "true" unvalidiert in einer URL. */
+function requireStringFlag(flags, name) {
+  if (flags[name] === true) {
+    throw new CliError(`--${name} erwartet einen Wert`);
+  }
+  return flags[name];
+}
+
 export function resolveConfig(flags, storedConfig) {
   return {
-    host: flags.host || storedConfig?.host || PROD_DEFAULTS.host,
-    keycloakUrl: flags['keycloak-url'] || storedConfig?.keycloakUrl || PROD_DEFAULTS.keycloakUrl,
-    realm: flags.realm || storedConfig?.realm || PROD_DEFAULTS.realm,
+    host: requireStringFlag(flags, 'host') || storedConfig?.host || PROD_DEFAULTS.host,
+    keycloakUrl: requireStringFlag(flags, 'keycloak-url') || storedConfig?.keycloakUrl || PROD_DEFAULTS.keycloakUrl,
+    realm: requireStringFlag(flags, 'realm') || storedConfig?.realm || PROD_DEFAULTS.realm,
   };
 }
 

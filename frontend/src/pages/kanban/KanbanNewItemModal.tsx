@@ -23,8 +23,7 @@ interface KanbanNewItemModalProps {
 /**
  * Zentriertes Anlage-Modal fuer neue Kanban-Items (Issue #303), analog der Kit-Referenz
  * `kit/board-ui.mjs`: Titel + Beschreibung vorbefuellt mit einer vierteiligen Vorlage,
- * keine Live-Vorschau. Ersetzt {@link KanbanEditDrawer} nur fuer den Anlage-Fall — der
- * Drawer bleibt bis Issue #304 fuer das Bearbeiten bestehen.
+ * keine Live-Vorschau.
  */
 export default function KanbanNewItemModal({
   open,

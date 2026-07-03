@@ -48,7 +48,6 @@ import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
 import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
-import KanbanEditDrawer from './KanbanEditDrawer';
 import KanbanListView from './KanbanListView';
 import KanbanNewItemModal from './KanbanNewItemModal';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
@@ -91,7 +90,6 @@ type LoadState =
 export default function KanbanPage(): JSX.Element {
   const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const [editTarget, setEditTarget] = useState<KanbanItem | null>(null);
   const [createColumn, setCreateColumn] = useState<KanbanColumnId | null>(null);
   const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
   const [pendingArchive, setPendingArchive] = useState<KanbanItem | null>(null);
@@ -157,28 +155,12 @@ export default function KanbanPage(): JSX.Element {
     setCreateColumn(defaultColumn);
   }
 
-  function startEdit(item: KanbanItem): void {
-    setEditTarget(item);
-  }
-
   async function handleSubmitDetail(title: string, body: string): Promise<void> {
     if (!detailItem) return;
     try {
       await updateKanbanItem(detailItem.id, title, body);
       notify.success('Item gespeichert.');
       setDetailItem(null);
-      await reload();
-    } catch (e) {
-      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
-    }
-  }
-
-  async function handleSubmitEdit(title: string, body: string): Promise<void> {
-    if (!editTarget) return;
-    try {
-      await updateKanbanItem(editTarget.id, title, body);
-      notify.success('Item gespeichert.');
-      setEditTarget(null);
       await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
@@ -315,7 +297,7 @@ export default function KanbanPage(): JSX.Element {
               retentionDays={retentionDays}
               onCreate={startCreate}
               onOpenDetail={setDetailItem}
-              onEdit={startEdit}
+              onEdit={setDetailItem}
               onArchive={setPendingArchive}
               onRestore={(item) => void handleRestore(item)}
               onForceDelete={setPendingForceDelete}
@@ -375,15 +357,6 @@ export default function KanbanPage(): JSX.Element {
         open={createColumn != null}
         onClose={() => setCreateColumn(null)}
         onSubmit={handleSubmitCreate}
-      />
-
-      <KanbanEditDrawer
-        open={editTarget != null}
-        heading="Item bearbeiten"
-        initialTitle={editTarget?.title ?? ''}
-        initialBody={editTarget?.body ?? ''}
-        onClose={() => setEditTarget(null)}
-        onSubmit={handleSubmitEdit}
       />
 
       {detailItem != null && (

@@ -39,8 +39,8 @@ interface KanbanDetailModalProps {
 }
 
 /**
- * Detail-Modal eines Kanban-Items: zeigt Titel + Markdown-Body sofort bearbeitbar (analog
- * {@link KanbanEditDrawer}, aber als zentrierter {@link Dialog} statt Drawer). Standalone und
+ * Detail-Modal eines Kanban-Items: zeigt Titel + Markdown-Body sofort bearbeitbar, sowohl beim
+ * Klick auf die Karte als auch ueber das Karten-Menue "Bearbeiten" (Issue #304). Standalone und
  * controlled — Open/Item-State liegt beim Aufrufer, damit das Modal auch ausserhalb des Boards
  * (Dashboard-Widget) wiederverwendbar ist.
  *

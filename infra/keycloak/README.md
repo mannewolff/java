@@ -13,8 +13,8 @@ durch das `--import-realm`-Flag automatisch importiert.
 
 Beide Realms sind strukturell identisch. Sie definieren:
 
-- Drei Realm-Rollen: `PENDING` (Default für Selbstregistrierungen), `USER`, `ADMIN`.
-- Zwei Clients: `toolbox-web` (public, PKCE) und `toolbox-api` (bearer-only).
+- Drei Realm-Rollen: `PENDING` (Default für Selbstregistrierungen), `USER` (Composite mit `offline_access`, #210), `ADMIN`.
+- Vier Clients: `toolbox-web` (public, PKCE), `toolbox-ios` (public, PKCE), `toolbox-cli` (public, Device-Flow, siehe [CLI-Login](#cli-login-toolbox-cli)) und `toolbox-api` (bearer-only).
 - Self-Registration ist aktiviert, neue User landen in der Rolle `PENDING`.
   Ein Admin schaltet sie zu `USER` frei — siehe [Admin-Approval-Workflow](#admin-approval-workflow).
 - Passwort-Policy: mindestens 12 Zeichen, mindestens ein Sonderzeichen, kein Username im Passwort.
@@ -102,6 +102,47 @@ Wir bilden den Workflow über die Default-Rolle `PENDING` ab:
 
 Wenn später ein automatisierter Approval-Flow (z. B. via E-Mail an Admin) gewünscht
 ist, dafür ein eigenes Issue anlegen.
+
+## CLI-Login (toolbox-cli)
+
+Der Client `toolbox-cli` (public, kein Secret) ist für die Kommandozeilen-Anbindung
+(`tbx`, Board-Adapter fürs claude-workflow-kit) per **OAuth2 Device Authorization
+Grant** (RFC 8628) konfiguriert — analog zu `gh auth login`, ohne Redirect-URI.
+
+**Ablauf:**
+
+1. CLI fordert einen Device-Code an:
+   ```bash
+   curl -d "client_id=toolbox-cli" -d "scope=openid offline_access" \
+     http://localhost:8081/realms/toolbox-dev/protocol/openid-connect/auth/device
+   ```
+   Antwort enthält `device_code`, `user_code` und `verification_uri`.
+2. User öffnet `verification_uri` im Browser, gibt `user_code` ein, loggt sich ein
+   und bestätigt.
+3. CLI pollt den Token-Endpoint mit dem `device_code`, bis der User bestätigt hat:
+   ```bash
+   curl -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+     -d "client_id=toolbox-cli" -d "device_code=<device_code>" \
+     http://localhost:8081/realms/toolbox-dev/protocol/openid-connect/token
+   ```
+   Bei Scope `offline_access` liefert die Antwort ein **Offline-Refresh-Token**.
+
+**Token-Laufzeit:** Der Realm setzt `offlineSessionIdleTimeout` und
+`offlineSessionMaxLifespan` auf `2592000` s (30 Tage). Jede Nutzung (Refresh)
+setzt den Idle-Timer zurück — ein aktiv genutztes Offline-Token läuft also nicht
+automatisch nach 30 Tagen ab, sondern erst nach 30 Tagen **Inaktivität**.
+
+**Voraussetzung:** Die Realm-Rolle `USER` ist als Composite um `offline_access`
+erweitert (#210) — ohne diesen Scope in den Composites verweigert Keycloak dem
+User ein Offline-Token, selbst wenn der Client ihn anfordert.
+
+> **Re-Import-Risiko (vgl. #79/#267):** Ein Realm-Re-Import
+> (`docker compose up -d --force-recreate keycloak`) überschreibt Rollen- und
+> Client-Zuweisungen aus diesem JSON. Nach jedem Re-Import in einer Umgebung mit
+> bestehenden Usern: Login testen und prüfen, ob zuvor manuell auf `USER`
+> promotete Accounts weiterhin die `USER`-Rolle (inkl. `offline_access`-Composite)
+> tragen — der Re-Import ersetzt keine Zuweisungen, die nur in der laufenden
+> Keycloak-DB existierten und nicht Teil dieses Exports sind.
 
 ## Prod-Setup (Hostinger / eigener Server)
 

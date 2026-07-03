@@ -134,9 +134,14 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
 
   async function handleDetailSubmit(title: string, body: string): Promise<void> {
     if (!detailItem) return;
-    await updateKanbanItem(detailItem.id, title, body);
-    setDetailItem(null);
-    setReloadNonce((n) => n + 1);
+    try {
+      await updateKanbanItem(detailItem.id, title, body);
+      notify.success('Item gespeichert.');
+      setDetailItem(null);
+      setReloadNonce((n) => n + 1);
+    } catch (err) {
+      notify.error(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+    }
   }
 
   const visible = (board ?? [])

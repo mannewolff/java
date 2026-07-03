@@ -8,19 +8,35 @@ import { NotifyProvider } from '../../notify/NotifyProvider';
 
 vi.mock('../../api/kanban', async () => {
   const actual = await vi.importActual<typeof import('../../api/kanban')>('../../api/kanban');
-  return { ...actual, listKanbanItems: vi.fn(), moveKanbanItem: vi.fn() };
+  return { ...actual, listKanbanItems: vi.fn(), moveKanbanItem: vi.fn(), updateKanbanItem: vi.fn() };
 });
 
-import { listKanbanItems, moveKanbanItem } from '../../api/kanban';
+import { listKanbanItems, moveKanbanItem, updateKanbanItem } from '../../api/kanban';
 
 // Leichtgewichtiger Modal-Stub — wir testen nur die Verdrahtung aus der Liste.
+// Der "Speichern"-Button ruft onSubmit mit Test-Werten auf, damit
+// handleDetailSubmit (inkl. Fehlerbehandlung) getestet werden kann.
 vi.mock('./KanbanDetailModal', () => ({
-  default: ({ open, item }: { open: boolean; item: KanbanItem }) =>
-    open ? <div role="dialog" aria-label="Detail-Stub">Detail: {item.title} #{item.number}</div> : null,
+  default: ({
+    open,
+    item,
+    onSubmit,
+  }: {
+    open: boolean;
+    item: KanbanItem;
+    onSubmit: (title: string, body: string) => Promise<void> | void;
+  }) =>
+    open ? (
+      <div role="dialog" aria-label="Detail-Stub">
+        Detail: {item.title} #{item.number}
+        <button onClick={() => onSubmit('Neuer Titel', 'Neuer Body')}>Speichern</button>
+      </div>
+    ) : null,
 }));
 
 const listItems = listKanbanItems as ReturnType<typeof vi.fn>;
 const moveItem = moveKanbanItem as ReturnType<typeof vi.fn>;
+const updateItem = updateKanbanItem as ReturnType<typeof vi.fn>;
 
 function dragEvent(): { dataTransfer: { setData: ReturnType<typeof vi.fn>; effectAllowed: string } } {
   return { dataTransfer: { setData: vi.fn(), effectAllowed: '' } };
@@ -74,6 +90,8 @@ describe('KanbanListView', () => {
     listItems.mockResolvedValue(boardOf());
     moveItem.mockReset();
     moveItem.mockResolvedValue(makeItem());
+    updateItem.mockReset();
+    updateItem.mockResolvedValue(makeItem());
   });
 
   afterEach(() => {
@@ -160,6 +178,21 @@ describe('KanbanListView', () => {
     await user.click(await screen.findByRole('button', { name: /Detail öffnen: Klickbar/ }));
 
     expect(screen.getByRole('dialog', { name: 'Detail-Stub' })).toHaveTextContent('Detail: Klickbar #3');
+  });
+
+  it('zeigt eine Fehler-Notification, wenn das Speichern aus dem Detail-Modal fehlschlägt (#292)', async () => {
+    listItems.mockResolvedValue(
+      boardOf({ BACKLOG: [makeItem({ id: 3, number: 3, title: 'Klickbar' })] }),
+    );
+    updateItem.mockRejectedValue(new Error('boom'));
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Detail öffnen: Klickbar/ }));
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Detail-Stub' })).toBeInTheDocument();
   });
 
   it('zeigt einen Empty-State, wenn der Filter nichts übrig lässt', async () => {

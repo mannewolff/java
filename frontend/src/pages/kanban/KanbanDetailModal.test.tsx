@@ -167,6 +167,29 @@ describe('KanbanDetailModal', () => {
     expect(title).toHaveTextContent('Ready');
   });
 
+  it('nutzt die Kit-Chrome-Farben für Header-Trennstrich und Kommentar-Karten (Issue #302)', async () => {
+    vi.mocked(listKanbanComments).mockResolvedValue([
+      makeComment({ id: 10, author: 'alice', body: 'Kit-Look-Check' }),
+    ]);
+
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem()}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Kit-Look-Check');
+    expect(screen.getByTestId('kanban-detail-header')).toHaveStyle({ borderBottomColor: '#e8e8e8' });
+    expect(screen.getByTestId('kanban-comment-card-10')).toHaveStyle({
+      backgroundColor: '#f8f8f8',
+      borderColor: '#e8e8e8',
+    });
+  });
+
   it('zeigt den Cleanup-Countdown für DONE-Items', async () => {
     const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
     render(

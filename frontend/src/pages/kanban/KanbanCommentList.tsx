@@ -19,6 +19,7 @@ import ReactMarkdown from 'react-markdown';
 
 import type { KanbanComment } from '../../api/kanban';
 import { relativeTime } from './relativeTime';
+import { COMMENT_BG, MODAL_BORDER } from './statusColors';
 
 interface KanbanCommentListProps {
   comments: KanbanComment[];
@@ -77,7 +78,13 @@ export default function KanbanCommentList({
         const isOwn = currentUsername != null && comment.author === currentUsername;
         const isEditing = editingId === comment.id;
         return (
-          <Paper key={comment.id} variant="outlined" sx={{ p: 1.5 }}>
+          <Paper
+            key={comment.id}
+            variant="outlined"
+            data-testid={`kanban-comment-card-${comment.id}`}
+            sx={{ p: 1.5 }}
+            style={{ backgroundColor: COMMENT_BG, borderColor: MODAL_BORDER }}
+          >
             <Box
               sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}
             >

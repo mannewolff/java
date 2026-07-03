@@ -16,6 +16,24 @@ vi.mock('../../api/kanban', () => ({
   restoreKanbanItem: vi.fn(),
   getKanbanSettings: vi.fn(),
   updateKanbanSettings: vi.fn(),
+  listKanbanComments: vi.fn(),
+  addKanbanComment: vi.fn(),
+  updateKanbanComment: vi.fn(),
+  deleteKanbanComment: vi.fn(),
+}));
+
+// Detail-Modal (Klick auf Karte oder Menü "Bearbeiten", #304) braucht einen eingeloggten User.
+vi.mock('../../auth/useAuth', () => ({
+  useAuth: () => ({
+    isLoading: false,
+    isAuthenticated: true,
+    username: 'alice',
+    email: undefined,
+    initial: 'A',
+    error: undefined,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  }),
 }));
 
 // Listenansicht wird als Stub gemockt — hier testen wir nur den View-Toggle, nicht die Liste.
@@ -41,6 +59,7 @@ import {
   archiveKanbanItem,
   createKanbanItem,
   getKanbanSettings,
+  listKanbanComments,
   listKanbanItems,
   updateKanbanItem,
   updateKanbanSettings,
@@ -52,6 +71,7 @@ const update = updateKanbanItem as ReturnType<typeof vi.fn>;
 const archive = archiveKanbanItem as ReturnType<typeof vi.fn>;
 const getSettings = getKanbanSettings as ReturnType<typeof vi.fn>;
 const putSettings = updateKanbanSettings as ReturnType<typeof vi.fn>;
+const listComments = listKanbanComments as ReturnType<typeof vi.fn>;
 
 function renderPage() {
   return render(
@@ -85,7 +105,9 @@ describe('KanbanPage', () => {
     archive.mockReset();
     getSettings.mockReset();
     putSettings.mockReset();
+    listComments.mockReset();
     getSettings.mockResolvedValue({ doneRetentionDays: 5 });
+    listComments.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -130,7 +152,7 @@ describe('KanbanPage', () => {
     expect(screen.getByLabelText('Spalte Done')).toBeInTheDocument();
   });
 
-  it('legt ein neues Item via Drawer an', async () => {
+  it('legt ein neues Item via Anlage-Modal an', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
       READY: [],
@@ -155,13 +177,19 @@ describe('KanbanPage', () => {
 
     const titleInput = await screen.findByLabelText('Titel');
     await user.type(titleInput, 'Neu');
-    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith('Neu', '', 'BACKLOG'));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        'Neu',
+        '## Kontext\n\n## Aufgabe\n\n## Akzeptanzkriterium\n\n## Abhängigkeiten\n',
+        'BACKLOG',
+      ),
+    );
     await waitFor(() => expect(screen.getByText('Neu')).toBeInTheDocument());
   });
 
-  it('Drawer "Übernehmen" ist disabled, solange Titel leer ist', async () => {
+  it('Anlegen-Modal "Anlegen" ist disabled, solange Titel leer ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
       READY: [],
@@ -176,7 +204,7 @@ describe('KanbanPage', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Erstes Item anlegen' }));
 
-    const apply = await screen.findByRole('button', { name: 'Übernehmen' });
+    const apply = await screen.findByRole('button', { name: 'Anlegen' });
     expect(apply).toBeDisabled();
   });
 
@@ -209,7 +237,7 @@ describe('KanbanPage', () => {
     await waitFor(() => expect(archive).toHaveBeenCalledWith(1));
   });
 
-  it('öffnet den Edit-Drawer mit Inhalt und ruft updateKanbanItem', async () => {
+  it('öffnet über das Karten-Menü "Bearbeiten" das Detail-Modal und ruft updateKanbanItem (#304)', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Alt', body: 'AlterBody' })],
       READY: [],
@@ -234,9 +262,10 @@ describe('KanbanPage', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Bearbeiten' }));
 
     const titleInput = await screen.findByLabelText('Titel');
+    expect(titleInput).toHaveValue('Alt');
     await user.clear(titleInput);
     await user.type(titleInput, 'Neu');
-    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() => expect(update).toHaveBeenCalledWith(1, 'Neu', 'AlterBody'));
   });

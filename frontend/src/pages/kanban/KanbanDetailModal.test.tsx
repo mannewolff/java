@@ -150,6 +150,23 @@ describe('KanbanDetailModal', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('zeigt Status-Badge und Item-Nummer im Header (Kit-Optik)', async () => {
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ number: 42, column: 'READY', title: 'Startklar' })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const title = screen.getByRole('heading', { name: /Startklar/ });
+    expect(title).toHaveTextContent('#42');
+    expect(title).toHaveTextContent('Ready');
+  });
+
   it('zeigt den Cleanup-Countdown für DONE-Items', async () => {
     const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
     render(

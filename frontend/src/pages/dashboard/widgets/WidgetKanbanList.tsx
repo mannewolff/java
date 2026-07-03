@@ -23,6 +23,7 @@ import type { SvgIconProps } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import InboxIcon from '@mui/icons-material/Inbox';
+import FlagIcon from '@mui/icons-material/Flag';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -38,28 +39,41 @@ import {
 } from '../../../api/kanban';
 import { ApiError } from '../../../api/client';
 import KanbanDetailModal from '../../kanban/KanbanDetailModal';
+import { STATUS_COLORS } from '../../kanban/statusColors';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
 
 /**
  * Feste Anzeige-Reihenfolge der Spalten im Widget (#221): aktivste Spalte zuerst.
  * Unabhängig von KANBAN_COLUMNS (Board-Reihenfolge) — Done wird ans Ende gestellt.
+ * Ready (GO-Warteschlange) steht zwischen In Progress und Backlog.
  */
-const DISPLAY_ORDER: readonly KanbanColumn[] = ['IN_REVIEW', 'IN_PROGRESS', 'BACKLOG', 'DONE'];
+const DISPLAY_ORDER: readonly KanbanColumn[] = [
+  'IN_REVIEW',
+  'IN_PROGRESS',
+  'READY',
+  'BACKLOG',
+  'DONE',
+];
 
 const COLUMN_LABELS: Record<KanbanColumn, string> = {
   BACKLOG: 'Backlog',
+  READY: 'Ready',
   IN_PROGRESS: 'In Progress',
   IN_REVIEW: 'In Review',
   DONE: 'Done',
 };
 
-/** Status-Icon + Akzentfarbe je Spalte (#191), konsistent mit dem Board-Header (#189). */
-const COLUMN_ICON: Record<KanbanColumn, { Icon: ComponentType<SvgIconProps>; color: string }> = {
-  BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
-  IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
-  IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
-  DONE: { Icon: CheckCircleIcon, color: 'success.main' },
+/**
+ * Status-Icon je Spalte (#191). Die Akzentfarbe kommt aus {@link STATUS_COLORS} (#288),
+ * damit das Widget-Icon exakt der Board-Header-Farbe derselben Spalte entspricht.
+ */
+const COLUMN_ICON: Record<KanbanColumn, ComponentType<SvgIconProps>> = {
+  BACKLOG: InboxIcon,
+  READY: FlagIcon,
+  IN_PROGRESS: PlayArrowIcon,
+  IN_REVIEW: VisibilityIcon,
+  DONE: CheckCircleIcon,
 };
 
 const MIN_LIMIT = 1;
@@ -76,7 +90,9 @@ interface KanbanWidgetConfig {
 }
 
 function isColumn(v: unknown): v is KanbanColumn {
-  return v === 'BACKLOG' || v === 'IN_PROGRESS' || v === 'IN_REVIEW' || v === 'DONE';
+  return (
+    v === 'BACKLOG' || v === 'READY' || v === 'IN_PROGRESS' || v === 'IN_REVIEW' || v === 'DONE'
+  );
 }
 
 function clampLimit(value: unknown): number {
@@ -152,7 +168,7 @@ export default function WidgetKanbanList({
       const board = await listKanbanItems();
       const colRank = (c: KanbanColumn): number => DISPLAY_ORDER.indexOf(c);
       // #221: Items aller gewählten Spalten zusammenführen und automatisch sortieren —
-      // erst nach fester Spalten-Reihenfolge (In Review → In Progress → Backlog → Done),
+      // erst nach fester Spalten-Reihenfolge (In Review → In Progress → Ready → Backlog → Done),
       // innerhalb einer Spalte absteigend nach Issue-Nummer (höhere oben). Danach auf das
       // Gesamt-Limit kürzen.
       const merged = config.columns
@@ -294,9 +310,14 @@ export default function WidgetKanbanList({
                   }}
                 >
                   {(() => {
-                    const { Icon, color } = COLUMN_ICON[item.column];
+                    const Icon = COLUMN_ICON[item.column];
                     return (
-                      <Icon fontSize="small" sx={{ color, justifySelf: 'center' }} aria-label={COLUMN_LABELS[item.column]} />
+                      <Icon
+                        fontSize="small"
+                        style={{ color: STATUS_COLORS[item.column].dot }}
+                        sx={{ justifySelf: 'center' }}
+                        aria-label={COLUMN_LABELS[item.column]}
+                      />
                     );
                   })()}
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ textAlign: 'right' }}>

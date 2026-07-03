@@ -81,13 +81,67 @@ class KanbanUseCasesTest {
                 item(3, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
 
     final Map<KanbanColumn, List<KanbanItem>> result =
-        new ListItemsUseCase(items).execute(SUB_OWNER);
+        new ListItemsUseCase(items).execute(SUB_OWNER, false);
 
     assertThat(result).containsOnlyKeys(KanbanColumn.values());
     assertThat(result.get(KanbanColumn.BACKLOG)).hasSize(2);
+    assertThat(result.get(KanbanColumn.READY)).isEmpty();
     assertThat(result.get(KanbanColumn.IN_PROGRESS)).hasSize(1);
     assertThat(result.get(KanbanColumn.IN_REVIEW)).isEmpty();
     assertThat(result.get(KanbanColumn.DONE)).isEmpty();
+  }
+
+  @Test
+  void listWithIncludeArchivedFalseShouldNotQueryArchivedItems() {
+    given(items.findAllByUser(SUB_OWNER)).willReturn(List.of());
+
+    new ListItemsUseCase(items).execute(SUB_OWNER, false);
+
+    verify(items, never()).findAllByUserIncludingArchived(SUB_OWNER);
+  }
+
+  @Test
+  void listWithIncludeArchivedTrueShouldSortArchivedItemsIntoTheirOriginalColumn() {
+    given(items.findAllByUserIncludingArchived(SUB_OWNER))
+        .willReturn(
+            List.of(
+                item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0),
+                archivedItem(2, SUB_OWNER, KanbanColumn.IN_PROGRESS, 1)));
+
+    final Map<KanbanColumn, List<KanbanItem>> result =
+        new ListItemsUseCase(items).execute(SUB_OWNER, true);
+
+    assertThat(result.get(KanbanColumn.BACKLOG)).hasSize(1);
+    assertThat(result.get(KanbanColumn.IN_PROGRESS)).hasSize(1);
+    assertThat(result.get(KanbanColumn.IN_PROGRESS).get(0).archived()).isTrue();
+    verify(items, never()).findAllByUser(SUB_OWNER);
+  }
+
+  @Test
+  void createShouldAllowReadyAsExplicitColumn() {
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.READY)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", KanbanColumn.READY);
+
+    assertThat(created.column()).isEqualTo(KanbanColumn.READY);
+  }
+
+  @Test
+  void moveFromBacklogToReadyReindexesSource() {
+    final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    given(items.findById(1L)).willReturn(Optional.of(a));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.READY)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.READY, 0);
+
+    assertThat(moved.column()).isEqualTo(KanbanColumn.READY);
+    verify(items).updatePosition(2L, 0);
   }
 
   // ----- create -------------------------------------------------------------
@@ -480,33 +534,6 @@ class KanbanUseCasesTest {
     assertThatThrownBy(() -> new ForceDeleteItemUseCase(items).execute(SUB_OTHER, 1L))
         .isInstanceOf(KanbanItemNotFoundException.class);
     verify(items, never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
-  }
-
-  // ----- list archived ------------------------------------------------------
-
-  @Test
-  void listArchivedShouldReturnOnlyArchivedItems() {
-    given(items.findAllByUserIncludingArchived(SUB_OWNER))
-        .willReturn(
-            List.of(
-                item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0),
-                archivedItem(2, SUB_OWNER, KanbanColumn.IN_PROGRESS, 1),
-                archivedItem(3, SUB_OWNER, KanbanColumn.DONE, 0)));
-
-    final List<KanbanItem> result = new ListArchivedItemsUseCase(items).execute(SUB_OWNER);
-
-    assertThat(result).hasSize(2);
-    assertThat(result).allMatch(KanbanItem::archived);
-  }
-
-  @Test
-  void listArchivedShouldReturnEmptyWhenNoneArchived() {
-    given(items.findAllByUserIncludingArchived(SUB_OWNER))
-        .willReturn(List.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
-
-    final List<KanbanItem> result = new ListArchivedItemsUseCase(items).execute(SUB_OWNER);
-
-    assertThat(result).isEmpty();
   }
 
   // ----- settings -----------------------------------------------------------

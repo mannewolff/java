@@ -13,10 +13,10 @@ import {
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import ReactMarkdown from 'react-markdown';
 
 import type { KanbanItem } from '../../api/kanban';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
+import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -62,12 +62,16 @@ export default function KanbanCard({
       style={style}
       {...attributes}
       {...(item.archived ? {} : listeners)}
-      variant="outlined"
+      elevation={1}
       sx={{
         p: 1.5,
         mb: 1,
+        bgcolor: 'common.white',
+        borderRadius: 1.5,
         cursor: item.archived ? 'default' : 'grab',
         userSelect: 'none',
+        transition: 'box-shadow 150ms',
+        '&:hover': { boxShadow: 4 },
         '&:active': { cursor: item.archived ? 'default' : 'grabbing' },
       }}
       aria-label={`Kanban-Item ${item.title}`}
@@ -117,25 +121,12 @@ export default function KanbanCard({
       </Stack>
 
       {item.archived && (
-        <Chip label="Archiviert" size="small" sx={{ mt: 0.5 }} />
-      )}
-
-      {item.body.trim().length > 0 && (
-        <Box
-          sx={{
-            mt: 0.5,
-            color: 'text.secondary',
-            fontSize: '0.85rem',
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            '& p': { margin: 0 },
-            '& ul, & ol': { margin: 0, paddingLeft: '1.2em' },
-          }}
-        >
-          <ReactMarkdown>{item.body}</ReactMarkdown>
-        </Box>
+        <Chip
+          label="Archiviert"
+          size="small"
+          sx={{ mt: 0.5 }}
+          style={{ backgroundColor: ARCHIVED_STATUS_COLOR.bg, color: ARCHIVED_STATUS_COLOR.text }}
+        />
       )}
 
       {showDoneHint && (

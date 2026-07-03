@@ -1,9 +1,10 @@
 import { api } from './client';
 
-export type KanbanColumn = 'BACKLOG' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+export type KanbanColumn = 'BACKLOG' | 'READY' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
 
 export const KANBAN_COLUMNS: readonly KanbanColumn[] = [
   'BACKLOG',
+  'READY',
   'IN_PROGRESS',
   'IN_REVIEW',
   'DONE',

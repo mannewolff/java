@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Allgemeiner Validations-Exception-Handler. Behandelt nur generische, fachfrei-anwendbare Faelle
@@ -46,6 +47,19 @@ public class GlobalExceptionHandler {
     }
     body.put("fieldErrors", fieldErrors);
     return ResponseEntity.badRequest().body(body);
+  }
+
+  /**
+   * Springs Standard-Reaktion auf einen falsch typisierten Request-Parameter (z. B. {@code
+   * ?includeArchived=yes} statt {@code true}/{@code false}) faellt sonst auf das generische
+   * Default-Fehlerformat zurueck statt auf dieses API-eigene JSON-Format (Issue #297).
+   */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<Map<String, Object>> handleTypeMismatch(
+      MethodArgumentTypeMismatchException ex) {
+    final String message =
+        "Ungültiger Wert '%s' für Parameter '%s'".formatted(ex.getValue(), ex.getName());
+    return ResponseEntity.badRequest().body(body(HttpStatus.BAD_REQUEST, message));
   }
 
   private Map<String, Object> body(HttpStatus status, String message) {

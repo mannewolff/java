@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -11,12 +11,16 @@ import {
   Paper,
   Skeleton,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import ViewListIcon from '@mui/icons-material/ViewList';
 import {
   DndContext,
   PointerSensor,
@@ -45,14 +49,34 @@ import { useNotify } from '../../notify/NotifyProvider';
 import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
 import KanbanEditDrawer from './KanbanEditDrawer';
+import KanbanListView from './KanbanListView';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
 
 const DEFAULT_RETENTION_DAYS = 5;
-const SHOW_ARCHIVED_KEY = 'kanban.showArchived';
+const VIEW_KEY = 'kanban.view';
+
+type KanbanView = 'board' | 'list';
+
+function loadView(): KanbanView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'board';
+  } catch {
+    return 'board';
+  }
+}
+
+function saveView(value: KanbanView): void {
+  try {
+    localStorage.setItem(VIEW_KEY, value);
+  } catch {
+    // localStorage nicht verfügbar
+  }
+}
 
 const COLUMN_LABELS: Record<KanbanColumnId, string> = {
   BACKLOG: 'Backlog',
+  READY: 'Ready',
   IN_PROGRESS: 'In Progress',
   IN_REVIEW: 'In Review',
   DONE: 'Done',
@@ -68,22 +92,6 @@ interface EditTarget {
   defaultColumn: KanbanColumnId;
 }
 
-function loadShowArchived(): boolean {
-  try {
-    return localStorage.getItem(SHOW_ARCHIVED_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function saveShowArchived(value: boolean): void {
-  try {
-    localStorage.setItem(SHOW_ARCHIVED_KEY, String(value));
-  } catch {
-    // localStorage nicht verfügbar
-  }
-}
-
 export default function KanbanPage(): JSX.Element {
   const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -92,8 +100,8 @@ export default function KanbanPage(): JSX.Element {
   const [pendingArchive, setPendingArchive] = useState<KanbanItem | null>(null);
   const [pendingForceDelete, setPendingForceDelete] = useState<KanbanItem | null>(null);
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
-  const [showArchived, setShowArchived] = useState(loadShowArchived);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [view, setView] = useState<KanbanView>(loadView);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -101,9 +109,11 @@ export default function KanbanPage(): JSX.Element {
     }),
   );
 
-  const reload = useCallback(async (withArchived: boolean): Promise<void> => {
+  // Board-Ansicht enthält nie archivierte Items (#283) — Archiv ist nur über den
+  // Listen-Filter erreichbar.
+  const reload = useCallback(async (): Promise<void> => {
     try {
-      const board = await listKanbanItems(withArchived);
+      const board = await listKanbanItems(false);
       const safeBoard: KanbanBoard = { ...emptyBoard(), ...board };
       setState({ kind: 'ready', board: safeBoard });
     } catch (e) {
@@ -114,26 +124,31 @@ export default function KanbanPage(): JSX.Element {
     }
   }, []);
 
+  // Retention-Setting wird in beiden Ansichten gebraucht (Board-Countdown + Listen-Modal).
   useEffect(() => {
-    void reload(showArchived);
     void getKanbanSettings()
       .then((s) => setRetentionDays(s.doneRetentionDays))
       .catch(() => {
         // Default bleibt
       });
-  }, [reload, showArchived]);
+  }, []);
 
-  async function handleSettingsSubmit(
-    doneRetentionDays: number,
-    newShowArchived: boolean,
-  ): Promise<void> {
+  // Board-Daten nur laden, wenn die Board-Ansicht aktiv ist — die Listenansicht lädt selbst.
+  useEffect(() => {
+    if (view === 'board') void reload();
+  }, [reload, view]);
+
+  function handleViewChange(_event: MouseEvent<HTMLElement>, next: KanbanView | null): void {
+    if (next != null) {
+      setView(next);
+      saveView(next);
+    }
+  }
+
+  async function handleSettingsSubmit(doneRetentionDays: number): Promise<void> {
     try {
       const saved = await updateKanbanSettings(doneRetentionDays);
       setRetentionDays(saved.doneRetentionDays);
-      if (newShowArchived !== showArchived) {
-        saveShowArchived(newShowArchived);
-        setShowArchived(newShowArchived);
-      }
       setSettingsOpen(false);
       notify.success('Einstellungen gespeichert.');
     } catch (e) {
@@ -155,7 +170,7 @@ export default function KanbanPage(): JSX.Element {
       await updateKanbanItem(detailItem.id, title, body);
       notify.success('Item gespeichert.');
       setDetailItem(null);
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -172,7 +187,7 @@ export default function KanbanPage(): JSX.Element {
         notify.success('Item gespeichert.');
       }
       setEditTarget(null);
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -185,7 +200,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await archiveKanbanItem(target.id);
       notify.success('Item archiviert.');
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Archivieren fehlgeschlagen.');
     }
@@ -195,7 +210,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await restoreKanbanItem(item.id);
       notify.success('Item wiederhergestellt.');
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Wiederherstellen fehlgeschlagen.');
     }
@@ -208,7 +223,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await forceDeleteKanbanItem(target.id);
       notify.success('Item endgültig gelöscht.');
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
     }
@@ -237,44 +252,74 @@ export default function KanbanPage(): JSX.Element {
 
     try {
       await moveKanbanItem(itemId, targetColumn, targetPosition);
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
       setState({ kind: 'ready', board: previousBoard });
     }
   }
 
-  if (state.kind === 'loading') {
-    return (
-      <Box>
-        <Stack direction="row" justifyContent="space-between" sx={{ mb: 3 }}>
-          <Skeleton variant="text" width={180} height={42} />
-          <Skeleton variant="rectangular" width={140} height={36} />
-        </Stack>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} aria-busy="true">
-          <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
-          <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
-          <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
-          <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
-        </Stack>
-      </Box>
-    );
-  }
+  const totalItems =
+    state.kind === 'ready'
+      ? KANBAN_COLUMNS.reduce((sum, col) => sum + state.board[col].length, 0)
+      : 0;
 
-  if (state.kind === 'error') {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Paper variant="outlined" sx={{ p: 3, color: 'error.main' }} role="alert">
-          {state.message}
-        </Paper>
-      </Box>
+  const boardBody =
+    state.kind === 'loading' ? (
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} aria-busy="true">
+        <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
+        <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
+        <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
+        <Skeleton variant="rectangular" height={220} sx={{ flex: 1 }} />
+      </Stack>
+    ) : state.kind === 'error' ? (
+      <Paper variant="outlined" sx={{ p: 3, color: 'error.main' }} role="alert">
+        {state.message}
+      </Paper>
+    ) : totalItems === 0 ? (
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 6,
+          textAlign: 'center',
+          color: 'text.secondary',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <ViewKanbanIcon sx={{ fontSize: 56, color: 'action.disabled' }} />
+        <Typography variant="h6">Noch keine Kanban-Items</Typography>
+        <Typography variant="body2">
+          Leg dein erstes Item an — Drag&amp;Drop zwischen den fünf Spalten organisiert deinen
+          Workflow.
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => startCreate('BACKLOG')}>
+          Erstes Item anlegen
+        </Button>
+      </Paper>
+    ) : (
+      <DndContext sensors={sensors} onDragEnd={(e) => void handleDragEnd(e)}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
+          {KANBAN_COLUMNS.map((col) => (
+            <KanbanColumnView
+              key={col}
+              column={col}
+              label={COLUMN_LABELS[col]}
+              items={state.board[col]}
+              retentionDays={retentionDays}
+              onCreate={startCreate}
+              onOpenDetail={setDetailItem}
+              onEdit={startEdit}
+              onArchive={setPendingArchive}
+              onRestore={(item) => void handleRestore(item)}
+              onForceDelete={setPendingForceDelete}
+            />
+          ))}
+        </Stack>
+      </DndContext>
     );
-  }
-
-  const totalItems = KANBAN_COLUMNS.reduce(
-    (sum, col) => sum + state.board[col].length,
-    0,
-  );
 
   return (
     <Box>
@@ -286,6 +331,22 @@ export default function KanbanPage(): JSX.Element {
       >
         <Typography variant="h4">Kanban</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
+          <ToggleButtonGroup
+            value={view}
+            exclusive
+            onChange={handleViewChange}
+            size="small"
+            aria-label="Ansicht"
+          >
+            <ToggleButton value="board" aria-label="Board">
+              <ViewColumnIcon fontSize="small" sx={{ mr: 0.5 }} />
+              Board
+            </ToggleButton>
+            <ToggleButton value="list" aria-label="Liste">
+              <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
+              Liste
+            </ToggleButton>
+          </ToggleButtonGroup>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -304,54 +365,7 @@ export default function KanbanPage(): JSX.Element {
         </Stack>
       </Stack>
 
-      {totalItems === 0 ? (
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 6,
-            textAlign: 'center',
-            color: 'text.secondary',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <ViewKanbanIcon sx={{ fontSize: 56, color: 'action.disabled' }} />
-          <Typography variant="h6">Noch keine Kanban-Items</Typography>
-          <Typography variant="body2">
-            Leg dein erstes Item an — Drag&amp;Drop zwischen den vier Spalten organisiert deinen
-            Workflow.
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => startCreate('BACKLOG')}
-          >
-            Erstes Item anlegen
-          </Button>
-        </Paper>
-      ) : (
-        <DndContext sensors={sensors} onDragEnd={(e) => void handleDragEnd(e)}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
-            {KANBAN_COLUMNS.map((col) => (
-              <KanbanColumnView
-                key={col}
-                column={col}
-                label={COLUMN_LABELS[col]}
-                items={state.board[col]}
-                retentionDays={retentionDays}
-                onCreate={startCreate}
-                onOpenDetail={setDetailItem}
-                onEdit={startEdit}
-                onArchive={setPendingArchive}
-                onRestore={(item) => void handleRestore(item)}
-                onForceDelete={setPendingForceDelete}
-              />
-            ))}
-          </Stack>
-        </DndContext>
-      )}
+      {view === 'list' ? <KanbanListView retentionDays={retentionDays} /> : boardBody}
 
       <KanbanEditDrawer
         open={editTarget != null}
@@ -375,7 +389,6 @@ export default function KanbanPage(): JSX.Element {
       <KanbanSettingsDrawer
         open={settingsOpen}
         currentRetentionDays={retentionDays}
-        showArchived={showArchived}
         onClose={() => setSettingsOpen(false)}
         onSubmit={handleSettingsSubmit}
       />

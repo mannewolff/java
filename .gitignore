@@ -74,3 +74,6 @@ docs/*.pdf
 
 # Local Whitepaper backups (older versions)
 docs/Konzeptpapier_*
+
+# Unbeabsichtigt im Repo-Root angelegtes Installer-Script (claude-workflow-kit)
+/install.mjs

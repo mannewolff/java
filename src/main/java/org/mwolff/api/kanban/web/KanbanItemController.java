@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -72,9 +73,10 @@ public class KanbanItemController {
   }
 
   @GetMapping
-  public Map<KanbanColumn, List<KanbanItemResponse>> list(JwtAuthenticationToken auth) {
+  public Map<KanbanColumn, List<KanbanItemResponse>> list(
+      JwtAuthenticationToken auth, @RequestParam(defaultValue = "false") boolean includeArchived) {
     final Map<KanbanColumn, List<KanbanItem>> grouped =
-        listUseCase.execute(auth.getToken().getSubject());
+        listUseCase.execute(auth.getToken().getSubject(), includeArchived);
     final Map<KanbanColumn, List<KanbanItemResponse>> out = new EnumMap<>(KanbanColumn.class);
     for (final KanbanColumn col : KanbanColumn.values()) {
       out.put(col, grouped.get(col).stream().map(KanbanItemResponse::from).toList());

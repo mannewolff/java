@@ -3,14 +3,33 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { DndContext } from '@dnd-kit/core';
 
 import KanbanColumnView from './KanbanColumn';
+import type { KanbanItem } from '../../api/kanban';
 
-function renderColumn(column: 'BACKLOG' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE', label: string) {
+function makeItem(id: number, title: string): KanbanItem {
+  return {
+    id,
+    title,
+    body: '',
+    column: 'BACKLOG',
+    position: 0,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    archived: false,
+    number: id,
+  };
+}
+
+function renderColumn(
+  column: 'BACKLOG' | 'READY' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE',
+  label: string,
+  items: KanbanItem[] = [],
+) {
   return render(
     <DndContext>
       <KanbanColumnView
         column={column}
         label={label}
-        items={[]}
+        items={items}
         retentionDays={5}
         onCreate={vi.fn()}
         onOpenDetail={vi.fn()}
@@ -23,26 +42,30 @@ function renderColumn(column: 'BACKLOG' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE', 
   );
 }
 
-describe('KanbanColumnView Header-Icons (#189)', () => {
+describe('KanbanColumnView Kit-Header (#281)', () => {
   afterEach(() => cleanup());
 
-  it('zeigt das passende Icon je Spalte', () => {
-    renderColumn('BACKLOG', 'Backlog');
-    expect(screen.getByTestId('InboxIcon')).toBeInTheDocument();
-    cleanup();
-    renderColumn('IN_PROGRESS', 'In Progress');
-    expect(screen.getByTestId('PlayArrowIcon')).toBeInTheDocument();
-    cleanup();
-    renderColumn('IN_REVIEW', 'In Review');
-    expect(screen.getByTestId('VisibilityIcon')).toBeInTheDocument();
-    cleanup();
-    renderColumn('DONE', 'Done');
-    expect(screen.getByTestId('CheckCircleIcon')).toBeInTheDocument();
+  it('zeigt Label und Item-Anzahl im Header, kein Status-Icon mehr', () => {
+    renderColumn('READY', 'Ready', [makeItem(1, 'A'), makeItem(2, 'B')]);
+
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.queryByTestId('FlagIcon')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('InboxIcon')).not.toBeInTheDocument();
   });
 
-  it('rendert weiterhin Label und Hinzufügen-Button', () => {
+  it('zeigt 0 als Anzahl bei leerer Spalte', () => {
     renderColumn('BACKLOG', 'Backlog');
-    expect(screen.getByText('Backlog')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+
+  it('rendert weiterhin den Hinzufügen-Button', () => {
+    renderColumn('BACKLOG', 'Backlog');
     expect(screen.getByRole('button', { name: 'Neues Item in Backlog' })).toBeInTheDocument();
+  });
+
+  it('behält das aria-label der Spalte für Screenreader/Tests', () => {
+    renderColumn('IN_REVIEW', 'In Review');
+    expect(screen.getByLabelText('Spalte In Review')).toBeInTheDocument();
   });
 });

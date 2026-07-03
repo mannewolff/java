@@ -6,7 +6,7 @@ import KanbanPage from './KanbanPage';
 import { NotifyProvider } from '../../notify/NotifyProvider';
 
 vi.mock('../../api/kanban', () => ({
-  KANBAN_COLUMNS: ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
+  KANBAN_COLUMNS: ['BACKLOG', 'READY', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
   listKanbanItems: vi.fn(),
   createKanbanItem: vi.fn(),
   updateKanbanItem: vi.fn(),
@@ -17,6 +17,25 @@ vi.mock('../../api/kanban', () => ({
   getKanbanSettings: vi.fn(),
   updateKanbanSettings: vi.fn(),
 }));
+
+// Listenansicht wird als Stub gemockt — hier testen wir nur den View-Toggle, nicht die Liste.
+vi.mock('./KanbanListView', () => ({
+  default: () => <div data-testid="list-view-stub">ListView-Stub</div>,
+}));
+
+function installMemoryLocalStorage(): void {
+  const store = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, String(v)),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+    key: (i: number) => [...store.keys()][i] ?? null,
+    get length() {
+      return store.size;
+    },
+  });
+}
 
 import {
   archiveKanbanItem,
@@ -59,6 +78,7 @@ function makeItem(overrides = {}) {
 
 describe('KanbanPage', () => {
   beforeEach(() => {
+    installMemoryLocalStorage();
     list.mockReset();
     create.mockReset();
     update.mockReset();
@@ -68,11 +88,15 @@ describe('KanbanPage', () => {
     getSettings.mockResolvedValue({ doneRetentionDays: 5 });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('zeigt den Empty-State, wenn das Board leer ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -85,9 +109,10 @@ describe('KanbanPage', () => {
     );
   });
 
-  it('zeigt die vier Spalten mit Items, wenn das Board befüllt ist', async () => {
+  it('zeigt die fünf Spalten mit Items, wenn das Board befüllt ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Backlog-Item' })],
+      READY: [makeItem({ id: 4, title: 'Ready-Item', column: 'READY' })],
       IN_PROGRESS: [makeItem({ id: 2, title: 'In-Progress-Item', column: 'IN_PROGRESS' })],
       IN_REVIEW: [],
       DONE: [],
@@ -96,8 +121,10 @@ describe('KanbanPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Backlog-Item')).toBeInTheDocument());
+    expect(screen.getByText('Ready-Item')).toBeInTheDocument();
     expect(screen.getByText('In-Progress-Item')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte Backlog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Spalte Ready')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte In Progress')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte In Review')).toBeInTheDocument();
     expect(screen.getByLabelText('Spalte Done')).toBeInTheDocument();
@@ -106,6 +133,7 @@ describe('KanbanPage', () => {
   it('legt ein neues Item via Drawer an', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -113,6 +141,7 @@ describe('KanbanPage', () => {
     create.mockResolvedValueOnce(makeItem({ id: 7, title: 'Neu' }));
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 7, title: 'Neu' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -135,6 +164,7 @@ describe('KanbanPage', () => {
   it('Drawer "Übernehmen" ist disabled, solange Titel leer ist', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -153,6 +183,7 @@ describe('KanbanPage', () => {
   it('zeigt den Archivieren-Confirm-Dialog und ruft die API nach Bestätigung', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Weg damit' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -160,6 +191,7 @@ describe('KanbanPage', () => {
     archive.mockResolvedValueOnce(undefined);
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -180,6 +212,7 @@ describe('KanbanPage', () => {
   it('öffnet den Edit-Drawer mit Inhalt und ruft updateKanbanItem', async () => {
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Alt', body: 'AlterBody' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -187,6 +220,7 @@ describe('KanbanPage', () => {
     update.mockResolvedValueOnce(makeItem({ id: 1, title: 'Neu', body: 'AlterBody' }));
     list.mockResolvedValueOnce({
       BACKLOG: [makeItem({ id: 1, title: 'Neu', body: 'AlterBody' })],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -211,6 +245,7 @@ describe('KanbanPage', () => {
     const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [
@@ -242,6 +277,7 @@ describe('KanbanPage', () => {
     getSettings.mockResolvedValue({ doneRetentionDays: 14 });
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -262,6 +298,7 @@ describe('KanbanPage', () => {
     putSettings.mockResolvedValueOnce({ doneRetentionDays: 10 });
     list.mockResolvedValueOnce({
       BACKLOG: [],
+      READY: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
@@ -277,5 +314,28 @@ describe('KanbanPage', () => {
 
     await waitFor(() => expect(putSettings).toHaveBeenCalledTimes(1));
     expect(putSettings).toHaveBeenCalledWith(5);
+  });
+
+  it('wechselt über den View-Toggle zur Listenansicht und persistiert die Wahl', async () => {
+    list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Noch keine Kanban-Items')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+
+    expect(screen.getByTestId('list-view-stub')).toBeInTheDocument();
+    expect(screen.queryByText('Noch keine Kanban-Items')).not.toBeInTheDocument();
+    expect(localStorage.getItem('kanban.view')).toBe('list');
+  });
+
+  it('startet in der Listenansicht, wenn localStorage "list" gespeichert hat', async () => {
+    localStorage.setItem('kanban.view', 'list');
+    list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
+
+    renderPage();
+
+    expect(await screen.findByTestId('list-view-stub')).toBeInTheDocument();
   });
 });

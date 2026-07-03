@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import WidgetKanbanList from './WidgetKanbanList';
 import type { WidgetDto } from '../../../api/dashboard';
 import type { KanbanBoard, KanbanItem } from '../../../api/kanban';
+import { STATUS_COLORS } from '../../kanban/statusColors';
 
 vi.mock('../../../api/kanban', async () => {
   const actual = await vi.importActual<typeof import('../../../api/kanban')>('../../../api/kanban');
@@ -47,7 +48,7 @@ const settings = getKanbanSettings as ReturnType<typeof vi.fn>;
 const updateItem = updateKanbanItem as ReturnType<typeof vi.fn>;
 
 function emptyBoard(): KanbanBoard {
-  return { BACKLOG: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
+  return { BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
 }
 
 function makeItem(id: number, title: string, position: number, body = ''): KanbanItem {
@@ -391,6 +392,27 @@ describe('WidgetKanbanList 4-Spalten-Layout (#191)', () => {
     const li = (await screen.findByRole('button', { name: 'Ohne' })).closest('li')!;
     expect(li.textContent).not.toContain('#');
   });
+
+  it('färbt Spalten-Icons mit STATUS_COLORS.dot (konsistent mit Board-Header, #288)', async () => {
+    const board = emptyBoard();
+    board.BACKLOG = [{ ...makeItem(1, 'B', 0), column: 'BACKLOG' }];
+    board.READY = [{ ...makeItem(2, 'R', 0), column: 'READY' }];
+    board.DONE = [{ ...makeItem(3, 'D', 0), column: 'DONE' }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['BACKLOG', 'READY', 'DONE'], limit: 10 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'B' });
+    expect(screen.getByTestId('InboxIcon')).toHaveStyle({ color: STATUS_COLORS.BACKLOG.dot });
+    expect(screen.getByTestId('FlagIcon')).toHaveStyle({ color: STATUS_COLORS.READY.dot });
+    expect(screen.getByTestId('CheckCircleIcon')).toHaveStyle({ color: STATUS_COLORS.DONE.dot });
+  });
 });
 
 describe('WidgetKanbanList Inline-Layout (#172)', () => {
@@ -563,6 +585,38 @@ describe('WidgetKanbanList Multi-Spalten (#168)', () => {
 
     const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { columns: string[] };
     expect(parsed.columns).toEqual(['BACKLOG', 'IN_REVIEW']);
+  });
+
+  it('zeigt Items aus der READY-Spalte mit Flag-Icon (#280)', async () => {
+    const board = emptyBoard();
+    board.READY = [{ ...makeItem(1, 'Startklar', 0), column: 'READY', number: 3 }];
+    listItems.mockResolvedValue(board);
+
+    render(
+      <WidgetKanbanList
+        widget={widget({ columns: ['READY'], limit: 5 })}
+        onChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const li = (await screen.findByRole('button', { name: 'Startklar' })).closest('li')!;
+    expect(li.querySelector('[data-testid="FlagIcon"]')).not.toBeNull();
+  });
+
+  it('Drawer: READY ist als Spalte auswählbar', async () => {
+    listItems.mockResolvedValue(emptyBoard());
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WidgetKanbanList widget={widget({ columns: ['BACKLOG'], limit: 5 })} onChange={onChange} onDelete={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Kanban-Liste bearbeiten' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Ready' }));
+    await user.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const parsed = JSON.parse((onChange.mock.calls[0][0] as WidgetDto).config) as { columns: string[] };
+    expect(parsed.columns).toEqual(['BACKLOG', 'READY']);
   });
 
   it('Drawer: ohne ausgewählte Spalte ist Übernehmen deaktiviert', async () => {

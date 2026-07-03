@@ -76,21 +76,76 @@ class KanbanItemControllerTest {
         0);
   }
 
+  private static KanbanItem archivedItem(long id, KanbanColumn column, int position) {
+    return new KanbanItem(
+        id,
+        SUB,
+        "T",
+        "b",
+        column,
+        position,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        column == KanbanColumn.DONE ? Instant.EPOCH : null,
+        true,
+        0);
+  }
+
   @Test
   void listShouldReturnGroupedByColumn() throws Exception {
     final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
     for (KanbanColumn c : KanbanColumn.values()) grouped.put(c, List.of());
     grouped.put(KanbanColumn.BACKLOG, List.of(item(1L, KanbanColumn.BACKLOG, 0)));
-    given(listUseCase.execute(SUB)).willReturn(grouped);
+    given(listUseCase.execute(SUB, false)).willReturn(grouped);
 
     mockMvc
         .perform(get("/api/kanban/items").with(userJwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.BACKLOG").isArray())
         .andExpect(jsonPath("$.BACKLOG[0].id").value(1))
+        .andExpect(jsonPath("$.READY").isEmpty())
         .andExpect(jsonPath("$.IN_PROGRESS").isEmpty())
         .andExpect(jsonPath("$.IN_REVIEW").isEmpty())
         .andExpect(jsonPath("$.DONE").isEmpty());
+  }
+
+  @Test
+  void listWithIncludeArchivedTrueShouldPassFlagToUseCase() throws Exception {
+    final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
+    for (KanbanColumn c : KanbanColumn.values()) grouped.put(c, List.of());
+    grouped.put(KanbanColumn.DONE, List.of(archivedItem(2L, KanbanColumn.DONE, 0)));
+    given(listUseCase.execute(SUB, true)).willReturn(grouped);
+
+    mockMvc
+        .perform(get("/api/kanban/items?includeArchived=true").with(userJwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.DONE[0].id").value(2))
+        .andExpect(jsonPath("$.DONE[0].archived").value(true));
+  }
+
+  @Test
+  void listWithoutIncludeArchivedParamShouldDefaultToFalse() throws Exception {
+    final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
+    for (KanbanColumn c : KanbanColumn.values()) grouped.put(c, List.of());
+    given(listUseCase.execute(SUB, false)).willReturn(grouped);
+
+    mockMvc.perform(get("/api/kanban/items").with(userJwt())).andExpect(status().isOk());
+  }
+
+  @Test
+  void listWithInvalidIncludeArchivedValueShouldReturnConsistentErrorFormat() throws Exception {
+    // Issue #297: ein von Spring nicht als boolean interpretierbarer Wert fiel bisher auf
+    // Springs generisches Default-Fehlerformat zurueck statt auf das API-eigene JSON-Format.
+    // "yes"/"no"/"on"/"off"/"1"/"0" werden von Springs StringToBooleanConverter bereits als
+    // true/false erkannt — erst ein wirklich unbekannter Wert loest den Type-Mismatch aus.
+    mockMvc
+        .perform(get("/api/kanban/items?includeArchived=maybe").with(userJwt()))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            jsonPath("$.message").value("Ungültiger Wert 'maybe' für Parameter 'includeArchived'"))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.error").exists())
+        .andExpect(jsonPath("$.timestamp").exists());
   }
 
   @Test
@@ -112,6 +167,21 @@ class KanbanItemControllerTest {
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(7))
         .andExpect(jsonPath("$.column").value("BACKLOG"));
+  }
+
+  @Test
+  void createShouldAcceptReadyColumn() throws Exception {
+    given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.READY)))
+        .willReturn(item(11L, KanbanColumn.READY, 0));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Neu\",\"body\":\"b\",\"column\":\"READY\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.column").value("READY"));
   }
 
   @Test

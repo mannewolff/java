@@ -89,7 +89,10 @@
       "id" : "61dcc71e-0a18-41cd-88f6-b90033db4e8a",
       "name" : "USER",
       "description" : "Standard-Anwender mit Zugriff auf Tools und Dashboards.",
-      "composite" : false,
+      "composite" : true,
+      "composites" : {
+        "realm" : [ "offline_access" ]
+      },
       "clientRole" : false,
       "containerId" : "3d382734-1508-464d-b251-0dd91cfef93c",
       "attributes" : { }
@@ -707,7 +710,51 @@
         "userinfo.token.claim" : "false"
       }
     } ],
-    "defaultClientScopes" : [ ],
+    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
+    "optionalClientScopes" : [ "offline_access" ]
+  }, {
+    "id" : "55738818-21eb-4078-8954-86bec64c70fd",
+    "clientId" : "toolbox-cli",
+    "name" : "Toolbox CLI (tbx)",
+    "description" : "Kommandozeilen-Client fuer den Board-Adapter (Device Authorization Grant, RFC 8628) — kein Redirect, kein Secret.",
+    "surrogateAuthRequired" : false,
+    "enabled" : true,
+    "alwaysDisplayInConsole" : false,
+    "clientAuthenticatorType" : "client-secret",
+    "redirectUris" : [ ],
+    "webOrigins" : [ ],
+    "notBefore" : 0,
+    "bearerOnly" : false,
+    "consentRequired" : false,
+    "standardFlowEnabled" : false,
+    "implicitFlowEnabled" : false,
+    "directAccessGrantsEnabled" : false,
+    "serviceAccountsEnabled" : false,
+    "publicClient" : true,
+    "frontchannelLogout" : false,
+    "protocol" : "openid-connect",
+    "attributes" : {
+      "realm_client" : "false",
+      "oauth2.device.authorization.grant.enabled" : "true",
+      "oauth2.device.polling.interval" : "5"
+    },
+    "authenticationFlowBindingOverrides" : { },
+    "fullScopeAllowed" : true,
+    "nodeReRegistrationTimeout" : -1,
+    "protocolMappers" : [ {
+      "id" : "fec2b8ce-ad74-4f2a-85d3-3267f81bc23c",
+      "name" : "toolbox-api-audience",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-audience-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "included.client.audience" : "toolbox-api",
+        "id.token.claim" : "false",
+        "access.token.claim" : "true",
+        "userinfo.token.claim" : "false"
+      }
+    } ],
+    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
     "optionalClientScopes" : [ "offline_access" ]
   }, {
     "id" : "491706ca-4ae1-45c0-b5e0-9c731dc0df4d",
@@ -767,7 +814,7 @@
         "userinfo.token.claim" : "false"
       }
     } ],
-    "defaultClientScopes" : [ "profile", "email" ],
+    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
     "optionalClientScopes" : [ "offline_access" ]
   } ],
   "clientScopes" : [ {

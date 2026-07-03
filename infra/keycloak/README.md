@@ -13,13 +13,22 @@ durch das `--import-realm`-Flag automatisch importiert.
 
 Beide Realms sind strukturell identisch. Sie definieren:
 
-- Drei Realm-Rollen: `PENDING` (Default für Selbstregistrierungen), `USER`, `ADMIN`.
-- Zwei Clients: `toolbox-web` (public, PKCE) und `toolbox-api` (bearer-only).
+- Drei Realm-Rollen: `PENDING` (Default für Selbstregistrierungen), `USER` (Composite mit `offline_access`, #210), `ADMIN`.
+- Vier Clients: `toolbox-web` (public, PKCE), `toolbox-ios` (public, PKCE), `toolbox-cli` (public, Device-Flow, siehe [CLI-Login](#cli-login-toolbox-cli)) und `toolbox-api` (bearer-only).
 - Self-Registration ist aktiviert, neue User landen in der Rolle `PENDING`.
   Ein Admin schaltet sie zu `USER` frei — siehe [Admin-Approval-Workflow](#admin-approval-workflow).
 - Passwort-Policy: mindestens 12 Zeichen, mindestens ein Sonderzeichen, kein Username im Passwort.
 - TOTP ist optional pro User (nicht erzwungen).
 - Bruteforce-Schutz ist aktiviert.
+
+> **Wichtig — Client-Default-Scopes (#287):** Die tokenausstellenden Clients
+> `toolbox-web` und `toolbox-ios` müssen `basic` in ihren `defaultClientScopes`
+> führen (vollständig: `web-origins, acr, profile, roles, basic, email`). Der
+> `basic`-Scope trägt den Standard-`sub`-Mapper. Fehlt er, enthält das
+> Access-Token **kein `sub`** und das Backend bricht jeden authentifizierten
+> Request mit `NullPointerException: userSub must not be null` ab (betraf jeden
+> neu angelegten User). Beim Editieren der Realm-Exports diese Liste **nicht**
+> auf `profile, email` verkürzen.
 
 Die Files sind **nicht-sensibel**: sie enthalten weder User-Daten noch Client-Secrets
 noch das Keycloak-Master-Realm. Sie können bedenkenlos eingecheckt werden.
@@ -94,6 +103,60 @@ Wir bilden den Workflow über die Default-Rolle `PENDING` ab:
 Wenn später ein automatisierter Approval-Flow (z. B. via E-Mail an Admin) gewünscht
 ist, dafür ein eigenes Issue anlegen.
 
+## CLI-Login (toolbox-cli)
+
+Der Client `toolbox-cli` (public, kein Secret) ist für die Kommandozeilen-Anbindung
+(`tbx`, Board-Adapter fürs claude-workflow-kit) per **OAuth2 Device Authorization
+Grant** (RFC 8628) konfiguriert — analog zu `gh auth login`, ohne Redirect-URI.
+
+**Ablauf:**
+
+1. CLI fordert einen Device-Code an:
+   ```bash
+   curl -d "client_id=toolbox-cli" -d "scope=openid offline_access" \
+     http://localhost:8081/realms/toolbox-dev/protocol/openid-connect/auth/device
+   ```
+   Antwort enthält `device_code`, `user_code` und `verification_uri`.
+2. User öffnet `verification_uri` im Browser, gibt `user_code` ein, loggt sich ein
+   und bestätigt.
+3. CLI pollt den Token-Endpoint mit dem `device_code`, bis der User bestätigt hat:
+   ```bash
+   curl -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+     -d "client_id=toolbox-cli" -d "device_code=<device_code>" \
+     http://localhost:8081/realms/toolbox-dev/protocol/openid-connect/token
+   ```
+   Bei Scope `offline_access` liefert die Antwort ein **Offline-Refresh-Token**.
+
+**Token-Laufzeit:** Der Realm setzt `offlineSessionIdleTimeout` und
+`offlineSessionMaxLifespan` auf `2592000` s (30 Tage). Jede Nutzung (Refresh)
+setzt den Idle-Timer zurück — ein aktiv genutztes Offline-Token läuft also nicht
+automatisch nach 30 Tagen ab, sondern erst nach 30 Tagen **Inaktivität**.
+
+**Was den Offline-Token tatsächlich steuert (#294):** Empirisch gegen den
+laufenden Realm geprüft (Rollen-Composite testweise entfernt, direkter
+Token-Request wiederholt): Keycloak stellt das Offline-Token allein auf Basis
+von `optionalClientScopes: ["offline_access"]` am jeweiligen Client aus — die
+Realm-Rolle `USER` und ihre `offline_access`-Composite (#210) spielen dabei
+**keine Rolle** und werden von keinem Code-Pfad (Backend oder Frontend)
+geprüft. Der Composite ist damit funktional wirkungslos, wird aber als
+dokumentierte, harmlose Absicherung beibehalten statt entfernt.
+
+**Sicherheitsrelevant ist stattdessen:** `toolbox-web` hat `offline_access`
+bereits seit der mobilen QR-Kopplung (#206) als optionalen Scope — jeder
+angemeldete User kann darüber ein 30-Tage-Offline-Token im Browser erhalten,
+unabhängig von Rollen. Das ist seit #206 bewusst so gewollt (Handy-Kopplung
+soll für alle User funktionieren) und wurde durch #284 nicht verändert oder
+verbreitert — #284 hat lediglich denselben, bereits für `toolbox-web`
+etablierten Mechanismus für `toolbox-cli` nutzbar gemacht.
+
+> **Re-Import-Risiko (vgl. #79/#267):** Ein Realm-Re-Import
+> (`docker compose up -d --force-recreate keycloak`) überschreibt Rollen- und
+> Client-Zuweisungen aus diesem JSON. Nach jedem Re-Import in einer Umgebung mit
+> bestehenden Usern: Login testen und prüfen, ob zuvor manuell auf `USER`
+> promotete Accounts weiterhin die `USER`-Rolle (inkl. `offline_access`-Composite)
+> tragen — der Re-Import ersetzt keine Zuweisungen, die nur in der laufenden
+> Keycloak-DB existierten und nicht Teil dieses Exports sind.
+
 ## Prod-Setup (Hostinger / eigener Server)
 
 ### Voraussetzungen (extern)
@@ -137,6 +200,34 @@ docker compose up -d --build
 # 5. Realm-Import + Boot abwarten
 docker compose logs -f keycloak | grep -iE "imported|started in"
 ```
+
+### Nachtraegliche Realm-Aenderungen auf einem bestehenden Server anwenden
+
+Sobald der Realm einmal importiert wurde, ueberspringt `--import-realm` ihn bei
+jedem weiteren Start komplett (siehe Re-Import-Risiko oben) — ein
+`docker compose down -v`, um Aenderungen aus den Realm-JSONs nachzuziehen, ist
+auf einem Server mit echten Nutzerdaten **keine Option** (loescht die komplette
+MariaDB, nicht nur Keycloak).
+
+Fuer genau diesen Fall gibt es `scripts/keycloak-apply-cli-changes.sh`: wendet
+die drei Aenderungen aus #284/#287/#210 (Client `toolbox-cli`, `basic`-Scope
+fuer `toolbox-web`/`toolbox-ios`, `USER`-Rolle als Composite mit
+`offline_access`) direkt ueber die Admin-REST-API auf einen laufenden Keycloak
+an — idempotent, ohne Datenverlust, ohne Neustart.
+
+```bash
+KEYCLOAK_URL=https://toolboxauth.mwolff.org \
+KEYCLOAK_ADMIN=admin \
+KEYCLOAK_ADMIN_PASSWORD=*** \
+REALM=toolbox \
+./scripts/keycloak-apply-cli-changes.sh --dry-run   # zeigt nur, was fehlt
+
+# nach Pruefung:
+./scripts/keycloak-apply-cli-changes.sh --apply
+```
+
+Getestet gegen einen Wegwerf-Realm (Anlage-Pfad) und gegen `toolbox-dev`
+(Idempotenz-Pfad, alles bereits vorhanden) — siehe Commit-Message für Details.
 
 Anschließend in der Keycloak-UI sofort das Admin-Passwort rotieren und
 `KEYCLOAK_ADMIN_PASSWORD` aus `.env` entfernen (Bootstrap-Variablen werden

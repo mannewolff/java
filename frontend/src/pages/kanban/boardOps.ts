@@ -1,7 +1,7 @@
 import type { KanbanBoard, KanbanColumn, KanbanItem } from '../../api/kanban';
 import { KANBAN_COLUMNS } from '../../api/kanban';
 
-/** Leeres Board fuer alle vier Spalten. */
+/** Leeres Board fuer alle fuenf Spalten. */
 export function emptyBoard(): KanbanBoard {
   return KANBAN_COLUMNS.reduce<KanbanBoard>(
     (acc, col) => ({ ...acc, [col]: [] }),

@@ -1,24 +1,11 @@
-import type { ComponentType } from 'react';
-import { Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import type { SvgIconProps } from '@mui/material';
+import { Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import InboxIcon from '@mui/icons-material/Inbox';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 
 import type { KanbanColumn as KanbanColumnId, KanbanItem } from '../../api/kanban';
+import { COLUMN_SURFACE_BG, STATUS_COLORS } from './statusColors';
 import KanbanCard from './KanbanCard';
-
-/** Icon + Akzentfarbe je Spalte (#189). Icons sind dekorativ — das Label liefert den Text. */
-const COLUMN_HEADER: Record<KanbanColumnId, { Icon: ComponentType<SvgIconProps>; color: string }> = {
-  BACKLOG: { Icon: InboxIcon, color: 'text.secondary' },
-  IN_PROGRESS: { Icon: PlayArrowIcon, color: 'info.main' },
-  IN_REVIEW: { Icon: VisibilityIcon, color: 'warning.main' },
-  DONE: { Icon: CheckCircleIcon, color: 'success.main' },
-};
 
 interface KanbanColumnProps {
   column: KanbanColumnId;
@@ -50,35 +37,61 @@ export default function KanbanColumnView({
     data: { type: 'column', column },
   });
 
+  const colors = STATUS_COLORS[column];
+
   return (
     <Paper
-      variant="outlined"
+      elevation={0}
       sx={{
-        p: 1.5,
         flex: 1,
         minWidth: 240,
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: 'background.default',
+        bgcolor: COLUMN_SURFACE_BG,
+        borderRadius: 2,
+        overflow: 'hidden',
       }}
       aria-label={`Spalte ${label}`}
     >
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          {(() => {
-            const { Icon, color } = COLUMN_HEADER[column];
-            return <Icon fontSize="small" sx={{ color }} aria-hidden />;
-          })()}
-          <Typography variant="subtitle1" fontWeight={600}>
-            {label}
-          </Typography>
-          <Chip size="small" label={items.length} />
-        </Stack>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{
+          px: 1.5,
+          py: 1,
+          bgcolor: colors.bg,
+          color: colors.text,
+        }}
+      >
+        <Box
+          sx={{
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            bgcolor: colors.dot,
+            flexShrink: 0,
+          }}
+        />
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            letterSpacing: '.04em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {label}
+        </Typography>
+        <Typography variant="caption" sx={{ ml: 'auto', opacity: 0.7 }}>
+          {items.length}
+        </Typography>
         <Tooltip title="Neues Item in dieser Spalte">
           <IconButton
             size="small"
             aria-label={`Neues Item in ${label}`}
             onClick={() => onCreate(column)}
+            sx={{ color: colors.text, p: 0.25 }}
           >
             <AddIcon fontSize="small" />
           </IconButton>
@@ -90,19 +103,15 @@ export default function KanbanColumnView({
         sx={{
           flex: 1,
           minHeight: 80,
-          borderRadius: 1,
           transition: 'background-color 150ms',
           bgcolor: isOver ? 'action.hover' : 'transparent',
           border: items.length === 0 ? '2px dashed' : 'none',
           borderColor: isOver ? 'primary.main' : 'divider',
-          p: items.length === 0 ? 2 : 0.5,
+          p: items.length === 0 ? 2 : 1,
           textAlign: items.length === 0 ? 'center' : 'left',
         }}
       >
-        <SortableContext
-          items={items.map((i) => i.id)}
-          strategy={verticalListSortingStrategy}
-        >
+        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           {items.map((item) => (
             <KanbanCard
               key={item.id}

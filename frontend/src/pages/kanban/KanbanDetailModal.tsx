@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -24,6 +25,8 @@ import {
 import type { KanbanComment, KanbanItem } from '../../api/kanban';
 import { useAuth } from '../../auth/useAuth';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
+import { COLUMN_LABELS } from './columnMeta';
+import { STATUS_COLORS } from './statusColors';
 import KanbanCommentForm from './KanbanCommentForm';
 import KanbanCommentList from './KanbanCommentList';
 
@@ -158,7 +161,27 @@ export default function KanbanDetailModal({
       fullWidth
       aria-labelledby="kanban-detail-title"
     >
-      <DialogTitle id="kanban-detail-title">Item bearbeiten</DialogTitle>
+      <DialogTitle id="kanban-detail-title">
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Chip
+            label={COLUMN_LABELS[item.column]}
+            size="small"
+            sx={{
+              bgcolor: STATUS_COLORS[item.column].bg,
+              color: STATUS_COLORS[item.column].text,
+              fontWeight: 600,
+            }}
+          />
+          {item.number > 0 && (
+            <Typography component="span" variant="body2" color="text.secondary">
+              #{item.number}
+            </Typography>
+          )}
+          <Typography component="span" sx={{ fontWeight: 600 }}>
+            {item.title}
+          </Typography>
+        </Stack>
+      </DialogTitle>
       <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <TextField

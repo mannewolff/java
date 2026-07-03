@@ -132,9 +132,22 @@ Grant** (RFC 8628) konfiguriert — analog zu `gh auth login`, ohne Redirect-URI
 setzt den Idle-Timer zurück — ein aktiv genutztes Offline-Token läuft also nicht
 automatisch nach 30 Tagen ab, sondern erst nach 30 Tagen **Inaktivität**.
 
-**Voraussetzung:** Die Realm-Rolle `USER` ist als Composite um `offline_access`
-erweitert (#210) — ohne diesen Scope in den Composites verweigert Keycloak dem
-User ein Offline-Token, selbst wenn der Client ihn anfordert.
+**Was den Offline-Token tatsächlich steuert (#294):** Empirisch gegen den
+laufenden Realm geprüft (Rollen-Composite testweise entfernt, direkter
+Token-Request wiederholt): Keycloak stellt das Offline-Token allein auf Basis
+von `optionalClientScopes: ["offline_access"]` am jeweiligen Client aus — die
+Realm-Rolle `USER` und ihre `offline_access`-Composite (#210) spielen dabei
+**keine Rolle** und werden von keinem Code-Pfad (Backend oder Frontend)
+geprüft. Der Composite ist damit funktional wirkungslos, wird aber als
+dokumentierte, harmlose Absicherung beibehalten statt entfernt.
+
+**Sicherheitsrelevant ist stattdessen:** `toolbox-web` hat `offline_access`
+bereits seit der mobilen QR-Kopplung (#206) als optionalen Scope — jeder
+angemeldete User kann darüber ein 30-Tage-Offline-Token im Browser erhalten,
+unabhängig von Rollen. Das ist seit #206 bewusst so gewollt (Handy-Kopplung
+soll für alle User funktionieren) und wurde durch #284 nicht verändert oder
+verbreitert — #284 hat lediglich denselben, bereits für `toolbox-web`
+etablierten Mechanismus für `toolbox-cli` nutzbar gemacht.
 
 > **Re-Import-Risiko (vgl. #79/#267):** Ein Realm-Re-Import
 > (`docker compose up -d --force-recreate keycloak`) überschreibt Rollen- und

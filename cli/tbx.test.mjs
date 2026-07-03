@@ -566,6 +566,34 @@ test('main issue move: unbekannte Nummer liefert Fehler', () =>
     assert.match(i.stderrLines.join(''), /nicht gefunden/);
   }));
 
+test('main issue move: Verschieben in die aktuelle Spalte ist ein No-op (Issue #291)', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const boardWithNeighbors = {
+      BACKLOG: [],
+      READY: [
+        { id: 'id-x', number: 5, title: 'X', body: '', column: 'READY', position: 0, archived: false },
+        { id: 'id-b', number: 6, title: 'B', body: '', column: 'READY', position: 1, archived: false },
+      ],
+      IN_PROGRESS: [],
+      IN_REVIEW: [],
+      DONE: [],
+    };
+    let moveCall;
+    const fetchImpl = async (url, opts) => {
+      if (opts?.method === 'PUT') {
+        moveCall = { url, body: JSON.parse(opts.body) };
+        return jsonResponse(200, {});
+      }
+      return jsonResponse(200, boardWithNeighbors);
+    };
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'move', '5', 'ready'], i);
+
+    assert.equal(code, 0);
+    assert.deepEqual(moveCall.body, { column: 'READY', position: 0 });
+  }));
+
 // --- 12. tbx issue comment -----------------------------------------------------------
 
 test('main issue comment: postet einen Kommentar', () =>

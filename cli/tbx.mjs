@@ -382,7 +382,8 @@ async function cmdIssueMove(numberArg, statusArg, io) {
   const item = findItemByNumber(items, number);
   if (!item) throw new CliError(`Issue ${number} nicht gefunden`);
 
-  const targetPosition = items.filter((i) => i.column === column).length;
+  const targetPosition =
+    item.column === column ? item.position : items.filter((i) => i.column === column).length;
   const res = await apiFetch(
     `/api/kanban/items/${item.id}/move`,
     {

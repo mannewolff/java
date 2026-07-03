@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, statSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +14,7 @@ import {
   readJsonFile,
   configPath,
   tokensPath,
+  configDir,
   requestDeviceCode,
   pollDeviceToken,
   refreshTokens,
@@ -290,6 +291,19 @@ test('writeJsonFileSecure: erzwingt 0600 auch beim Ueberschreiben einer bestehen
 test('readJsonFile: liefert null, wenn die Datei nicht existiert', () =>
   withTempConfigDir((dir) => {
     assert.equal(readJsonFile(join(dir, 'missing.json')), null);
+  }));
+
+test('writeJsonFileSecure: sichert ein bereits bestehendes Verzeichnis mit lockeren Rechten nachtraeglich ab (Issue #293)', () =>
+  withTempConfigDir((dir) => {
+    const configDirPath = configDir(dir);
+    chmodSync(configDirPath, 0o755);
+    const dirModeBefore = statSync(configDirPath).mode & 0o777;
+    assert.equal(dirModeBefore, 0o755);
+
+    writeJsonFileSecure(tokensPath(dir), { a: 1 });
+
+    const dirModeAfter = statSync(configDirPath).mode & 0o777;
+    assert.equal(dirModeAfter, 0o700);
   }));
 
 // --- resolveConfig ------------------------------------------------------------

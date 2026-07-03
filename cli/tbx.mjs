@@ -72,10 +72,15 @@ export function readJsonFile(path) {
   }
 }
 
-/** Schreibt JSON mit 0600-Rechten — chmod nach dem Schreiben, damit ein bereits
- * bestehendes File (anderer Umask/Vor-Zustand) garantiert auf 0600 landet. */
+/** Schreibt JSON mit 0600-Rechten in ein 0700-Verzeichnis — chmod jeweils nach
+ * dem Anlegen/Schreiben, damit ein bereits bestehendes Verzeichnis oder File
+ * (anderer Umask/Vor-Zustand, z. B. eine aeltere CLI-Version) garantiert auf
+ * die restriktiven Rechte landet; mkdirSync wendet `mode` sonst nur bei
+ * tatsaechlicher Neuanlage an. */
 export function writeJsonFileSecure(path, obj) {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const dir = dirname(path);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
   writeFileSync(path, JSON.stringify(obj, null, 2), { mode: 0o600 });
   chmodSync(path, 0o600);
 }

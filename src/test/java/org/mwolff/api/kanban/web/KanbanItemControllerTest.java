@@ -76,12 +76,27 @@ class KanbanItemControllerTest {
         0);
   }
 
+  private static KanbanItem archivedItem(long id, KanbanColumn column, int position) {
+    return new KanbanItem(
+        id,
+        SUB,
+        "T",
+        "b",
+        column,
+        position,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        column == KanbanColumn.DONE ? Instant.EPOCH : null,
+        true,
+        0);
+  }
+
   @Test
   void listShouldReturnGroupedByColumn() throws Exception {
     final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
     for (KanbanColumn c : KanbanColumn.values()) grouped.put(c, List.of());
     grouped.put(KanbanColumn.BACKLOG, List.of(item(1L, KanbanColumn.BACKLOG, 0)));
-    given(listUseCase.execute(SUB)).willReturn(grouped);
+    given(listUseCase.execute(SUB, false)).willReturn(grouped);
 
     mockMvc
         .perform(get("/api/kanban/items").with(userJwt()))
@@ -92,6 +107,29 @@ class KanbanItemControllerTest {
         .andExpect(jsonPath("$.IN_PROGRESS").isEmpty())
         .andExpect(jsonPath("$.IN_REVIEW").isEmpty())
         .andExpect(jsonPath("$.DONE").isEmpty());
+  }
+
+  @Test
+  void listWithIncludeArchivedTrueShouldPassFlagToUseCase() throws Exception {
+    final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
+    for (KanbanColumn c : KanbanColumn.values()) grouped.put(c, List.of());
+    grouped.put(KanbanColumn.DONE, List.of(archivedItem(2L, KanbanColumn.DONE, 0)));
+    given(listUseCase.execute(SUB, true)).willReturn(grouped);
+
+    mockMvc
+        .perform(get("/api/kanban/items?includeArchived=true").with(userJwt()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.DONE[0].id").value(2))
+        .andExpect(jsonPath("$.DONE[0].archived").value(true));
+  }
+
+  @Test
+  void listWithoutIncludeArchivedParamShouldDefaultToFalse() throws Exception {
+    final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
+    for (KanbanColumn c : KanbanColumn.values()) grouped.put(c, List.of());
+    given(listUseCase.execute(SUB, false)).willReturn(grouped);
+
+    mockMvc.perform(get("/api/kanban/items").with(userJwt())).andExpect(status().isOk());
   }
 
   @Test

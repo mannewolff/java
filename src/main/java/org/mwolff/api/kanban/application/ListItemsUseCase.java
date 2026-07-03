@@ -13,7 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Liefert alle Items eines Users gruppiert nach Spalte, pro Spalte nach {@code position}
- * aufsteigend sortiert.
+ * aufsteigend sortiert. Archivierte Items bleiben in ihrer ursprünglichen Spalte einsortiert (das
+ * Feld {@code column} bleibt beim Archivieren erhalten) und werden nur bei {@code
+ * includeArchived=true} mit ausgeliefert.
  */
 @Component
 public class ListItemsUseCase {
@@ -25,13 +27,17 @@ public class ListItemsUseCase {
   }
 
   @Transactional(readOnly = true)
-  public Map<KanbanColumn, List<KanbanItem>> execute(String userSub) {
+  public Map<KanbanColumn, List<KanbanItem>> execute(String userSub, boolean includeArchived) {
     final Map<KanbanColumn, List<KanbanItem>> grouped = new EnumMap<>(KanbanColumn.class);
     for (final KanbanColumn col : KanbanColumn.values()) {
       grouped.put(col, new java.util.ArrayList<>());
     }
     // Adapter liefert bereits nach (column, position) sortiert — wir gruppieren nur noch.
-    for (final KanbanItem item : items.findAllByUser(userSub)) {
+    final List<KanbanItem> source =
+        includeArchived
+            ? items.findAllByUserIncludingArchived(userSub)
+            : items.findAllByUser(userSub);
+    for (final KanbanItem item : source) {
       grouped.get(item.column()).add(item);
     }
     final Map<KanbanColumn, List<KanbanItem>> immutable = new HashMap<>();

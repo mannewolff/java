@@ -142,3 +142,15 @@ Die früher in diesem Verzeichnis liegende `CLAUDE-content.md` aus dem mwolff.or
 ---
 
 **TL;DR:** Java 21 + Spring Boot 3 (TDD-pflichtig, 100 % Coverage). React 18 + TypeScript strict + MUI. Sicherheit > Korrektheit > Komfort. Vor jedem Push: `mvn verify` und `npm run build` grün. Plan-Mode und GitHub-Issues sind verbindlich (siehe Workflow).
+
+## Gedächtnis (Obsidian-Vault)
+
+Über den MCP-Server obsidian-memory hast du Zugriff auf meinen
+Gedächtnis-Vault unter /Users/manfredwolff/Nextcloud/ClaudeMemory.
+
+- Lies zu Sessionbeginn Projekte/Toolbox.md (Projektstand,
+  Entscheidungen, offene Punkte).
+- Lies Index.md und Profil.md nur bei Bedarf.
+- Wenn ich "Tagesabschluss" sage: Halte neue Entscheidungen und
+  den erreichten Stand in Projekte/Toolbox.md fest und ergänze
+  in Index.md unter "Zuletzt aktualisiert" eine Zeile.

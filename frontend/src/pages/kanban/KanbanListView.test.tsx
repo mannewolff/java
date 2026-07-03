@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import KanbanListView from './KanbanListView';
 import type { KanbanBoard, KanbanItem } from '../../api/kanban';
+import { NotifyProvider } from '../../notify/NotifyProvider';
 
 vi.mock('../../api/kanban', async () => {
   const actual = await vi.importActual<typeof import('../../api/kanban')>('../../api/kanban');
-  return { ...actual, listKanbanItems: vi.fn() };
+  return { ...actual, listKanbanItems: vi.fn(), moveKanbanItem: vi.fn() };
 });
 
-import { listKanbanItems } from '../../api/kanban';
+import { listKanbanItems, moveKanbanItem } from '../../api/kanban';
 
 // Leichtgewichtiger Modal-Stub — wir testen nur die Verdrahtung aus der Liste.
 vi.mock('./KanbanDetailModal', () => ({
@@ -19,6 +20,11 @@ vi.mock('./KanbanDetailModal', () => ({
 }));
 
 const listItems = listKanbanItems as ReturnType<typeof vi.fn>;
+const moveItem = moveKanbanItem as ReturnType<typeof vi.fn>;
+
+function dragEvent(): { dataTransfer: { setData: ReturnType<typeof vi.fn>; effectAllowed: string } } {
+  return { dataTransfer: { setData: vi.fn(), effectAllowed: '' } };
+}
 
 function installMemoryLocalStorage(): void {
   const store = new Map<string, string>();
@@ -66,6 +72,8 @@ describe('KanbanListView', () => {
     installMemoryLocalStorage();
     listItems.mockReset();
     listItems.mockResolvedValue(boardOf());
+    moveItem.mockReset();
+    moveItem.mockResolvedValue(makeItem());
   });
 
   afterEach(() => {
@@ -77,7 +85,7 @@ describe('KanbanListView', () => {
     let resolve!: (b: KanbanBoard) => void;
     listItems.mockReturnValue(new Promise<KanbanBoard>((r) => (resolve = r)));
 
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
     resolve(boardOf());
@@ -86,7 +94,7 @@ describe('KanbanListView', () => {
 
   it('zeigt eine Fehler-Alert, wenn das Laden scheitert', async () => {
     listItems.mockRejectedValue(new Error('boom'));
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 
@@ -94,7 +102,7 @@ describe('KanbanListView', () => {
     listItems.mockResolvedValue(
       boardOf({ READY: [makeItem({ id: 7, number: 7, column: 'READY', title: 'Startklar', body: '# H **fett**' })] }),
     );
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     const row = await screen.findByRole('button', { name: /Detail öffnen: Startklar/ });
     expect(within(row).getByText('#7')).toBeInTheDocument();
@@ -110,7 +118,7 @@ describe('KanbanListView', () => {
         DONE: [makeItem({ id: 2, number: 2, column: 'DONE', title: 'Done-Item' })],
       }),
     );
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     await screen.findByText('Backlog-Item');
     expect(screen.getByText('Done-Item')).toBeInTheDocument();
@@ -130,7 +138,7 @@ describe('KanbanListView', () => {
         DONE: [makeItem({ id: 9, number: 9, column: 'DONE', title: 'Archiviert-Item', archived: true })],
       }),
     );
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     await screen.findByText('Aktiv');
     expect(listItems).toHaveBeenLastCalledWith(false);
@@ -146,7 +154,7 @@ describe('KanbanListView', () => {
     listItems.mockResolvedValue(
       boardOf({ BACKLOG: [makeItem({ id: 3, number: 3, title: 'Klickbar' })] }),
     );
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /Detail öffnen: Klickbar/ }));
@@ -158,7 +166,7 @@ describe('KanbanListView', () => {
     listItems.mockResolvedValue(
       boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
     );
-    render(<KanbanListView retentionDays={5} />);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     await screen.findByText('Backlog-Item');
     const user = userEvent.setup();
@@ -172,10 +180,87 @@ describe('KanbanListView', () => {
     listItems.mockResolvedValue(
       boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'X' })] }),
     );
-    const { container } = render(<KanbanListView retentionDays={5} />);
+    const { container } = render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
 
     await screen.findByText('X');
     const view = container.querySelector('[data-excerpt-width]');
     expect(view).toHaveAttribute('data-excerpt-width', '75');
+  });
+
+  it('verschiebt ein Item per Drag&Drop innerhalb desselben Status (#283)', async () => {
+    listItems.mockResolvedValue(
+      boardOf({
+        BACKLOG: [
+          makeItem({ id: 1, number: 1, title: 'Erstes', position: 0 }),
+          makeItem({ id: 2, number: 2, title: 'Zweites', position: 1 }),
+          makeItem({ id: 3, number: 3, title: 'Drittes', position: 2 }),
+        ],
+      }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const first = await screen.findByRole('button', { name: /Detail öffnen: Erstes/ });
+    const third = screen.getByRole('button', { name: /Detail öffnen: Drittes/ });
+
+    fireEvent.dragStart(first, dragEvent());
+    fireEvent.dragOver(third, dragEvent());
+    fireEvent.drop(third, dragEvent());
+
+    await waitFor(() => expect(moveItem).toHaveBeenCalledWith(1, 'BACKLOG', 2));
+  });
+
+  it('Drop auf fremden Status löst keinen API-Call aus (#283)', async () => {
+    listItems.mockResolvedValue(
+      boardOf({
+        BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item', position: 0 })],
+        READY: [makeItem({ id: 2, number: 2, column: 'READY', title: 'Ready-Item', position: 0 })],
+      }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const backlogRow = await screen.findByRole('button', { name: /Detail öffnen: Backlog-Item/ });
+    const readyRow = screen.getByRole('button', { name: /Detail öffnen: Ready-Item/ });
+
+    fireEvent.dragStart(backlogRow, dragEvent());
+    fireEvent.dragOver(readyRow, dragEvent());
+    fireEvent.drop(readyRow, dragEvent());
+
+    expect(moveItem).not.toHaveBeenCalled();
+  });
+
+  it('archivierte Zeilen sind nicht per Drag verschiebbar (#283)', async () => {
+    listItems.mockResolvedValueOnce(boardOf());
+    listItems.mockResolvedValueOnce(
+      boardOf({ DONE: [makeItem({ id: 9, number: 9, column: 'DONE', title: 'Archiv-Item', archived: true })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filter Archiv' }));
+
+    const row = await screen.findByRole('button', { name: /Detail öffnen: Archiv-Item/ });
+    expect(row).toHaveAttribute('draggable', 'false');
+  });
+
+  it('Klick nach einem Drag öffnet nicht versehentlich das Modal', async () => {
+    listItems.mockResolvedValue(
+      boardOf({
+        BACKLOG: [
+          makeItem({ id: 1, number: 1, title: 'Erstes', position: 0 }),
+          makeItem({ id: 2, number: 2, title: 'Zweites', position: 1 }),
+        ],
+      }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const first = await screen.findByRole('button', { name: /Detail öffnen: Erstes/ });
+    const second = screen.getByRole('button', { name: /Detail öffnen: Zweites/ });
+
+    fireEvent.dragStart(first, dragEvent());
+    fireEvent.dragOver(second, dragEvent());
+    fireEvent.drop(second, dragEvent());
+    fireEvent.dragEnd(first);
+
+    expect(screen.queryByRole('dialog', { name: 'Detail-Stub' })).not.toBeInTheDocument();
   });
 });

@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DragEvent } from 'react';
 import { Alert, Box, Chip, CircularProgress, Stack, Typography } from '@mui/material';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 import {
   KANBAN_COLUMNS,
   listKanbanItems,
+  moveKanbanItem,
   updateKanbanItem,
   type KanbanColumn,
   type KanbanItem,
 } from '../../api/kanban';
 import { ApiError } from '../../api/client';
+import { useNotify } from '../../notify/NotifyProvider';
 import KanbanDetailModal from './KanbanDetailModal';
 import { COLUMN_LABELS } from './columnMeta';
 import { ARCHIVED_STATUS_COLOR, STATUS_COLORS, type StatusColorSet } from './statusColors';
@@ -59,6 +63,7 @@ interface Props {
  * {@link KanbanDetailModal}-Instanz; nur eine Ansicht (Board oder Liste) ist gleichzeitig sichtbar.
  */
 export default function KanbanListView({ retentionDays }: Props): JSX.Element {
+  const notify = useNotify();
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(
     () => new Set<FilterKey>(KANBAN_COLUMNS),
   );
@@ -67,10 +72,13 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
   const [excerptWidth, setExcerptWidth] = useState<number>(readStoredExcerptWidth);
+  const [dragItemId, setDragItemId] = useState<number | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<number | null>(null);
 
   const archiveActive = activeFilters.has(ARCHIVED_KEY);
   const viewRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
+  const draggingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +145,50 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
       (a, b) => KANBAN_COLUMNS.indexOf(a.column) - KANBAN_COLUMNS.indexOf(b.column) || a.position - b.position,
     );
 
+  // Reorder per Drag&Drop (#283) — nur innerhalb desselben Status. Die Toolbox kennt
+  // `position` nur pro Spalte, ein Drop auf einen fremden Status ist daher ein No-op.
+  function handleDragStart(e: DragEvent<HTMLDivElement>, item: KanbanItem): void {
+    draggingRef.current = true;
+    setDragItemId(item.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(item.id));
+  }
+
+  function isValidDropTarget(target: KanbanItem): KanbanItem | null {
+    if (dragItemId == null || dragItemId === target.id || target.archived) return null;
+    const dragged = visible.find((i) => i.id === dragItemId);
+    if (!dragged || dragged.column !== target.column) return null;
+    return dragged;
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>, target: KanbanItem): void {
+    if (!isValidDropTarget(target)) return;
+    e.preventDefault();
+    setDragOverItemId(target.id);
+  }
+
+  async function handleDrop(e: DragEvent<HTMLDivElement>, target: KanbanItem): Promise<void> {
+    e.preventDefault();
+    const dragged = isValidDropTarget(target);
+    setDragOverItemId(null);
+    if (!dragged) return;
+    try {
+      await moveKanbanItem(dragged.id, target.column, target.position);
+      setReloadNonce((n) => n + 1);
+    } catch (err) {
+      notify.error(err instanceof ApiError ? err.message : 'Verschieben fehlgeschlagen.');
+    }
+  }
+
+  function handleDragEnd(): void {
+    setDragItemId(null);
+    setDragOverItemId(null);
+    // Flag erst nach dem Click-Event zuruecksetzen, damit kein Modal aufgeht.
+    setTimeout(() => {
+      draggingRef.current = false;
+    }, 0);
+  }
+
   return (
     <Box ref={viewRef} data-excerpt-width={excerptWidth} sx={{ '--excerpt-w': `${excerptWidth}%` }}>
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
@@ -177,8 +229,13 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
                 role="button"
                 tabIndex={0}
                 aria-label={`Detail öffnen: ${item.title}`}
+                draggable={!item.archived}
+                onDragStart={(e) => handleDragStart(e, item)}
+                onDragOver={(e) => handleDragOver(e, item)}
+                onDrop={(e) => void handleDrop(e, item)}
+                onDragEnd={handleDragEnd}
                 onClick={() => {
-                  if (!resizingRef.current) setDetailItem(item);
+                  if (!resizingRef.current && !draggingRef.current) setDetailItem(item);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -193,6 +250,8 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
                   bgcolor: 'common.white',
                   border: '1px solid',
                   borderColor: 'divider',
+                  borderTopColor: dragOverItemId === item.id ? 'primary.main' : 'divider',
+                  borderTopWidth: dragOverItemId === item.id ? 2 : 1,
                   borderRadius: 1.5,
                   px: 1.5,
                   py: 1,
@@ -202,6 +261,16 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
                   '&:hover': { boxShadow: 2 },
                 }}
               >
+                <DragIndicatorIcon
+                  fontSize="small"
+                  aria-label="Reihenfolge ändern"
+                  sx={{
+                    flexShrink: 0,
+                    color: 'action.disabled',
+                    visibility: item.archived ? 'hidden' : 'visible',
+                    cursor: item.archived ? 'default' : 'grab',
+                  }}
+                />
                 <Typography
                   variant="caption"
                   color="text.secondary"

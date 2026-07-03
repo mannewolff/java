@@ -1,16 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Box,
-  Button,
-  Divider,
-  Drawer,
-  FormControlLabel,
-  Slider,
-  Stack,
-  Switch,
-  Toolbar,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Divider, Drawer, Slider, Stack, Toolbar, Typography } from '@mui/material';
 
 const MIN = 1;
 const MAX = 30;
@@ -18,27 +7,23 @@ const MAX = 30;
 interface KanbanSettingsDrawerProps {
   open: boolean;
   currentRetentionDays: number;
-  showArchived: boolean;
   onClose: () => void;
-  onSubmit: (doneRetentionDays: number, showArchived: boolean) => Promise<void> | void;
+  onSubmit: (doneRetentionDays: number) => Promise<void> | void;
 }
 
 export default function KanbanSettingsDrawer({
   open,
   currentRetentionDays,
-  showArchived,
   onClose,
   onSubmit,
 }: KanbanSettingsDrawerProps): JSX.Element {
   const [draft, setDraft] = useState(currentRetentionDays);
-  const [draftShowArchived, setDraftShowArchived] = useState(showArchived);
 
   useEffect(() => {
     if (open) {
       setDraft(currentRetentionDays);
-      setDraftShowArchived(showArchived);
     }
-  }, [open, currentRetentionDays, showArchived]);
+  }, [open, currentRetentionDays]);
 
   return (
     <Drawer
@@ -75,23 +60,9 @@ export default function KanbanSettingsDrawer({
             </Typography>
           </Box>
           <Divider />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={draftShowArchived}
-                onChange={(e) => setDraftShowArchived(e.target.checked)}
-                aria-label="Archivierte Items anzeigen"
-              />
-            }
-            label="Archivierte Items anzeigen"
-          />
-          <Divider />
           <Stack direction="row" spacing={1} justifyContent="flex-end">
             <Button onClick={onClose}>Abbrechen</Button>
-            <Button
-              variant="contained"
-              onClick={() => void onSubmit(draft, draftShowArchived)}
-            >
+            <Button variant="contained" onClick={() => void onSubmit(draft)}>
               Übernehmen
             </Button>
           </Stack>

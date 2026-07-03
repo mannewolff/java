@@ -54,7 +54,6 @@ import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
 
 const DEFAULT_RETENTION_DAYS = 5;
-const SHOW_ARCHIVED_KEY = 'kanban.showArchived';
 const VIEW_KEY = 'kanban.view';
 
 type KanbanView = 'board' | 'list';
@@ -93,22 +92,6 @@ interface EditTarget {
   defaultColumn: KanbanColumnId;
 }
 
-function loadShowArchived(): boolean {
-  try {
-    return localStorage.getItem(SHOW_ARCHIVED_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function saveShowArchived(value: boolean): void {
-  try {
-    localStorage.setItem(SHOW_ARCHIVED_KEY, String(value));
-  } catch {
-    // localStorage nicht verfügbar
-  }
-}
-
 export default function KanbanPage(): JSX.Element {
   const notify = useNotify();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -117,7 +100,6 @@ export default function KanbanPage(): JSX.Element {
   const [pendingArchive, setPendingArchive] = useState<KanbanItem | null>(null);
   const [pendingForceDelete, setPendingForceDelete] = useState<KanbanItem | null>(null);
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
-  const [showArchived, setShowArchived] = useState(loadShowArchived);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [view, setView] = useState<KanbanView>(loadView);
 
@@ -127,9 +109,11 @@ export default function KanbanPage(): JSX.Element {
     }),
   );
 
-  const reload = useCallback(async (withArchived: boolean): Promise<void> => {
+  // Board-Ansicht enthält nie archivierte Items (#283) — Archiv ist nur über den
+  // Listen-Filter erreichbar.
+  const reload = useCallback(async (): Promise<void> => {
     try {
-      const board = await listKanbanItems(withArchived);
+      const board = await listKanbanItems(false);
       const safeBoard: KanbanBoard = { ...emptyBoard(), ...board };
       setState({ kind: 'ready', board: safeBoard });
     } catch (e) {
@@ -151,8 +135,8 @@ export default function KanbanPage(): JSX.Element {
 
   // Board-Daten nur laden, wenn die Board-Ansicht aktiv ist — die Listenansicht lädt selbst.
   useEffect(() => {
-    if (view === 'board') void reload(showArchived);
-  }, [reload, showArchived, view]);
+    if (view === 'board') void reload();
+  }, [reload, view]);
 
   function handleViewChange(_event: MouseEvent<HTMLElement>, next: KanbanView | null): void {
     if (next != null) {
@@ -161,17 +145,10 @@ export default function KanbanPage(): JSX.Element {
     }
   }
 
-  async function handleSettingsSubmit(
-    doneRetentionDays: number,
-    newShowArchived: boolean,
-  ): Promise<void> {
+  async function handleSettingsSubmit(doneRetentionDays: number): Promise<void> {
     try {
       const saved = await updateKanbanSettings(doneRetentionDays);
       setRetentionDays(saved.doneRetentionDays);
-      if (newShowArchived !== showArchived) {
-        saveShowArchived(newShowArchived);
-        setShowArchived(newShowArchived);
-      }
       setSettingsOpen(false);
       notify.success('Einstellungen gespeichert.');
     } catch (e) {
@@ -193,7 +170,7 @@ export default function KanbanPage(): JSX.Element {
       await updateKanbanItem(detailItem.id, title, body);
       notify.success('Item gespeichert.');
       setDetailItem(null);
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -210,7 +187,7 @@ export default function KanbanPage(): JSX.Element {
         notify.success('Item gespeichert.');
       }
       setEditTarget(null);
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -223,7 +200,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await archiveKanbanItem(target.id);
       notify.success('Item archiviert.');
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Archivieren fehlgeschlagen.');
     }
@@ -233,7 +210,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await restoreKanbanItem(item.id);
       notify.success('Item wiederhergestellt.');
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Wiederherstellen fehlgeschlagen.');
     }
@@ -246,7 +223,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await forceDeleteKanbanItem(target.id);
       notify.success('Item endgültig gelöscht.');
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
     }
@@ -275,7 +252,7 @@ export default function KanbanPage(): JSX.Element {
 
     try {
       await moveKanbanItem(itemId, targetColumn, targetPosition);
-      await reload(showArchived);
+      await reload();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
       setState({ kind: 'ready', board: previousBoard });
@@ -412,7 +389,6 @@ export default function KanbanPage(): JSX.Element {
       <KanbanSettingsDrawer
         open={settingsOpen}
         currentRetentionDays={retentionDays}
-        showArchived={showArchived}
         onClose={() => setSettingsOpen(false)}
         onSubmit={handleSettingsSubmit}
       />

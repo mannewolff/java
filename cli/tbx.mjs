@@ -570,8 +570,20 @@ export async function main(argv, io = defaultIo()) {
  * realpathSync noetig, da import.meta.url immer den aufgeloesten Pfad traegt —
  * ein Aufruf ueber einen symbolischen Link (z.B. macOS /tmp -> /private/tmp,
  * oder ein `~/bin/tbx`-Symlink) wuerde sonst nie erkannt und main() nie laufen.
+ * try/catch noetig, falls argv1 nicht (mehr) existiert oder unlesbar ist —
+ * realpathSync wirft dann synchron und wuerde das ganze Modul beim Laden
+ * crashen statt geordnet "nicht das Hauptmodul" zu erkennen (Issue #299).
  */
-const isMainModule = process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+export function resolveIsMainModule(argv1, metaUrl) {
+  if (!argv1) return false;
+  try {
+    return metaUrl === pathToFileURL(realpathSync(argv1)).href;
+  } catch {
+    return false;
+  }
+}
+
+const isMainModule = resolveIsMainModule(process.argv[1], import.meta.url);
 if (isMainModule) {
   main(process.argv.slice(2)).then((code) => process.exit(code));
 }

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, statSync, readFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, readFileSync, chmodSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
   parseArgs,
@@ -25,6 +26,7 @@ import {
   toStatus,
   findItemByNumber,
   CliError,
+  resolveIsMainModule,
 } from './tbx.mjs';
 
 /**
@@ -706,3 +708,20 @@ test('main issue create: 400-Validierungsfehler zeigt Feldfehler', () =>
     assert.equal(code, 1);
     assert.match(i.stderrLines.join(''), /title: must not be blank/);
   }));
+
+// --- resolveIsMainModule (Issue #299) --------------------------------------------
+
+test('resolveIsMainModule: liefert true, wenn realpath auf die aufgeloeste import.meta.url passt', () => {
+  // realpathSync(__filename) dieser Testdatei als Stand-in fuer einen echten, existierenden Pfad.
+  const thisFile = fileURLToPath(import.meta.url);
+  const metaUrl = pathToFileURL(realpathSync(thisFile)).href;
+  assert.equal(resolveIsMainModule(thisFile, metaUrl), true);
+});
+
+test('resolveIsMainModule: liefert false ohne argv1', () => {
+  assert.equal(resolveIsMainModule(undefined, 'file:///whatever'), false);
+});
+
+test('resolveIsMainModule: crasht nicht bei nicht existierendem Pfad, liefert false (Issue #299)', () => {
+  assert.equal(resolveIsMainModule('/pfad/existiert/nicht/tbx.mjs', 'file:///whatever'), false);
+});

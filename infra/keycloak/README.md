@@ -188,6 +188,34 @@ docker compose up -d --build
 docker compose logs -f keycloak | grep -iE "imported|started in"
 ```
 
+### Nachtraegliche Realm-Aenderungen auf einem bestehenden Server anwenden
+
+Sobald der Realm einmal importiert wurde, ueberspringt `--import-realm` ihn bei
+jedem weiteren Start komplett (siehe Re-Import-Risiko oben) — ein
+`docker compose down -v`, um Aenderungen aus den Realm-JSONs nachzuziehen, ist
+auf einem Server mit echten Nutzerdaten **keine Option** (loescht die komplette
+MariaDB, nicht nur Keycloak).
+
+Fuer genau diesen Fall gibt es `scripts/keycloak-apply-cli-changes.sh`: wendet
+die drei Aenderungen aus #284/#287/#210 (Client `toolbox-cli`, `basic`-Scope
+fuer `toolbox-web`/`toolbox-ios`, `USER`-Rolle als Composite mit
+`offline_access`) direkt ueber die Admin-REST-API auf einen laufenden Keycloak
+an — idempotent, ohne Datenverlust, ohne Neustart.
+
+```bash
+KEYCLOAK_URL=https://toolboxauth.mwolff.org \
+KEYCLOAK_ADMIN=admin \
+KEYCLOAK_ADMIN_PASSWORD=*** \
+REALM=toolbox \
+./scripts/keycloak-apply-cli-changes.sh --dry-run   # zeigt nur, was fehlt
+
+# nach Pruefung:
+./scripts/keycloak-apply-cli-changes.sh --apply
+```
+
+Getestet gegen einen Wegwerf-Realm (Anlage-Pfad) und gegen `toolbox-dev`
+(Idempotenz-Pfad, alles bereits vorhanden) — siehe Commit-Message für Details.
+
 Anschließend in der Keycloak-UI sofort das Admin-Passwort rotieren und
 `KEYCLOAK_ADMIN_PASSWORD` aus `.env` entfernen (Bootstrap-Variablen werden
 nach dem ersten Start ignoriert).

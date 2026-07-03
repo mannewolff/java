@@ -20,6 +20,10 @@ import {
   apiFetch,
   main,
   AuthError,
+  toColumn,
+  toStatus,
+  findItemByNumber,
+  CliError,
 } from './tbx.mjs';
 
 /**
@@ -28,10 +32,10 @@ import {
  * damit Tests unter Node's Default-Parallelitaet (node:test) sich nicht
  * gegenseitig stoeren (siehe #285-Testlauf: race condition mit env-var-Ansatz).
  */
-function withTempConfigDir(fn) {
+async function withTempConfigDir(fn) {
   const dir = mkdtempSync(join(tmpdir(), 'tbx-test-'));
   try {
-    return fn(dir);
+    return await fn(dir);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -91,9 +95,16 @@ test('main: unbekannter auth-Befehl zeigt Hilfe und liefert Exit-Code 1', async 
 
 test('main: unbekannte Achse zeigt Hilfe und liefert Exit-Code 1', async () => {
   const i = io();
-  const code = await main(['issue', 'list'], i);
+  const code = await main(['bogus', 'list'], i);
   assert.equal(code, 1);
   assert.match(i.stderrLines.join(''), /Unbekannte Achse/);
+});
+
+test('main: unbekannter issue-Befehl zeigt Hilfe und liefert Exit-Code 1', async () => {
+  const i = io();
+  const code = await main(['issue', 'nonsense'], i);
+  assert.equal(code, 1);
+  assert.match(i.stderrLines.join(''), /Unbekannter issue-Befehl/);
 });
 
 // --- 2. Token-Ablauf-Logik ---------------------------------------------------
@@ -366,4 +377,245 @@ test('main auth login: das Access-Token erscheint nicht im Klartext auf stdout',
     const allOutput = i.stdoutLines.join('') + i.stderrLines.join('');
     assert.ok(!allOutput.includes(secretToken));
     assert.ok(!allOutput.includes('rt-secret'));
+  }));
+
+// --- Helpers fuer issue-Kommandos -----------------------------------------------
+
+function loggedIn(dir, config = {}) {
+  writeJsonFileSecure(configPath(dir), { host: 'http://api', keycloakUrl: 'http://kc', realm: 'dev', ...config });
+  writeJsonFileSecure(tokensPath(dir), {
+    access_token: fakeJwt({ preferred_username: 'alice' }),
+    refresh_token: 'rt',
+    expires_at: Date.now() + 120_000,
+  });
+}
+
+function boardFixture() {
+  return {
+    BACKLOG: [{ id: 'id-1', number: 5, title: 'Fifth', body: 'b5', column: 'BACKLOG', position: 0, archived: false }],
+    READY: [{ id: 'id-2', number: 2, title: 'Second', body: 'b2', column: 'READY', position: 0, archived: false }],
+    IN_PROGRESS: [],
+    IN_REVIEW: [],
+    DONE: [],
+  };
+}
+
+// --- 6. Status-Mapping ----------------------------------------------------------
+
+test('toColumn: mappt gültige Status-Werte auf Backend-Spalten', () => {
+  assert.equal(toColumn('backlog'), 'BACKLOG');
+  assert.equal(toColumn('ready'), 'READY');
+  assert.equal(toColumn('in_progress'), 'IN_PROGRESS');
+  assert.equal(toColumn('in_review'), 'IN_REVIEW');
+  assert.equal(toColumn('done'), 'DONE');
+});
+
+test('toColumn: wirft CliError mit gültigen Werten bei ungültigem Status', () => {
+  assert.throws(() => toColumn('nope'), (err) => {
+    assert.ok(err instanceof CliError);
+    assert.match(err.message, /backlog, ready, in_progress, in_review, done/);
+    return true;
+  });
+});
+
+test('toStatus: mappt Backend-Spalten zurück auf Status-Werte', () => {
+  assert.equal(toStatus('BACKLOG'), 'backlog');
+  assert.equal(toStatus('READY'), 'ready');
+  assert.equal(toStatus('DONE'), 'done');
+});
+
+// --- 7. Nummer-zu-Item-Aufloesung -------------------------------------------------
+
+test('findItemByNumber: findet ein vorhandenes Item', () => {
+  const items = [{ number: 1 }, { number: 2 }];
+  assert.equal(findItemByNumber(items, 2), items[1]);
+});
+
+test('findItemByNumber: liefert null ohne Treffer', () => {
+  assert.equal(findItemByNumber([{ number: 1 }], 99), null);
+});
+
+// --- 8. tbx issue create ---------------------------------------------------------
+
+test('main issue create: legt ein Item an und gibt Nummer+URL zurück', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    let capturedBody;
+    const fetchImpl = async (url, opts) => {
+      assert.equal(url, 'http://api/api/kanban/items');
+      assert.equal(opts.method, 'POST');
+      capturedBody = JSON.parse(opts.body);
+      return jsonResponse(201, { id: 'id-9', number: 9, title: capturedBody.title, body: capturedBody.body, column: 'BACKLOG' });
+    };
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'create', '--title', 'Neues Ding', '--body', 'Details'], i);
+
+    assert.equal(code, 0);
+    assert.deepEqual(capturedBody, { title: 'Neues Ding', body: 'Details', column: 'BACKLOG' });
+    const parsed = JSON.parse(i.stdoutLines.join(''));
+    assert.equal(parsed.id, 9);
+    assert.match(parsed.url, /^http:\/\/api/);
+  }));
+
+test('main issue create: ohne --title liefert Fehler', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const code = await main(['issue', 'create'], io({ baseDir: dir }));
+    assert.equal(code, 1);
+  }));
+
+// --- 9. tbx issue get --------------------------------------------------------------
+
+test('main issue get: liefert das Issue anhand der Nummer', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const code = await main(['issue', 'get', '2'], io({ fetchImpl, baseDir: dir }));
+    assert.equal(code, 0);
+  }));
+
+test('main issue get: unbekannte Nummer liefert Fehler', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'get', '999'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /nicht gefunden/);
+  }));
+
+test('main issue get: liefert id/title/body/status im generischen Format', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const i = io({ fetchImpl, baseDir: dir });
+    await main(['issue', 'get', '2'], i);
+    assert.deepEqual(JSON.parse(i.stdoutLines.join('')), { id: 2, title: 'Second', body: 'b2', status: 'ready' });
+  }));
+
+// --- 10. tbx issue list -------------------------------------------------------------
+
+test('main issue list: sortiert aufsteigend nach Nummer', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const i = io({ fetchImpl, baseDir: dir });
+    await main(['issue', 'list'], i);
+    const parsed = JSON.parse(i.stdoutLines.join(''));
+    assert.deepEqual(parsed.map((p) => p.id), [2, 5]);
+  }));
+
+test('main issue list --status ready: filtert korrekt', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const i = io({ fetchImpl, baseDir: dir });
+    await main(['issue', 'list', '--status', 'ready'], i);
+    const parsed = JSON.parse(i.stdoutLines.join(''));
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].id, 2);
+  }));
+
+test('main issue list --status ungültig: liefert Fehler mit gültigen Werten', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const i = io({ baseDir: dir });
+    const code = await main(['issue', 'list', '--status', 'nope'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /Ungültiger Status/);
+  }));
+
+// --- 11. tbx issue move -------------------------------------------------------------
+
+test('main issue move: verschiebt ans Ende der Zielspalte', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    let moveCall;
+    const fetchImpl = async (url, opts) => {
+      if (opts?.method === 'PUT') {
+        moveCall = { url, body: JSON.parse(opts.body) };
+        return jsonResponse(200, {});
+      }
+      return jsonResponse(200, boardFixture());
+    };
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'move', '5', 'ready'], i);
+
+    assert.equal(code, 0);
+    assert.equal(moveCall.url, 'http://api/api/kanban/items/id-1/move');
+    assert.deepEqual(moveCall.body, { column: 'READY', position: 1 });
+    assert.deepEqual(JSON.parse(i.stdoutLines.join('')), { ok: true, id: 5, status: 'ready' });
+  }));
+
+test('main issue move: ungültiger Status liefert Fehler', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const i = io({ baseDir: dir });
+    const code = await main(['issue', 'move', '5', 'nope'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /Ungültiger Status/);
+  }));
+
+test('main issue move: unbekannte Nummer liefert Fehler', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'move', '999', 'ready'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /nicht gefunden/);
+  }));
+
+// --- 12. tbx issue comment -----------------------------------------------------------
+
+test('main issue comment: postet einen Kommentar', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    let commentCall;
+    const fetchImpl = async (url, opts) => {
+      if (opts?.method === 'POST' && url.includes('/comments')) {
+        commentCall = { url, body: JSON.parse(opts.body) };
+        return jsonResponse(201, {});
+      }
+      return jsonResponse(200, boardFixture());
+    };
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'comment', '2', '--text', 'Kommentartext'], i);
+
+    assert.equal(code, 0);
+    assert.equal(commentCall.url, 'http://api/api/kanban/items/id-2/comments');
+    assert.deepEqual(commentCall.body, { body: 'Kommentartext' });
+    assert.deepEqual(JSON.parse(i.stdoutLines.join('')), { ok: true, id: 2 });
+  }));
+
+test('main issue comment: ohne --text liefert Fehler', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(200, boardFixture());
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'comment', '2'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /--text ist erforderlich/);
+  }));
+
+// --- 13. Fehlerbehandlung: 401 und Validierungsfehler --------------------------------
+
+test('main issue list: 401 zeigt Anmelde-Hinweis', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(401, {});
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'list'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /tbx auth login/);
+  }));
+
+test('main issue create: 400-Validierungsfehler zeigt Feldfehler', () =>
+  withTempConfigDir(async (dir) => {
+    loggedIn(dir);
+    const fetchImpl = async () => jsonResponse(400, { message: 'Validation failed', fieldErrors: { title: 'must not be blank' } });
+    const i = io({ fetchImpl, baseDir: dir });
+    const code = await main(['issue', 'create', '--title', 'x'], i);
+    assert.equal(code, 1);
+    assert.match(i.stderrLines.join(''), /title: must not be blank/);
   }));

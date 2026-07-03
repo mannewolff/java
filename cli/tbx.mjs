@@ -13,7 +13,7 @@
  */
 
 import { pathToFileURL } from 'node:url';
-import { mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync, existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -31,6 +31,14 @@ Nutzung:
   tbx auth login [--host <url>] [--keycloak-url <url>] [--realm <name>]
   tbx auth status
   tbx auth logout
+
+  tbx issue create --title <text> [--body <text>]
+  tbx issue get <nummer>
+  tbx issue list [--status <status>]
+  tbx issue move <nummer> <status>
+  tbx issue comment <nummer> --text <text>
+
+Status-Werte: backlog, ready, in_progress, in_review, done
 
 Defaults (Produktion): --host ${PROD_DEFAULTS.host} --keycloak-url ${PROD_DEFAULTS.keycloakUrl} --realm ${PROD_DEFAULTS.realm}
 Dev-Beispiel: tbx auth login --host http://localhost:8080 --keycloak-url http://localhost:8081 --realm toolbox-dev
@@ -254,6 +262,157 @@ export async function apiFetch(path, options = {}, { fetchImpl = fetch, baseDir 
   });
 }
 
+// --- Status-Mapping (Kit-Status <-> Backend-Spalte) ---------------------------
+
+export const STATUS_TO_COLUMN = {
+  backlog: 'BACKLOG',
+  ready: 'READY',
+  in_progress: 'IN_PROGRESS',
+  in_review: 'IN_REVIEW',
+  done: 'DONE',
+};
+
+export const COLUMN_TO_STATUS = Object.fromEntries(
+  Object.entries(STATUS_TO_COLUMN).map(([status, column]) => [column, status]),
+);
+
+export const VALID_STATUSES = Object.keys(STATUS_TO_COLUMN);
+
+/** Allgemeiner CLI-Fehler (Validierung, Not-Found, API-Fehler) — main() faengt ihn wie jeden Error. */
+export class CliError extends Error {}
+
+export function toColumn(status) {
+  const column = STATUS_TO_COLUMN[status];
+  if (!column) {
+    throw new CliError(`Ungültiger Status '${status}'. Gültig: ${VALID_STATUSES.join(', ')}`);
+  }
+  return column;
+}
+
+export function toStatus(column) {
+  return COLUMN_TO_STATUS[column] || column;
+}
+
+// --- Board-Zugriff -------------------------------------------------------------
+
+/** Liest das gruppierte Board und liefert eine flache, mit `status` angereicherte Liste. */
+export async function fetchBoardItems(io) {
+  const res = await apiFetch('/api/kanban/items', {}, { fetchImpl: io.fetchImpl, baseDir: io.baseDir });
+  await ensureOk(res);
+  const grouped = await res.json();
+  return Object.values(grouped)
+    .flat()
+    .map((item) => ({ ...item, status: toStatus(item.column) }));
+}
+
+export function findItemByNumber(items, number) {
+  return items.find((i) => i.number === number) || null;
+}
+
+async function resolveItemByNumber(number, io) {
+  const items = await fetchBoardItems(io);
+  const item = findItemByNumber(items, number);
+  if (!item) {
+    throw new CliError(`Issue ${number} nicht gefunden`);
+  }
+  return item;
+}
+
+/** Wirft bei 401 einen anmelde-spezifischen Fehler, sonst bei Nicht-2xx die Server-Message. */
+async function ensureOk(res) {
+  if (res.status === 401) {
+    throw new CliError('Bitte anmelden: tbx auth login');
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const fieldErrors = body.fieldErrors
+      ? ` (${Object.entries(body.fieldErrors)
+          .map(([field, msg]) => `${field}: ${msg}`)
+          .join(', ')})`
+      : '';
+    throw new CliError(`${body.message || `HTTP ${res.status}`}${fieldErrors}`);
+  }
+  return res;
+}
+
+function toGenericIssue(item) {
+  return { id: item.number, title: item.title, body: item.body, status: item.status };
+}
+
+// --- Kommandos: issue -----------------------------------------------------------
+
+async function cmdIssueCreate(flags, io) {
+  if (!flags.title) throw new CliError('--title ist erforderlich');
+  const config = readJsonFile(configPath(io.baseDir));
+  const res = await apiFetch(
+    '/api/kanban/items',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: flags.title, body: flags.body || '', column: 'BACKLOG' }),
+    },
+    { fetchImpl: io.fetchImpl, baseDir: io.baseDir },
+  );
+  await ensureOk(res);
+  const created = await res.json();
+  io.stdout(JSON.stringify({ id: created.number, url: `${config.host}/kanban` }, null, 2) + '\n');
+}
+
+async function cmdIssueGet(numberArg, io) {
+  const number = Number(numberArg);
+  const item = await resolveItemByNumber(number, io);
+  io.stdout(JSON.stringify(toGenericIssue(item), null, 2) + '\n');
+}
+
+async function cmdIssueList(flags, io) {
+  if (flags.status && !VALID_STATUSES.includes(flags.status)) {
+    throw new CliError(`Ungültiger Status '${flags.status}'. Gültig: ${VALID_STATUSES.join(', ')}`);
+  }
+  const items = await fetchBoardItems(io);
+  const filtered = (flags.status ? items.filter((i) => i.status === flags.status) : items)
+    .slice()
+    .sort((a, b) => a.number - b.number);
+  io.stdout(JSON.stringify(filtered.map(toGenericIssue), null, 2) + '\n');
+}
+
+async function cmdIssueMove(numberArg, statusArg, io) {
+  const number = Number(numberArg);
+  const column = toColumn(statusArg);
+  const items = await fetchBoardItems(io);
+  const item = findItemByNumber(items, number);
+  if (!item) throw new CliError(`Issue ${number} nicht gefunden`);
+
+  const targetPosition = items.filter((i) => i.column === column).length;
+  const res = await apiFetch(
+    `/api/kanban/items/${item.id}/move`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ column, position: targetPosition }),
+    },
+    { fetchImpl: io.fetchImpl, baseDir: io.baseDir },
+  );
+  await ensureOk(res);
+  io.stdout(JSON.stringify({ ok: true, id: number, status: statusArg }, null, 2) + '\n');
+}
+
+async function cmdIssueComment(numberArg, flags, io) {
+  if (!flags.text) throw new CliError('--text ist erforderlich');
+  const number = Number(numberArg);
+  const item = await resolveItemByNumber(number, io);
+  const res = await apiFetch(
+    `/api/kanban/items/${item.id}/comments`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: flags.text }),
+    },
+    { fetchImpl: io.fetchImpl, baseDir: io.baseDir },
+  );
+  await ensureOk(res);
+  io.stdout(JSON.stringify({ ok: true, id: number }, null, 2) + '\n');
+}
+
 // --- Kommandos -----------------------------------------------------------------
 
 async function cmdLogin(flags, io) {
@@ -348,12 +507,46 @@ export async function main(argv, io = defaultIo()) {
     }
   }
 
+  if (axis === 'issue') {
+    try {
+      switch (command) {
+        case 'create':
+          await cmdIssueCreate(flags, io);
+          return 0;
+        case 'get':
+          await cmdIssueGet(rest[0], io);
+          return 0;
+        case 'list':
+          await cmdIssueList(flags, io);
+          return 0;
+        case 'move':
+          await cmdIssueMove(rest[0], rest[1], io);
+          return 0;
+        case 'comment':
+          await cmdIssueComment(rest[0], flags, io);
+          return 0;
+        default:
+          io.stdout(HELP);
+          io.stderr(`Fehler: Unbekannter issue-Befehl: '${command}'\n`);
+          return 1;
+      }
+    } catch (e) {
+      io.stderr(`Fehler: ${e.message}\n`);
+      return 1;
+    }
+  }
+
   io.stdout(HELP);
-  io.stderr(`Fehler: Unbekannte Achse: '${axis}'. Erwartet: auth\n`);
+  io.stderr(`Fehler: Unbekannte Achse: '${axis}'. Erwartet: auth, issue\n`);
   return 1;
 }
 
-const isMainModule = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+/**
+ * realpathSync noetig, da import.meta.url immer den aufgeloesten Pfad traegt —
+ * ein Aufruf ueber einen symbolischen Link (z.B. macOS /tmp -> /private/tmp,
+ * oder ein `~/bin/tbx`-Symlink) wuerde sonst nie erkannt und main() nie laufen.
+ */
+const isMainModule = process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
 if (isMainModule) {
   main(process.argv.slice(2)).then((code) => process.exit(code));
 }

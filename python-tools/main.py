@@ -16,8 +16,10 @@ from __future__ import annotations
 import io
 import logging
 import os
+from functools import partial
 from typing import Annotated
 
+import anyio.to_thread
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
 
@@ -340,7 +342,9 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
     contents = await _read_and_validate(file)
 
     try:
-        result = _remove_background(contents)
+        # CPU-intensiv (rembg): im Threadpool ausfuehren, damit der Event-Loop und
+        # damit /health waehrend der Verarbeitung responsiv bleiben (#306).
+        result = await anyio.to_thread.run_sync(_remove_background, contents)
     except Exception as exc:  # noqa: BLE001 — Wrap any rembg failure
         logger.error("rembg failed", exc_info=True)
         raise HTTPException(status_code=500, detail="background removal failed") from exc
@@ -362,14 +366,18 @@ async def crop(
     contents = await _read_and_validate(file)
 
     try:
-        result = _crop_to_og(
-            contents,
-            y_offset=y_offset,
-            x_offset=x_offset,
-            quality=quality,
-            width=width,
-            height=height,
-            format=format,
+        # CPU-intensiv (Pillow): im Threadpool, Event-Loop bleibt frei (#306).
+        result = await anyio.to_thread.run_sync(
+            partial(
+                _crop_to_og,
+                contents,
+                y_offset=y_offset,
+                x_offset=x_offset,
+                quality=quality,
+                width=width,
+                height=height,
+                format=format,
+            )
         )
     except ImageTooLargeError as exc:
         logger.warning("crop rejected oversized image")
@@ -394,12 +402,16 @@ async def resize(
     contents = await _read_and_validate(file)
 
     try:
-        result, media_type = _resize(
-            contents,
-            width=width,
-            height=height,
-            output_format=output_format,
-            quality=quality,
+        # CPU-intensiv (Pillow): im Threadpool, Event-Loop bleibt frei (#306).
+        result, media_type = await anyio.to_thread.run_sync(
+            partial(
+                _resize,
+                contents,
+                width=width,
+                height=height,
+                output_format=output_format,
+                quality=quality,
+            )
         )
     except ImageTooLargeError as exc:
         logger.warning("resize rejected oversized image")
@@ -420,7 +432,8 @@ async def palette(
     contents = await _read_and_validate(file)
 
     try:
-        colors = _extract_palette(contents, count=count)
+        # CPU-intensiv (colorthief): im Threadpool, Event-Loop bleibt frei (#306).
+        colors = await anyio.to_thread.run_sync(partial(_extract_palette, contents, count=count))
     except Exception as exc:  # noqa: BLE001 — Wrap any colorthief failure
         logger.error("palette failed", exc_info=True)
         raise HTTPException(status_code=500, detail="palette extraction failed") from exc
@@ -439,11 +452,15 @@ async def svg_to_png(
     contents = await _read_and_validate_svg(file)
 
     try:
-        result = _svg_to_png(
-            contents,
-            width=width,
-            height=height,
-            background=background,
+        # CPU-intensiv (cairosvg): im Threadpool, Event-Loop bleibt frei (#306).
+        result = await anyio.to_thread.run_sync(
+            partial(
+                _svg_to_png,
+                contents,
+                width=width,
+                height=height,
+                background=background,
+            )
         )
     except ExternalResourceError as exc:
         logger.warning("svg-to-png blocked external resource")
@@ -467,7 +484,10 @@ async def raster_to_png(
     contents = await _read_and_validate(file)
 
     try:
-        result = _raster_to_png(contents, width=width, height=height)
+        # CPU-intensiv (Pillow): im Threadpool, Event-Loop bleibt frei (#306).
+        result = await anyio.to_thread.run_sync(
+            partial(_raster_to_png, contents, width=width, height=height)
+        )
     except ImageTooLargeError as exc:
         logger.warning("raster-to-png rejected oversized image")
         raise HTTPException(status_code=422, detail="image too large") from exc
@@ -488,7 +508,8 @@ async def md_to_pdf(markdown: Annotated[str, Form()]) -> Response:
         raise HTTPException(status_code=413, detail="Markdown too large")
 
     try:
-        pdf = _md_to_pdf(text)
+        # CPU-/IO-intensiv (weasyprint): im Threadpool, Event-Loop bleibt frei (#306).
+        pdf = await anyio.to_thread.run_sync(_md_to_pdf, text)
     except ExternalResourceError as exc:
         logger.warning("md-to-pdf blocked external resource")
         raise HTTPException(

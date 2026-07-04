@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import io
+import time
 import types
 from typing import Iterator
 from unittest.mock import patch
 
+import anyio
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -1361,3 +1364,54 @@ def test_md_to_pdf_requires_internal_key() -> None:
     with TestClient(main.app) as c:
         response = c.post("/md-to-pdf", data={"markdown": "# Hi"})
     assert response.status_code == 401
+
+
+def test_health_stays_responsive_while_heavy_handler_runs() -> None:
+    """Regression #306: ein blockierender Heavy-Handler friert den Event-Loop nicht ein.
+
+    `_remove_background` wird durch eine synchron blockierende Funktion ersetzt. Läuft die
+    CPU-Arbeit korrekt im Threadpool (statt direkt im async-Handler), bleibt der Event-Loop
+    frei und /health antwortet, obwohl /remove-bg noch verarbeitet. Ohne den Fix würde
+    time.sleep den einzigen Loop blockieren und /health erst nach heavy_seconds antworten.
+    """
+    heavy_seconds = 0.4
+
+    def blocking_remove(_data: bytes) -> bytes:
+        time.sleep(heavy_seconds)
+        return b"\x89PNG done"
+
+    async def scenario() -> float:
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            headers={"X-Internal-Key": TEST_INTERNAL_KEY},
+        ) as ac:
+            health_elapsed = 0.0
+
+            async def run_heavy() -> None:
+                await ac.post(
+                    "/remove-bg",
+                    files={"file": ("i.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+                )
+
+            async def run_health() -> None:
+                nonlocal health_elapsed
+                # kurz warten, damit der Heavy-Request zuerst in der Verarbeitung ist
+                await anyio.sleep(0.05)
+                start = time.perf_counter()
+                response = await ac.get("/health")
+                health_elapsed = time.perf_counter() - start
+                assert response.status_code == 200
+
+            async with anyio.create_task_group() as task_group:
+                task_group.start_soon(run_heavy)
+                task_group.start_soon(run_health)
+
+            return health_elapsed
+
+    with patch.object(main, "_remove_background", blocking_remove):
+        health_elapsed = anyio.run(scenario)
+
+    # /health muss deutlich schneller antworten als der ~0.4s blockierende Heavy-Handler.
+    assert health_elapsed < heavy_seconds

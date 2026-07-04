@@ -1,8 +1,11 @@
 package org.mwolff.api.appversion.web;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.appversion.application.GetAppVersionUseCase;
 import org.mwolff.api.appversion.application.IncrementMajorVersionUseCase;
@@ -28,7 +31,13 @@ class AppVersionControllerNoSecretTest {
   @MockitoBean private GetAppVersionUseCase getUseCase;
   @MockitoBean private IncrementMinorVersionUseCase incrementMinorUseCase;
   @MockitoBean private IncrementMajorVersionUseCase incrementMajorUseCase;
+  @MockitoBean private AppVersionRateLimiter rateLimiter;
   @MockitoBean private JwtDecoder jwtDecoder;
+
+  @BeforeEach
+  void allowRateLimitByDefault() {
+    given(rateLimiter.tryAcquire(any())).willReturn(true);
+  }
 
   @Test
   void incrementIsUnauthorizedWhenNoSecretConfigured() throws Exception {

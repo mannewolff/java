@@ -95,9 +95,13 @@ Wir bilden den Workflow über die Default-Rolle `PENDING` ab:
 
 1. User registriert sich selbst auf `/realms/<name>/account/`.
 2. Keycloak weist ihm automatisch die Realm-Rolle `PENDING` zu.
-3. Spring-Backend lehnt API-Aufrufe für `PENDING`-User ab (keine `USER`-Rolle
-   im `realm_access.roles`-Claim). Siehe Issue #37.
-4. Ein Admin entfernt im Keycloak-UI manuell `PENDING` und setzt `USER`.
+3. **Prod: Der User muss zuerst seine E-Mail-Adresse verifizieren** (`verifyEmail: true`,
+   #311). Keycloak sendet eine Bestätigungsmail; ohne Verifikation ist kein Login möglich.
+   Das verhindert, dass sich jemand mit einer fremden, dem Admin bekannt aussehenden
+   E-Mail registriert und darüber fälschlich promotet wird. Im dev-Realm bleibt
+   `verifyEmail: false` (kein Mailserver lokal, einfacheres Testen).
+4. Ein Admin entfernt im Keycloak-UI manuell `PENDING` und setzt `USER` — in Prod erst,
+   **nachdem** die E-Mail verifiziert ist (Spalte „Email verified" in der User-Liste prüfen).
 5. Beim nächsten Token-Refresh kann der User die Anwendung benutzen.
 
 Wenn später ein automatisierter Approval-Flow (z. B. via E-Mail an Admin) gewünscht

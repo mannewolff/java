@@ -1,35 +1,27 @@
 package org.mwolff.api.kanban.application;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 
 import org.mwolff.api.kanban.domain.KanbanItemPort;
-import org.mwolff.api.kanban.domain.KanbanSettings;
-import org.mwolff.api.kanban.domain.KanbanSettingsPort;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Iteriert alle User mit mindestens einem DONE-Item, ermittelt deren Retention (Settings oder
- * Default) und löscht abgelaufene Items.
- *
- * <p>Wird vom Scheduler aufgerufen. Pro User eine eigene Transaktion — vermeidet eine große
- * Lock-Geschichte, wenn die Cleanup-Operation lange läuft.
+ * Iteriert alle User mit mindestens einem DONE-Item und löscht deren abgelaufene Items. Die
+ * eigentliche Löschung pro User erledigt {@link ExpiredDoneItemsPerUserCleanup#deleteForUser(String)}
+ * — als eigene Bean, damit pro User eine eigene, vom Proxy verwaltete Transaktion greift (#305).
+ * Das vermeidet eine große Lock-Geschichte über alle User und stellt sicher, dass die
+ * {@code @Transactional}-Grenze auch im Scheduler-Pfad wirkt.
  */
 @Component
 public class CleanupExpiredDoneItemsUseCase {
 
   private final KanbanItemPort items;
-  private final KanbanSettingsPort settings;
-  private final Clock clock;
+  private final ExpiredDoneItemsPerUserCleanup perUserCleanup;
 
   public CleanupExpiredDoneItemsUseCase(
-      KanbanItemPort items, KanbanSettingsPort settings, Clock clock) {
+      KanbanItemPort items, ExpiredDoneItemsPerUserCleanup perUserCleanup) {
     this.items = items;
-    this.settings = settings;
-    this.clock = clock;
+    this.perUserCleanup = perUserCleanup;
   }
 
   /** Liefert die Summe aller gelöschten Items über alle User — für Logging. */
@@ -37,17 +29,8 @@ public class CleanupExpiredDoneItemsUseCase {
     final List<String> users = items.distinctUsersWithDoneItems();
     int total = 0;
     for (final String userSub : users) {
-      total += deleteForUser(userSub);
+      total += perUserCleanup.deleteForUser(userSub);
     }
     return total;
-  }
-
-  @Transactional
-  protected int deleteForUser(String userSub) {
-    final KanbanSettings effective =
-        settings.findByUser(userSub).orElseGet(() -> KanbanSettings.defaultFor(userSub));
-    final Instant threshold =
-        Instant.now(clock).minus(Duration.ofDays(effective.doneRetentionDays()));
-    return items.deleteDoneOlderThan(userSub, threshold);
   }
 }

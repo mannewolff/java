@@ -573,7 +573,9 @@ class KanbanUseCasesTest {
     given(items.deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any()))
         .willReturn(3);
 
-    final int deleted = new CleanupExpiredDoneItemsUseCase(items, settings, clock).execute();
+    final ExpiredDoneItemsPerUserCleanup perUser =
+        new ExpiredDoneItemsPerUserCleanup(items, settings, clock);
+    final int deleted = new CleanupExpiredDoneItemsUseCase(items, perUser).execute();
 
     assertThat(deleted).isEqualTo(5);
     verify(items, times(1)).deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any());

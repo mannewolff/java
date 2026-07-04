@@ -26,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <b>ohne</b> umgebende Transaktion (via {@code @Transactional(propagation = NOT_SUPPORTED)}). Vor
  * dem Fix umging der Selbstaufruf {@code this.deleteForUser(...)} den Spring-Proxy, sodass die
  * {@code @Modifying}-Delete-Query ohne Transaktion lief und {@code TransactionRequiredException}
- * warf (#305). Jetzt öffnet {@link ExpiredDoneItemsPerUserCleanup} pro User eine eigene Transaktion.
+ * warf (#305). Jetzt öffnet {@link ExpiredDoneItemsPerUserCleanup} pro User eine eigene
+ * Transaktion.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -57,7 +58,9 @@ class CleanupExpiredDoneItemsUseCaseIT extends AbstractIntegrationTest {
     assertThat(adapter.findById(freshId)).isPresent();
   }
 
-  /** Legt ein DONE-Item mit explizitem {@code movedToDoneAt} an (analog {@code JpaKanbanAdapterIT}). */
+  /**
+   * Legt ein DONE-Item mit explizitem {@code movedToDoneAt} an (analog {@code JpaKanbanAdapterIT}).
+   */
   private long persistDone(Instant movedToDoneAt) {
     final int number = adapter.getMaxNumberForUser(USER).map(max -> max + 1).orElse(1);
     final KanbanItem created =

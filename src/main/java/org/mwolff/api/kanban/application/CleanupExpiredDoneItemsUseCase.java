@@ -7,10 +7,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * Iteriert alle User mit mindestens einem DONE-Item und löscht deren abgelaufene Items. Die
- * eigentliche Löschung pro User erledigt {@link ExpiredDoneItemsPerUserCleanup#deleteForUser(String)}
- * — als eigene Bean, damit pro User eine eigene, vom Proxy verwaltete Transaktion greift (#305).
- * Das vermeidet eine große Lock-Geschichte über alle User und stellt sicher, dass die
- * {@code @Transactional}-Grenze auch im Scheduler-Pfad wirkt.
+ * eigentliche Löschung pro User erledigt {@link
+ * ExpiredDoneItemsPerUserCleanup#deleteForUser(String)} — als eigene Bean, damit pro User eine
+ * eigene, vom Proxy verwaltete Transaktion greift (#305). Das vermeidet eine große Lock-Geschichte
+ * über alle User und stellt sicher, dass die {@code @Transactional}-Grenze auch im Scheduler-Pfad
+ * wirkt.
  */
 @Component
 public class CleanupExpiredDoneItemsUseCase {

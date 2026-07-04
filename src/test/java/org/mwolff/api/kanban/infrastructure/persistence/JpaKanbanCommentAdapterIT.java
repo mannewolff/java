@@ -29,9 +29,12 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   private long createItem() {
     // Eindeutige pro-User-Nummer vergeben (#187), sonst verletzen mehrere Items den Unique-Index.
     final int number = items.getMaxNumberForUser(USER).map(max -> max + 1).orElse(1);
+    // Eindeutige, lückenlose Position pro Spalte (#309), sonst verletzt das zweite Item den
+    // Unique-Constraint uk_kanban_active_position.
+    final int position = items.findByUserAndColumn(USER, KanbanColumn.BACKLOG).size();
     return items
         .save(
-            KanbanItem.newInstance(USER, "Item", "", KanbanColumn.BACKLOG, 0, Instant.now())
+            KanbanItem.newInstance(USER, "Item", "", KanbanColumn.BACKLOG, position, Instant.now())
                 .withNumber(number))
         .id();
   }

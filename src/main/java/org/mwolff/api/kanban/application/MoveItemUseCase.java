@@ -12,11 +12,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Verschiebt ein Item innerhalb oder zwischen Spalten und re-indexiert die Quell- und
- * Ziel-Spalten-Positionen lückenlos.
+ * Verschiebt ein Item innerhalb oder zwischen Spalten und hält die Positionen der betroffenen
+ * Spalten lückenlos und eindeutig.
  *
  * <p>Alles in <strong>einer</strong> Transaktion — sonst riskieren wir inkonsistente Positionen,
- * wenn Schritt 2 von 3 abbricht.
+ * wenn ein Zwischenschritt abbricht.
+ *
+ * <p>Reindex-Reihenfolge (#309): Der Unique-Constraint {@code uk_kanban_active_position} prüft
+ * jedes einzelne Positions-Update sofort (MariaDB kennt keine deferred constraints). Daher darf nie
+ * ein Zwischenschritt zwei aktive Items derselben Spalte auf dieselbe Position setzen. Das
+ * erreichen wir, indem wir das bewegte Item zuerst aus dem aktiven Positionsraum nehmen bzw. die
+ * Nachbarn in kollisionsfreier Richtung verschieben (auf-/absteigend je nach Bewegungsrichtung).
  */
 @Component
 public class MoveItemUseCase {
@@ -40,72 +46,87 @@ public class MoveItemUseCase {
 
     final KanbanColumn sourceColumn = existing.column();
     final int sourcePosition = existing.position();
-
-    if (sourceColumn == targetColumn && sourcePosition == targetPosition) {
-      // Kein Move nötig — Idempotenz.
-      return existing;
-    }
-
-    final int clampedTargetPosition;
-    if (sourceColumn == targetColumn) {
-      clampedTargetPosition =
-          reindexWithinSameColumn(userSub, sourceColumn, sourcePosition, targetPosition);
-    } else {
-      reindexAfterRemoval(userSub, sourceColumn, sourcePosition);
-      clampedTargetPosition = reindexBeforeInsertion(userSub, targetColumn, targetPosition);
-    }
-
     final Instant now = Instant.now(clock);
-    return items.save(existing.withColumnAndPosition(targetColumn, clampedTargetPosition, now));
+
+    if (sourceColumn == targetColumn) {
+      final int clamped = reorderWithinColumn(userSub, existing, targetPosition);
+      if (clamped == sourcePosition) {
+        // Auch nach dem Clamping keine effektive Positionsänderung — Idempotenz.
+        return existing;
+      }
+      return items.save(existing.withColumnAndPosition(targetColumn, clamped, now));
+    }
+
+    final int clamped = shiftTargetForInsertion(userSub, targetColumn, targetPosition);
+    // Item in die Zielspalte setzen; die Zielposition ist jetzt frei, die Quellspalte behält
+    // vorübergehend eine Lücke.
+    final KanbanItem saved = items.save(existing.withColumnAndPosition(targetColumn, clamped, now));
+    // Lücke in der Quellspalte schließen — das Item hat die Quelle bereits verlassen.
+    closeGap(userSub, sourceColumn, sourcePosition);
+    return saved;
   }
 
   /**
-   * Same-Column-Reorder: schiebt die Items zwischen Quell- und Ziel-Position um eins, sodass am
-   * Ende die Ziel-Position frei ist. Liefert die (geclampte) Ziel-Position zurück.
-   *
-   * <p>Richtungsfrei formuliert: Alle Items im Intervall [lo, hi] (ohne das bewegte Item selbst)
-   * rutschen um eine Position Richtung Quell-Lücke. Bei {@code clamped == fromPosition} ist das
-   * Intervall leer — eine separate Richtungs-Verzweigung wäre dort ein äquivalenter Mutant (#207).
+   * Same-Column-Reorder. Nimmt das bewegte Item zunächst ans (freie) Spaltenende, schiebt die
+   * betroffenen Nachbarn in kollisionsfreier Richtung um eins und liefert die geclampte
+   * Zielposition zurück (der Aufrufer platziert das Item final dorthin).
    */
-  private int reindexWithinSameColumn(
-      String userSub, KanbanColumn column, int fromPosition, int toPosition) {
-    final List<KanbanItem> column_ = items.findByUserAndColumn(userSub, column);
-    final int max = column_.size() - 1; // Größte gültige Position für ein bestehendes Item.
-    final int clamped = Math.max(0, Math.min(toPosition, max));
-    final int lo = Math.min(clamped, fromPosition);
-    final int hi = Math.max(clamped, fromPosition);
-    final int shift = Integer.signum(fromPosition - clamped);
-    for (final KanbanItem other : column_) {
-      final int pos = other.position();
-      if (pos >= lo && pos <= hi && pos != fromPosition) {
-        items.updatePosition(other.id(), pos + shift);
+  private int reorderWithinColumn(String userSub, KanbanItem moved, int targetPosition) {
+    final List<KanbanItem> column = items.findByUserAndColumn(userSub, moved.column());
+    final int from = moved.position();
+    final int clamped = Math.max(0, Math.min(targetPosition, column.size() - 1));
+    if (clamped == from) {
+      return from;
+    }
+    // Bewegtes Item temporär ans freie Spaltenende (Position = size), damit seine bisherige
+    // Position frei wird und die folgenden Einzel-Updates nie kollidieren.
+    items.updatePosition(moved.id(), column.size());
+    if (clamped > from) {
+      // Bewegung nach hinten: Nachbarn im Intervall (from, clamped] um -1, aufsteigend.
+      for (final KanbanItem other : column) {
+        final int pos = other.position();
+        if (!moved.id().equals(other.id()) && pos > from && pos <= clamped) {
+          items.updatePosition(other.id(), pos - 1);
+        }
+      }
+    } else {
+      // Bewegung nach vorn: Nachbarn im Intervall [clamped, from) um +1, absteigend.
+      for (int idx = column.size() - 1; idx >= 0; idx--) {
+        final KanbanItem other = column.get(idx);
+        final int pos = other.position();
+        if (!moved.id().equals(other.id()) && pos >= clamped && pos < from) {
+          items.updatePosition(other.id(), pos + 1);
+        }
       }
     }
     return clamped;
   }
 
-  /** Quell-Spalte: Items mit position > entfernt um 1 dekrementieren. */
-  private void reindexAfterRemoval(String userSub, KanbanColumn column, int removedPosition) {
-    final List<KanbanItem> column_ = items.findByUserAndColumn(userSub, column);
-    for (final KanbanItem other : column_) {
-      if (other.position() > removedPosition) {
-        items.updatePosition(other.id(), other.position() - 1);
-      }
-    }
-  }
-
   /**
-   * Ziel-Spalte: Items mit position >= um 1 inkrementieren. Liefert die geclampte Ziel-Position
-   * (zwischen 0 und size, inklusive — Insert ans Ende ist erlaubt).
+   * Zielspalte für ein Cross-Column-Insert vorbereiten: Items ab der (geclampten) Zielposition um
+   * eins nach hinten, absteigend — so bleibt jeder Zwischenschritt kollisionsfrei. Liefert die
+   * geclampte Zielposition (0..size, Insert ans Ende erlaubt).
    */
-  private int reindexBeforeInsertion(String userSub, KanbanColumn column, int targetPosition) {
-    final List<KanbanItem> column_ = items.findByUserAndColumn(userSub, column);
-    final int clamped = Math.max(0, Math.min(targetPosition, column_.size()));
-    for (final KanbanItem other : column_) {
+  private int shiftTargetForInsertion(String userSub, KanbanColumn column, int targetPosition) {
+    final List<KanbanItem> target = items.findByUserAndColumn(userSub, column);
+    final int clamped = Math.max(0, Math.min(targetPosition, target.size()));
+    for (int idx = target.size() - 1; idx >= 0; idx--) {
+      final KanbanItem other = target.get(idx);
       if (other.position() >= clamped) {
         items.updatePosition(other.id(), other.position() + 1);
       }
     }
     return clamped;
+  }
+
+  /**
+   * Quellspalte nach dem Entfernen kompaktieren: Items mit position > entfernt um -1, aufsteigend.
+   */
+  private void closeGap(String userSub, KanbanColumn column, int removedPosition) {
+    for (final KanbanItem other : items.findByUserAndColumn(userSub, column)) {
+      if (other.position() > removedPosition) {
+        items.updatePosition(other.id(), other.position() - 1);
+      }
+    }
   }
 }

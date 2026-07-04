@@ -295,13 +295,12 @@ class KanbanUseCasesTest {
         new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.BACKLOG, 2);
 
     assertThat(moved.position()).isEqualTo(2);
+    // Kollisionsfreie Reihenfolge (#309): a zuerst temporär ans freie Spaltenende (Position 4),
+    // dann rutschen die Nachbarn im Intervall (0, 2] aufsteigend um -1.
+    verify(items).updatePosition(1L, 4); // a temporär ans Ende
     verify(items).updatePosition(2L, 0); // b: 1 -> 0
     verify(items).updatePosition(3L, 1); // c: 2 -> 1
-    verify(items, never()).updatePosition(4L, 2); // d bleibt
-    // Das verschobene Item selbst (a, position 0) darf NIE reindexiert werden — killt den
-    // Grenzwert-Mutanten `position > fromPosition` -> `>=` (#203).
-    verify(items, never())
-        .updatePosition(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.anyInt());
+    verify(items, never()).updatePosition(4L, 2); // d (pos 3) außerhalb (0,2] — bleibt
   }
 
   @Test
@@ -318,12 +317,59 @@ class KanbanUseCasesTest {
 
     new MoveItemUseCase(items, clock).execute(SUB_OWNER, 4L, KanbanColumn.BACKLOG, 1);
 
-    verify(items).updatePosition(2L, 2); // b: 1 -> 2
+    // Kollisionsfreie Reihenfolge (#309): d zuerst temporär ans freie Spaltenende (Position 4),
+    // dann rutschen die Nachbarn im Intervall [1, 3) absteigend um +1.
+    verify(items).updatePosition(4L, 4); // d temporär ans Ende
     verify(items).updatePosition(3L, 3); // c: 2 -> 3
-    // Das verschobene Item selbst (d, position 3) darf NIE reindexiert werden — killt den
-    // Grenzwert-Mutanten `position < fromPosition` -> `<=` (#203).
-    verify(items, never())
-        .updatePosition(org.mockito.ArgumentMatchers.eq(4L), org.mockito.ArgumentMatchers.anyInt());
+    verify(items).updatePosition(2L, 2); // b: 1 -> 2
+    verify(items, never()).updatePosition(1L, 1); // a (pos 0) außerhalb [1,3) — bleibt
+  }
+
+  @Test
+  void moveSameColumnDownLeavesItemsBeforeSourceUntouched() {
+    // BACKLOG: a(0), b(1), c(2), d(3) → Move b nach 3. a liegt VOR der Quellposition (pos < from)
+    // und darf nicht verschoben werden — deckt den Grenzzweig `pos > from` == false ab (#309).
+    final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem c = item(3, SUB_OWNER, KanbanColumn.BACKLOG, 2);
+    final KanbanItem d = item(4, SUB_OWNER, KanbanColumn.BACKLOG, 3);
+    given(items.findById(2L)).willReturn(Optional.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
+        .willReturn(List.of(a, b, c, d));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 2L, KanbanColumn.BACKLOG, 3);
+
+    assertThat(moved.position()).isEqualTo(3);
+    verify(items).updatePosition(2L, 4); // b temporär ans Ende
+    verify(items).updatePosition(3L, 1); // c: 2 -> 1
+    verify(items).updatePosition(4L, 2); // d: 3 -> 2
+    verify(items, never()).updatePosition(1L, 0); // a (pos 0 < from 1) bleibt unberührt
+  }
+
+  @Test
+  void moveSameColumnUpLeavesItemsAfterSourceUntouched() {
+    // BACKLOG: a(0), b(1), c(2), d(3) → Move b nach 0. c und d liegen HINTER der Quellposition
+    // (pos >= from) und dürfen nicht verschoben werden — deckt den Grenzzweig `pos < from` == false
+    // ab (#309).
+    final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem c = item(3, SUB_OWNER, KanbanColumn.BACKLOG, 2);
+    final KanbanItem d = item(4, SUB_OWNER, KanbanColumn.BACKLOG, 3);
+    given(items.findById(2L)).willReturn(Optional.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
+        .willReturn(List.of(a, b, c, d));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 2L, KanbanColumn.BACKLOG, 0);
+
+    assertThat(moved.position()).isEqualTo(0);
+    verify(items).updatePosition(2L, 4); // b temporär ans Ende
+    verify(items).updatePosition(1L, 1); // a: 0 -> 1
+    verify(items, never()).updatePosition(3L, 3); // c (pos 2 >= from 1) bleibt
+    verify(items, never()).updatePosition(4L, 4); // d (pos 3 >= from 1) bleibt
   }
 
   @Test

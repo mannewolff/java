@@ -170,6 +170,22 @@ class KanbanItemControllerTest {
   }
 
   @Test
+  void createShouldReturn409OnConcurrentConstraintViolation() throws Exception {
+    // Paralleler Create kollidiert am Unique-Constraint (#309) — der Handler mappt das auf 409
+    // Conflict statt eines intransparenten 500.
+    given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.BACKLOG)))
+        .willThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Neu\",\"body\":\"b\",\"column\":\"BACKLOG\"}"))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
   void createShouldAcceptReadyColumn() throws Exception {
     given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.READY)))
         .willReturn(item(11L, KanbanColumn.READY, 0));

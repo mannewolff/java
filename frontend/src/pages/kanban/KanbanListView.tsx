@@ -54,6 +54,13 @@ function badgeFor(item: KanbanItem): { label: string; colors: StatusColorSet } {
 
 interface Props {
   retentionDays: number;
+  /**
+   * Vom Parent kontrollierter Reload-Trigger (#308): jede Wertänderung erzwingt ein
+   * Neuladen der Liste. Nötig, weil mutierende Aktionen (Neues Item, Archivieren,
+   * Wiederherstellen) im Parent {@link KanbanPage} passieren, dessen Board-State die
+   * Liste nicht teilt. Default 0 hält die Ansicht ohne Parent-Trigger funktionsfähig.
+   */
+  reloadKey?: number;
 }
 
 /**
@@ -62,7 +69,7 @@ interface Props {
  * Excerpt-Spalte. Selbstständig — lädt eigene Daten und besitzt eine eigene
  * {@link KanbanDetailModal}-Instanz; nur eine Ansicht (Board oder Liste) ist gleichzeitig sichtbar.
  */
-export default function KanbanListView({ retentionDays }: Props): JSX.Element {
+export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props): JSX.Element {
   const notify = useNotify();
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(
     () => new Set<FilterKey>(KANBAN_COLUMNS),
@@ -97,7 +104,7 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [archiveActive, reloadNonce]);
+  }, [archiveActive, reloadNonce, reloadKey]);
 
   function toggleFilter(key: FilterKey): void {
     setActiveFilters((prev) => {

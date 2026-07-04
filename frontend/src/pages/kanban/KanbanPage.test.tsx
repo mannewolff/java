@@ -36,9 +36,12 @@ vi.mock('../../auth/useAuth', () => ({
   }),
 }));
 
-// Listenansicht wird als Stub gemockt — hier testen wir nur den View-Toggle, nicht die Liste.
+// Listenansicht wird als Stub gemockt — hier testen wir nur den View-Toggle und dass der
+// Parent den Reload-Trigger (#308) an die Liste durchreicht, nicht die Liste selbst.
 vi.mock('./KanbanListView', () => ({
-  default: () => <div data-testid="list-view-stub">ListView-Stub</div>,
+  default: ({ reloadKey }: { reloadKey?: number }) => (
+    <div data-testid="list-view-stub">ListView-Stub reloadKey={reloadKey}</div>
+  ),
 }));
 
 function installMemoryLocalStorage(): void {
@@ -366,5 +369,31 @@ describe('KanbanPage', () => {
     renderPage();
 
     expect(await screen.findByTestId('list-view-stub')).toBeInTheDocument();
+  });
+
+  it('erhöht den reloadKey der Liste nach dem Anlegen im Listen-Modus (#308)', async () => {
+    localStorage.setItem('kanban.view', 'list');
+    list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
+    create.mockResolvedValueOnce(makeItem({ id: 7, title: 'Neu' }));
+
+    renderPage();
+
+    const stub = await screen.findByTestId('list-view-stub');
+    expect(stub).toHaveTextContent('reloadKey=0');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Neues Item' }));
+    const titleInput = await screen.findByLabelText('Titel');
+    await user.type(titleInput, 'Neu');
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    // Body-Template ist hier nebensächlich — der Test prüft den Reload-Trigger.
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith('Neu', expect.any(String), 'BACKLOG'),
+    );
+    // Der an die Liste durchgereichte reloadKey ist gestiegen — die Liste lädt neu.
+    await waitFor(() =>
+      expect(screen.getByTestId('list-view-stub')).toHaveTextContent('reloadKey=1'),
+    );
   });
 });

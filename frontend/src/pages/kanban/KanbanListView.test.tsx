@@ -296,4 +296,50 @@ describe('KanbanListView', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Detail-Stub' })).not.toBeInTheDocument();
   });
+
+  it('lädt neu, wenn der reloadKey-Prop sich ändert (#308)', async () => {
+    // Anfangs leer — die Liste zeigt "Keine Items".
+    listItems.mockResolvedValueOnce(boardOf());
+    const { rerender } = render(
+      <NotifyProvider>
+        <KanbanListView retentionDays={5} reloadKey={0} />
+      </NotifyProvider>,
+    );
+    expect(await screen.findByText('Keine Items')).toBeInTheDocument();
+    expect(listItems).toHaveBeenCalledTimes(1);
+
+    // Nach einer Parent-Mutation liefert die API ein neues Item; der reloadKey-Wechsel
+    // erzwingt das Neuladen ohne manuellen location.reload().
+    listItems.mockResolvedValueOnce(
+      boardOf({ BACKLOG: [makeItem({ id: 9, number: 9, title: 'Frisch angelegt' })] }),
+    );
+    rerender(
+      <NotifyProvider>
+        <KanbanListView retentionDays={5} reloadKey={1} />
+      </NotifyProvider>,
+    );
+
+    expect(await screen.findByText('Frisch angelegt')).toBeInTheDocument();
+    expect(listItems).toHaveBeenCalledTimes(2);
+  });
+
+  it('lädt NICHT neu, wenn der reloadKey-Prop unverändert bleibt (keine Endlosschleife)', async () => {
+    listItems.mockResolvedValue(boardOf());
+    const { rerender } = render(
+      <NotifyProvider>
+        <KanbanListView retentionDays={5} reloadKey={3} />
+      </NotifyProvider>,
+    );
+    await screen.findByText('Keine Items');
+    expect(listItems).toHaveBeenCalledTimes(1);
+
+    // Re-Render mit identischem reloadKey (z. B. anderer Parent-State) darf nicht nachladen.
+    rerender(
+      <NotifyProvider>
+        <KanbanListView retentionDays={7} reloadKey={3} />
+      </NotifyProvider>,
+    );
+    await Promise.resolve();
+    expect(listItems).toHaveBeenCalledTimes(1);
+  });
 });

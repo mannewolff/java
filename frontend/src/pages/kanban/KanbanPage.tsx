@@ -97,6 +97,9 @@ export default function KanbanPage(): JSX.Element {
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [view, setView] = useState<KanbanView>(loadView);
+  // Reload-Trigger für die Listenansicht (#308): die Liste besitzt eigenen Daten-State,
+  // den reload() (Board) nicht erreicht. Jede Mutation inkrementiert diesen Key.
+  const [listReloadKey, setListReloadKey] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -118,6 +121,13 @@ export default function KanbanPage(): JSX.Element {
       });
     }
   }, []);
+
+  // Aktualisiert beide Ansichten nach einer Mutation: Board-State neu laden und den
+  // Listen-Reload-Key hochzählen, damit die selbstständige Liste (#308) nachzieht.
+  const refresh = useCallback(async (): Promise<void> => {
+    setListReloadKey((k) => k + 1);
+    await reload();
+  }, [reload]);
 
   // Retention-Setting wird in beiden Ansichten gebraucht (Board-Countdown + Listen-Modal).
   useEffect(() => {
@@ -161,7 +171,7 @@ export default function KanbanPage(): JSX.Element {
       await updateKanbanItem(detailItem.id, title, body);
       notify.success('Item gespeichert.');
       setDetailItem(null);
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -173,7 +183,7 @@ export default function KanbanPage(): JSX.Element {
       await createKanbanItem(title, body, createColumn);
       notify.success('Item angelegt.');
       setCreateColumn(null);
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
@@ -186,7 +196,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await archiveKanbanItem(target.id);
       notify.success('Item archiviert.');
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Archivieren fehlgeschlagen.');
     }
@@ -196,7 +206,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await restoreKanbanItem(item.id);
       notify.success('Item wiederhergestellt.');
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Wiederherstellen fehlgeschlagen.');
     }
@@ -209,7 +219,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await forceDeleteKanbanItem(target.id);
       notify.success('Item endgültig gelöscht.');
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
     }
@@ -351,7 +361,11 @@ export default function KanbanPage(): JSX.Element {
         </Stack>
       </Stack>
 
-      {view === 'list' ? <KanbanListView retentionDays={retentionDays} /> : boardBody}
+      {view === 'list' ? (
+        <KanbanListView retentionDays={retentionDays} reloadKey={listReloadKey} />
+      ) : (
+        boardBody
+      )}
 
       <KanbanNewItemModal
         open={createColumn != null}

@@ -90,22 +90,32 @@ class ImageTooLargeError(Exception):
 
 
 def _open_image(data: bytes):  # type: ignore[no-untyped-def]
-    """Oeffnet Bild-Bytes mit Pillow und erzwingt das Pixel-Limit (#264).
+    """Oeffnet Bild-Bytes mit Pillow und erzwingt das Pixel-Limit (#264, #307).
 
     `Image.open` liest nur den Header (kein Vollbild-Dekodieren), daher ist der
-    Groessen-Check guenstig und greift, bevor Speicher fuer das Bild alloziert wird.
-    Setzt zusaetzlich Pillows globalen MAX_IMAGE_PIXELS-Guard als zweite Verteidigungslinie.
+    Groessen-Check guenstig und greift, bevor Speicher fuer das Bild alloziert wird. Der
+    explizite Check ist die primaere Verteidigung und liefert ein sauberes 4xx.
+
+    Pillows globaler `Image.MAX_IMAGE_PIXELS`-Guard wird NICHT prozessweit angetastet
+    (#307): frueher setzte diese Funktion ihn auf `None` und deaktivierte damit den
+    Bomb-Schutz fuer den gesamten Prozess. Er bleibt als zweite Verteidigungslinie fuer
+    Codepfade erhalten, die nicht durch diese Funktion laufen.
     """
     from PIL import Image  # local import: keeps Pillow out of test imports when patched
 
-    # Pillows eigenen (globalen, hohen) Guard abschalten und stattdessen unser explizites
-    # Limit deterministisch pruefen — so ist die Reaktion immer ein sauberes 4xx statt
-    # einer DecompressionBombError/Warning mit uneinheitlichem Verhalten.
-    Image.MAX_IMAGE_PIXELS = None
     img = Image.open(io.BytesIO(data))
     if img.size[0] * img.size[1] > MAX_IMAGE_PIXELS_LIMIT:
         raise ImageTooLargeError(f"{img.size[0]}x{img.size[1]} exceeds pixel limit")
     return img
+
+
+def _reject_oversized_image(data: bytes) -> None:
+    """Header-basierter Pixel-Check fuer Endpunkte ohne eigenes `_open_image` (#307).
+
+    `/palette` (via ColorThief) und `/remove-bg` (via rembg) oeffnen das Bild selbst.
+    Wirft `ImageTooLargeError`, bevor die schwere Dekodierung/Verarbeitung startet.
+    """
+    _open_image(data)
 
 
 def _block_external_resources(url: str, *args: object, **kwargs: object) -> bytes:
@@ -342,9 +352,15 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
     contents = await _read_and_validate(file)
 
     try:
+        # Pixel-Limit vor der schweren rembg-Dekodierung pruefen (#307): rembg oeffnet
+        # das Bild selbst, laeuft also nicht durch _open_image.
+        _reject_oversized_image(contents)
         # CPU-intensiv (rembg): im Threadpool ausfuehren, damit der Event-Loop und
         # damit /health waehrend der Verarbeitung responsiv bleiben (#306).
         result = await anyio.to_thread.run_sync(_remove_background, contents)
+    except ImageTooLargeError as exc:
+        logger.warning("remove-bg rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any rembg failure
         logger.error("rembg failed", exc_info=True)
         raise HTTPException(status_code=500, detail="background removal failed") from exc
@@ -432,8 +448,14 @@ async def palette(
     contents = await _read_and_validate(file)
 
     try:
+        # Pixel-Limit vor der ColorThief-Dekodierung pruefen (#307): ColorThief oeffnet
+        # das Bild selbst, laeuft also nicht durch _open_image.
+        _reject_oversized_image(contents)
         # CPU-intensiv (colorthief): im Threadpool, Event-Loop bleibt frei (#306).
         colors = await anyio.to_thread.run_sync(partial(_extract_palette, contents, count=count))
+    except ImageTooLargeError as exc:
+        logger.warning("palette rejected oversized image")
+        raise HTTPException(status_code=422, detail="image too large") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any colorthief failure
         logger.error("palette failed", exc_info=True)
         raise HTTPException(status_code=500, detail="palette extraction failed") from exc

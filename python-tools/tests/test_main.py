@@ -69,11 +69,12 @@ def test_remove_bg_happy_path_returns_png(client: TestClient) -> None:
 
 
 def test_remove_bg_accepts_jpeg(client: TestClient) -> None:
-    # When
+    # When — echtes Mini-JPEG: der Pixel-Check (#307) öffnet das Bild, Fake-Bytes genügen nicht.
+    upload = _solid_image_bytes(4, 4, fmt="JPEG")
     with patch.object(main, "_remove_background", return_value=b"png"):
         response = client.post(
             "/remove-bg",
-            files={"file": ("input.jpg", io.BytesIO(b"\xff\xd8\xff\xe0"), "image/jpeg")},
+            files={"file": ("input.jpg", io.BytesIO(upload), "image/jpeg")},
         )
 
     # Then
@@ -81,11 +82,12 @@ def test_remove_bg_accepts_jpeg(client: TestClient) -> None:
 
 
 def test_remove_bg_accepts_webp(client: TestClient) -> None:
-    # When
+    # When — echtes Mini-WebP: der Pixel-Check (#307) öffnet das Bild, Fake-Bytes genügen nicht.
+    upload = _solid_image_bytes(4, 4, fmt="WEBP")
     with patch.object(main, "_remove_background", return_value=b"png"):
         response = client.post(
             "/remove-bg",
-            files={"file": ("input.webp", io.BytesIO(b"RIFF"), "image/webp")},
+            files={"file": ("input.webp", io.BytesIO(upload), "image/webp")},
         )
 
     # Then
@@ -1236,6 +1238,52 @@ def test_raster_to_png_returns_422_for_oversized(
     )
     assert response.status_code == 422
     assert response.json()["detail"] == "image too large"
+
+
+def test_palette_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#307: /palette lehnt übergroße Bilder mit 422 ab, bevor ColorThief dekodiert."""
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/palette",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+def test_remove_bg_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#307: /remove-bg lehnt übergroße Bilder mit 422 ab, bevor rembg dekodiert."""
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    with patch.object(main, "_remove_background") as remove:
+        response = client.post(
+            "/remove-bg",
+            files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+    # Der Pixel-Check greift vor der schweren Dekodierung — rembg wird nie aufgerufen.
+    remove.assert_not_called()
+
+
+def test_crop_keeps_global_pixel_guard_enabled(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#307-Regression: ein crop-Aufruf deaktiviert Pillows globalen Guard nicht prozessweit."""
+    from PIL import Image
+
+    guard_value = 10_000_000
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", guard_value)
+    response = client.post(
+        "/crop",
+        files={"file": ("ok.png", io.BytesIO(_solid_image_bytes(40, 30)), "image/png")},
+    )
+    assert response.status_code == 200
+    # Vor dem Fix setzte _open_image dies prozessweit auf None.
+    assert guard_value == Image.MAX_IMAGE_PIXELS
 
 
 # ---------------------------------------------------------------------------

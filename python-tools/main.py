@@ -16,9 +16,11 @@ from __future__ import annotations
 import io
 import logging
 import os
+import secrets
 from functools import partial
 from typing import Annotated
 
+import anyio
 import anyio.to_thread
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -35,8 +37,12 @@ INTERNAL_KEY_HEADER: str = "X-Internal-Key"
 def require_internal_key(
     x_internal_key: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Lehnt Requests ohne gueltigen X-Internal-Key mit 401 ab (Default leer = deny)."""
-    if not INTERNAL_API_KEY or x_internal_key != INTERNAL_API_KEY:
+    """Lehnt Requests ohne gueltigen X-Internal-Key mit 401 ab (Default leer = deny).
+
+    Konstantzeit-Vergleich (#313): `secrets.compare_digest` verhindert, dass die
+    Vergleichsdauer Rueckschluesse auf ein korrektes Praefix des Keys erlaubt.
+    """
+    if not INTERNAL_API_KEY or not secrets.compare_digest(x_internal_key or "", INTERNAL_API_KEY):
         raise HTTPException(status_code=401, detail="invalid internal key")
 
 
@@ -51,6 +57,12 @@ MAX_MARKDOWN_BYTES: int = 1 * 1024 * 1024
 # (z. B. 8000x6000) ab, blockt aber stark komprimierte Riesen-Bilder, die unter MAX_BYTES
 # passen, beim Dekodieren aber den Speicher sprengen wuerden.
 MAX_IMAGE_PIXELS_LIMIT: int = 50_000_000
+# Timeout fuer die schwere Verarbeitung (rembg, weasyprint) — #313: pathologische Eingaben
+# koennen die Layout-/ML-Engine minutenlang beschaeftigen. Nach Ablauf antwortet der Endpunkt
+# mit 503; der Worker-Thread wird abandoned (Python kann CPU-gebundene Threads nicht hart killen).
+HEAVY_PROCESSING_TIMEOUT_SECONDS: float = float(
+    os.environ.get("HEAVY_PROCESSING_TIMEOUT_SECONDS", "60")
+)
 
 OG_DEFAULT_WIDTH: int = 1200
 OG_DEFAULT_HEIGHT: int = 630
@@ -89,6 +101,10 @@ class ImageTooLargeError(Exception):
     """Bild ueberschreitet das Pixel-Limit (Decompression-Bomb-Schutz, #264)."""
 
 
+class InvalidImageError(Exception):
+    """Bytes sind kein dekodierbares Bild (falscher/umbenannter Datei-Inhalt, #313)."""
+
+
 def _open_image(data: bytes):  # type: ignore[no-untyped-def]
     """Oeffnet Bild-Bytes mit Pillow und erzwingt das Pixel-Limit (#264, #307).
 
@@ -101,9 +117,14 @@ def _open_image(data: bytes):  # type: ignore[no-untyped-def]
     Bomb-Schutz fuer den gesamten Prozess. Er bleibt als zweite Verteidigungslinie fuer
     Codepfade erhalten, die nicht durch diese Funktion laufen.
     """
-    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+    # local import: keeps Pillow out of test imports when patched
+    from PIL import Image, UnidentifiedImageError
 
-    img = Image.open(io.BytesIO(data))
+    try:
+        img = Image.open(io.BytesIO(data))
+    except (UnidentifiedImageError, OSError) as exc:
+        # Falscher/umbenannter Datei-Inhalt (z. B. Text als .png): sauberes 4xx statt 500 (#313).
+        raise InvalidImageError("not a decodable image") from exc
     if img.size[0] * img.size[1] > MAX_IMAGE_PIXELS_LIMIT:
         raise ImageTooLargeError(f"{img.size[0]}x{img.size[1]} exceeds pixel limit")
     return img
@@ -192,9 +213,12 @@ def _crop_to_og(
     format: str = "jpeg",
 ) -> bytes:
     """Cover-fit crop auf width x height; format 'jpeg' oder 'png'."""
-    from PIL import Image  # local import: tests fuer andere Endpoints brauchen kein Pillow
+    from PIL import Image, ImageOps  # local import: Pillow-frei fuer andere Tests
 
     src = _open_image(data)
+    # EXIF-Orientierung anwenden (#313), bevor die Geometrie berechnet wird — sonst schneidet
+    # der Crop bei Hochkant-Smartphone-JPEGs die falsche Achse.
+    src = ImageOps.exif_transpose(src)
     src = src.convert("RGBA" if format == "png" else "RGB")
     src_w, src_h = src.size
 
@@ -230,10 +254,12 @@ def _resize(
     data: bytes, width: int, height: int, output_format: str, quality: int
 ) -> tuple[bytes, str]:
     """Skaliert das Bild auf (width, height) per LANCZOS. Returnt (bytes, media_type)."""
-    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+    from PIL import Image, ImageOps  # local import: Pillow-frei fuer andere Tests
 
     src = _open_image(data)
+    # .format vor exif_transpose lesen — das Transpose liefert ein neues Bild ohne format (#313).
     source_format = (src.format or "PNG").upper()
+    src = ImageOps.exif_transpose(src)
 
     if output_format == "auto":
         out_format = source_format if source_format in FORMAT_TO_MEDIA else "PNG"
@@ -271,6 +297,11 @@ async def _read_validated(file: UploadFile, allowed: frozenset[str]) -> bytes:
             status_code=415,
             detail=f"Unsupported content type: {file.content_type}",
         )
+    # Content-Length vorab prüfen (#313): lehnt überlange Uploads ab, BEVOR der komplette
+    # Body in den RAM geladen wird. Starlette befüllt file.size aus dem Content-Length-Header;
+    # ist er nicht gesetzt, greift der len()-Check nach dem Lesen als Fallback.
+    if file.size is not None and file.size > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="File too large")
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -293,9 +324,11 @@ def _raster_to_png(
     - Keine Dimension: Originalgröße beibehalten.
     Palette-Mode (P) wird vor dem Speichern nach RGBA konvertiert.
     """
-    from PIL import Image  # local import: keeps Pillow out of test imports when patched
+    from PIL import Image, ImageOps  # local import: keeps Pillow out of test imports when patched
 
     img = _open_image(data)
+    # EXIF-Orientierung anwenden, bevor skaliert wird (#313).
+    img = ImageOps.exif_transpose(img)
 
     if width is not None and height is not None:
         img = img.resize((width, height), Image.LANCZOS)
@@ -356,11 +389,20 @@ async def remove_bg(file: Annotated[UploadFile, File()]) -> Response:
         # das Bild selbst, laeuft also nicht durch _open_image.
         _reject_oversized_image(contents)
         # CPU-intensiv (rembg): im Threadpool ausfuehren, damit der Event-Loop und
-        # damit /health waehrend der Verarbeitung responsiv bleiben (#306).
-        result = await anyio.to_thread.run_sync(_remove_background, contents)
+        # damit /health waehrend der Verarbeitung responsiv bleiben (#306). Timeout (#313).
+        with anyio.fail_after(HEAVY_PROCESSING_TIMEOUT_SECONDS):
+            result = await anyio.to_thread.run_sync(
+                _remove_background, contents, abandon_on_cancel=True
+            )
     except ImageTooLargeError as exc:
         logger.warning("remove-bg rejected oversized image")
         raise HTTPException(status_code=422, detail="image too large") from exc
+    except InvalidImageError as exc:
+        logger.warning("remove-bg rejected undecodable image")
+        raise HTTPException(status_code=422, detail="invalid image") from exc
+    except TimeoutError as exc:
+        logger.warning("remove-bg timed out")
+        raise HTTPException(status_code=503, detail="processing timed out") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any rembg failure
         logger.error("rembg failed", exc_info=True)
         raise HTTPException(status_code=500, detail="background removal failed") from exc
@@ -398,6 +440,9 @@ async def crop(
     except ImageTooLargeError as exc:
         logger.warning("crop rejected oversized image")
         raise HTTPException(status_code=422, detail="image too large") from exc
+    except InvalidImageError as exc:
+        logger.warning("crop rejected undecodable image")
+        raise HTTPException(status_code=422, detail="invalid image") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("crop failed", exc_info=True)
         raise HTTPException(status_code=500, detail="crop failed") from exc
@@ -432,6 +477,9 @@ async def resize(
     except ImageTooLargeError as exc:
         logger.warning("resize rejected oversized image")
         raise HTTPException(status_code=422, detail="image too large") from exc
+    except InvalidImageError as exc:
+        logger.warning("resize rejected undecodable image")
+        raise HTTPException(status_code=422, detail="invalid image") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("resize failed", exc_info=True)
         raise HTTPException(status_code=500, detail="resize failed") from exc
@@ -456,6 +504,9 @@ async def palette(
     except ImageTooLargeError as exc:
         logger.warning("palette rejected oversized image")
         raise HTTPException(status_code=422, detail="image too large") from exc
+    except InvalidImageError as exc:
+        logger.warning("palette rejected undecodable image")
+        raise HTTPException(status_code=422, detail="invalid image") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any colorthief failure
         logger.error("palette failed", exc_info=True)
         raise HTTPException(status_code=500, detail="palette extraction failed") from exc
@@ -513,6 +564,9 @@ async def raster_to_png(
     except ImageTooLargeError as exc:
         logger.warning("raster-to-png rejected oversized image")
         raise HTTPException(status_code=422, detail="image too large") from exc
+    except InvalidImageError as exc:
+        logger.warning("raster-to-png rejected undecodable image")
+        raise HTTPException(status_code=422, detail="invalid image") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any Pillow failure
         logger.error("raster-to-png failed", exc_info=True)
         raise HTTPException(status_code=500, detail="raster conversion failed") from exc
@@ -530,13 +584,18 @@ async def md_to_pdf(markdown: Annotated[str, Form()]) -> Response:
         raise HTTPException(status_code=413, detail="Markdown too large")
 
     try:
-        # CPU-/IO-intensiv (weasyprint): im Threadpool, Event-Loop bleibt frei (#306).
-        pdf = await anyio.to_thread.run_sync(_md_to_pdf, text)
+        # CPU-/IO-intensiv (weasyprint): im Threadpool, Event-Loop bleibt frei (#306). Timeout
+        # gegen pathologisch verschachteltes Markdown, das die Layout-Engine lahmlegt (#313).
+        with anyio.fail_after(HEAVY_PROCESSING_TIMEOUT_SECONDS):
+            pdf = await anyio.to_thread.run_sync(_md_to_pdf, text, abandon_on_cancel=True)
     except ExternalResourceError as exc:
         logger.warning("md-to-pdf blocked external resource")
         raise HTTPException(
             status_code=422, detail="markdown references external resources"
         ) from exc
+    except TimeoutError as exc:
+        logger.warning("md-to-pdf timed out")
+        raise HTTPException(status_code=503, detail="processing timed out") from exc
     except Exception as exc:  # noqa: BLE001 — Wrap any weasyprint/markdown failure
         logger.error("md-to-pdf failed", exc_info=True)
         raise HTTPException(status_code=500, detail="markdown conversion failed") from exc

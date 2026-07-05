@@ -50,6 +50,15 @@ DRY_RUN=1
 
 log() { echo "[$([[ $DRY_RUN -eq 1 ]] && echo DRY-RUN || echo APPLY)] $*"; }
 
+# Ohne dies stirbt das Script bei einem fehlschlagenden `curl -sf` (z. B. HTTP 401, wenn das
+# Admin-Token nach 60 s zwischen zwei Schritten ablaeuft) wegen `set -e` WORTLOS — die eigenen
+# FEHLER-Meldungen weiter unten werden nie erreicht (#314). Der ERR-Trap gibt stattdessen einen
+# verstaendlichen Hinweis aus, bevor `set -e` das Script beendet.
+trap 'rc=$?; echo "FEHLER: Ein Keycloak-API-Aufruf ist fehlgeschlagen (Exit $rc, Zeile $LINENO)." >&2;
+      echo "       Haeufigste Ursache: das Admin-Token ist abgelaufen (Lebensdauer 60 s) oder die" >&2;
+      echo "       URL/Zugangsdaten stimmen nicht. Das Script ist idempotent — einfach erneut" >&2;
+      echo "       ausfuehren." >&2' ERR
+
 # ---------- Admin-Token -------------------------------------------------------
 
 ADMIN_TOKEN=$(curl -sf -d "client_id=admin-cli" -d "username=$KEYCLOAK_ADMIN" \

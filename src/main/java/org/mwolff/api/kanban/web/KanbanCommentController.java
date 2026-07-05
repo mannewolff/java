@@ -26,8 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * REST-Adapter für Kanban-Kommentare. Geschützt durch {@code
- * SecurityConfig#requestMatchers("/api/kanban/**").hasRole("USER")}. Item-Eigentum prüfen die
- * Use-Cases via JWT-{@code sub}; der Autor eines Kommentars ist der {@code preferred_username}.
+ * SecurityConfig#requestMatchers("/api/kanban/**").hasRole("USER")}. Item- und Kommentar-Eigentum
+ * prüfen die Use-Cases über den stabilen JWT-{@code sub}. Der {@code preferred_username} dient nur
+ * als Anzeigename (Fallback: {@code sub}, falls der Claim fehlt — z. B. Service-Account).
  */
 @RestController
 @RequestMapping("/api/kanban/items/{itemId}/comments")
@@ -76,8 +77,7 @@ public class KanbanCommentController {
       @PathVariable @Min(1) long commentId,
       @Valid @RequestBody KanbanCommentRequest body) {
     return KanbanCommentResponse.from(
-        updateUseCase.execute(
-            auth.getToken().getSubject(), author(auth), itemId, commentId, body.body()));
+        updateUseCase.execute(auth.getToken().getSubject(), itemId, commentId, body.body()));
   }
 
   @DeleteMapping("/{commentId}")
@@ -85,11 +85,20 @@ public class KanbanCommentController {
       JwtAuthenticationToken auth,
       @PathVariable @Min(1) long itemId,
       @PathVariable @Min(1) long commentId) {
-    deleteUseCase.execute(auth.getToken().getSubject(), author(auth), itemId, commentId);
+    deleteUseCase.execute(auth.getToken().getSubject(), itemId, commentId);
     return ResponseEntity.noContent().build();
   }
 
+  /**
+   * Anzeigename des Verfassers: {@code preferred_username}, oder — falls dieser Claim fehlt (z. B.
+   * Service-Account-Token) — der stabile {@code sub}. So bleibt der Anzeigename nie {@code null},
+   * was sonst in der Domain zu einer NPE (HTTP 500) führen würde.
+   */
   private static String author(JwtAuthenticationToken auth) {
-    return auth.getToken().getClaimAsString("preferred_username");
+    final String preferredUsername = auth.getToken().getClaimAsString("preferred_username");
+    if (preferredUsername != null && !preferredUsername.isBlank()) {
+      return preferredUsername;
+    }
+    return auth.getToken().getSubject();
   }
 }

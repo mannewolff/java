@@ -93,6 +93,11 @@ class JpaTimeSeriesAdapter implements TimeSeriesPort, TimeSeriesEntryPort {
   }
 
   @Override
+  public boolean hasFractionalValues(long timeSeriesId) {
+    return entryRepo.existsFractionalValue(timeSeriesId);
+  }
+
+  @Override
   public TimeSeriesEntry save(TimeSeriesEntry entry) {
     final TimeSeriesEntryEntity entity =
         new TimeSeriesEntryEntity(entry.timeSeriesId(), entry.timestamp(), entry.value());

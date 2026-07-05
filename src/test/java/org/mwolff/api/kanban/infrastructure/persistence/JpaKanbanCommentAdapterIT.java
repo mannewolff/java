@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Import;
 class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
 
   private static final String USER = "user-a";
+  private static final String SUB = "sub-a";
 
   @Autowired private JpaKanbanCommentAdapter comments;
   @Autowired private JpaKanbanAdapter items;
@@ -43,20 +44,29 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   void saveAndReadComment() {
     final long itemId = createItem();
 
-    final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, "alice", "Hallo"));
+    final KanbanComment saved =
+        comments.save(KanbanComment.newInstance(itemId, SUB, "alice", "Hallo"));
 
     assertThat(saved.id()).isNotNull();
+    assertThat(saved.authorSub()).isEqualTo(SUB);
     assertThat(saved.createdAt()).isNotNull();
     assertThat(saved.updatedAt()).isNotNull();
     assertThat(comments.findById(saved.id()))
-        .hasValueSatisfying(c -> assertThat(c.body()).isEqualTo("Hallo"));
+        .hasValueSatisfying(
+            c -> {
+              assertThat(c.body()).isEqualTo("Hallo");
+              assertThat(c.authorSub()).isEqualTo(SUB);
+              assertThat(c.author()).isEqualTo("alice");
+            });
   }
 
   @Test
   void findByItemNewestFirstOrdersByIdDescTiebreak() {
     final long itemId = createItem();
-    final KanbanComment first = comments.save(KanbanComment.newInstance(itemId, "alice", "erst"));
-    final KanbanComment second = comments.save(KanbanComment.newInstance(itemId, "alice", "zweit"));
+    final KanbanComment first =
+        comments.save(KanbanComment.newInstance(itemId, SUB, "alice", "erst"));
+    final KanbanComment second =
+        comments.save(KanbanComment.newInstance(itemId, SUB, "alice", "zweit"));
 
     assertThat(comments.findByItemNewestFirst(itemId))
         .extracting(KanbanComment::id)
@@ -67,8 +77,8 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   void findByItemNewestFirstFiltersByItem() {
     final long itemA = createItem();
     final long itemB = createItem();
-    comments.save(KanbanComment.newInstance(itemA, "alice", "A"));
-    comments.save(KanbanComment.newInstance(itemB, "alice", "B"));
+    comments.save(KanbanComment.newInstance(itemA, SUB, "alice", "A"));
+    comments.save(KanbanComment.newInstance(itemB, SUB, "alice", "B"));
 
     assertThat(comments.findByItemNewestFirst(itemA))
         .extracting(KanbanComment::body)
@@ -78,7 +88,8 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   @Test
   void saveExistingUpdatesBody() {
     final long itemId = createItem();
-    final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, "alice", "alt"));
+    final KanbanComment saved =
+        comments.save(KanbanComment.newInstance(itemId, SUB, "alice", "alt"));
 
     final KanbanComment persisted = comments.save(saved.withBody("neu"));
 
@@ -91,7 +102,7 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   @Test
   void deleteByIdRemovesComment() {
     final long itemId = createItem();
-    final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, "alice", "x"));
+    final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, SUB, "alice", "x"));
 
     comments.deleteById(saved.id());
 
@@ -101,7 +112,7 @@ class JpaKanbanCommentAdapterIT extends AbstractIntegrationTest {
   @Test
   void deletingItemCascadesToComments() {
     final long itemId = createItem();
-    final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, "alice", "x"));
+    final KanbanComment saved = comments.save(KanbanComment.newInstance(itemId, SUB, "alice", "x"));
 
     items.deleteById(itemId);
     // DB-seitiges ON DELETE CASCADE ist Hibernate unbekannt: Context leeren, damit der Read

@@ -19,6 +19,7 @@ import org.mwolff.api.timeseries.application.GetTimeSeriesUseCase.TimeSeriesDeta
 import org.mwolff.api.timeseries.application.ListTimeSeriesUseCase.TimeSeriesWithCount;
 import org.mwolff.api.timeseries.domain.TimeSeries;
 import org.mwolff.api.timeseries.domain.TimeSeriesDataType;
+import org.mwolff.api.timeseries.domain.TimeSeriesDataTypeConflictException;
 import org.mwolff.api.timeseries.domain.TimeSeriesEntry;
 import org.mwolff.api.timeseries.domain.TimeSeriesEntryPort;
 import org.mwolff.api.timeseries.domain.TimeSeriesNotFoundException;
@@ -105,7 +106,7 @@ class TimeSeriesUseCasesTest {
     given(timeSeries.save(any())).willAnswer(inv -> inv.getArgument(0));
 
     final TimeSeries result =
-        new UpdateTimeSeriesUseCase(timeSeries)
+        new UpdateTimeSeriesUseCase(timeSeries, entries)
             .execute(SUB_OWNER, 1L, "New", "newDesc", "g", TimeSeriesDataType.INTEGER);
 
     assertThat(result.name()).isEqualTo("New");
@@ -122,7 +123,7 @@ class TimeSeriesUseCasesTest {
 
     assertThatThrownBy(
             () ->
-                new UpdateTimeSeriesUseCase(timeSeries)
+                new UpdateTimeSeriesUseCase(timeSeries, entries)
                     .execute(SUB_OTHER, 1L, "n", null, "kg", TimeSeriesDataType.DECIMAL))
         .isInstanceOf(TimeSeriesNotFoundException.class);
     verify(timeSeries, never()).save(any());
@@ -134,9 +135,63 @@ class TimeSeriesUseCasesTest {
 
     assertThatThrownBy(
             () ->
-                new UpdateTimeSeriesUseCase(timeSeries)
+                new UpdateTimeSeriesUseCase(timeSeries, entries)
                     .execute(SUB_OWNER, 99L, "n", null, "kg", TimeSeriesDataType.DECIMAL))
         .isInstanceOf(TimeSeriesNotFoundException.class);
+  }
+
+  @Test
+  void updateToIntegerRejectedWhenFractionalDataExists() {
+    given(timeSeries.findById(1L))
+        .willReturn(Optional.of(ts(1L, SUB_OWNER, TimeSeriesDataType.DECIMAL)));
+    given(entries.hasFractionalValues(1L)).willReturn(true);
+
+    assertThatThrownBy(
+            () ->
+                new UpdateTimeSeriesUseCase(timeSeries, entries)
+                    .execute(SUB_OWNER, 1L, "n", null, "kg", TimeSeriesDataType.INTEGER))
+        .isInstanceOf(TimeSeriesDataTypeConflictException.class);
+    verify(timeSeries, never()).save(any());
+  }
+
+  @Test
+  void updateToIntegerAllowedWhenNoFractionalData() {
+    given(timeSeries.findById(1L))
+        .willReturn(Optional.of(ts(1L, SUB_OWNER, TimeSeriesDataType.DECIMAL)));
+    given(entries.hasFractionalValues(1L)).willReturn(false);
+    given(timeSeries.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final TimeSeries result =
+        new UpdateTimeSeriesUseCase(timeSeries, entries)
+            .execute(SUB_OWNER, 1L, "n", null, "kg", TimeSeriesDataType.INTEGER);
+
+    assertThat(result.dataType()).isEqualTo(TimeSeriesDataType.INTEGER);
+  }
+
+  @Test
+  void updateStayingIntegerDoesNotCheckExistingValues() {
+    // Kein Wechsel (bereits INTEGER → INTEGER) → keine Bestandsprüfung nötig.
+    given(timeSeries.findById(1L))
+        .willReturn(Optional.of(ts(1L, SUB_OWNER, TimeSeriesDataType.INTEGER)));
+    given(timeSeries.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    new UpdateTimeSeriesUseCase(timeSeries, entries)
+        .execute(SUB_OWNER, 1L, "n", null, "kg", TimeSeriesDataType.INTEGER);
+
+    verify(entries, never()).hasFractionalValues(anyLong());
+  }
+
+  @Test
+  void updateToDecimalDoesNotCheckExistingValues() {
+    // Kein Wechsel auf INTEGER → keine Bestandsprüfung nötig (Nachkommawerte bleiben erlaubt).
+    given(timeSeries.findById(1L))
+        .willReturn(Optional.of(ts(1L, SUB_OWNER, TimeSeriesDataType.INTEGER)));
+    given(timeSeries.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    new UpdateTimeSeriesUseCase(timeSeries, entries)
+        .execute(SUB_OWNER, 1L, "n", null, "kg", TimeSeriesDataType.DECIMAL);
+
+    verify(entries, never()).hasFractionalValues(anyLong());
   }
 
   // ----- delete -------------------------------------------------------------

@@ -25,7 +25,7 @@ public class DeleteCommentUseCase {
   }
 
   @Transactional
-  public void execute(String userSub, String author, long itemId, long commentId) {
+  public void execute(String userSub, long itemId, long commentId) {
     items
         .findById(itemId)
         .filter(i -> i.userSub().equals(userSub))
@@ -35,7 +35,7 @@ public class DeleteCommentUseCase {
             .findById(commentId)
             .filter(c -> c.itemId() == itemId)
             .orElseThrow(() -> new KanbanCommentNotFoundException(commentId));
-    if (!existing.author().equals(author)) {
+    if (!existing.isOwnedBy(userSub)) {
       throw new KanbanCommentForbiddenException(commentId);
     }
     comments.deleteById(commentId);

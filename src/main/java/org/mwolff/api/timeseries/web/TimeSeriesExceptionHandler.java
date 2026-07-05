@@ -1,5 +1,6 @@
 package org.mwolff.api.timeseries.web;
 
+import org.mwolff.api.timeseries.domain.TimeSeriesDataTypeConflictException;
 import org.mwolff.api.timeseries.domain.TimeSeriesNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,5 +22,10 @@ public class TimeSeriesExceptionHandler {
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException ex) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+  }
+
+  @ExceptionHandler(TimeSeriesDataTypeConflictException.class)
+  public ResponseEntity<String> handleDataTypeConflict(TimeSeriesDataTypeConflictException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
   }
 }

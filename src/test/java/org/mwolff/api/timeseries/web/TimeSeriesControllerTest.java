@@ -37,6 +37,7 @@ import org.mwolff.api.timeseries.domain.AggregateBucket;
 import org.mwolff.api.timeseries.domain.Granularity;
 import org.mwolff.api.timeseries.domain.TimeSeries;
 import org.mwolff.api.timeseries.domain.TimeSeriesDataType;
+import org.mwolff.api.timeseries.domain.TimeSeriesDataTypeConflictException;
 import org.mwolff.api.timeseries.domain.TimeSeriesEntry;
 import org.mwolff.api.timeseries.domain.TimeSeriesNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -211,6 +212,21 @@ class TimeSeriesControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"x\",\"unit\":\"g\",\"dataType\":\"INTEGER\"}"))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void updateShouldReturn409OnIncompatibleDataTypeSwitch() throws Exception {
+    willThrow(new TimeSeriesDataTypeConflictException(1L))
+        .given(updateUseCase)
+        .execute(eq(SUB), eq(1L), any(), any(), any(), any());
+
+    mockMvc
+        .perform(
+            put("/api/timeseries/1")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"x\",\"unit\":\"g\",\"dataType\":\"INTEGER\"}"))
+        .andExpect(status().isConflict());
   }
 
   // ----- DELETE /api/timeseries/{id} ---------------------------------------

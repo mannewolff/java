@@ -33,7 +33,9 @@ class JpaKanbanCommentAdapter implements KanbanCommentPort {
   public KanbanComment save(KanbanComment comment) {
     final KanbanCommentEntity entity;
     if (comment.id() == null) {
-      entity = new KanbanCommentEntity(comment.itemId(), comment.author(), comment.body());
+      entity =
+          new KanbanCommentEntity(
+              comment.itemId(), comment.authorSub(), comment.author(), comment.body());
     } else {
       entity =
           repo.findById(comment.id())
@@ -55,6 +57,7 @@ class JpaKanbanCommentAdapter implements KanbanCommentPort {
     return new KanbanComment(
         entity.getId(),
         entity.getItemId(),
+        entity.getAuthorSub(),
         entity.getAuthor(),
         entity.getBody(),
         entity.getCreatedAt(),

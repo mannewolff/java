@@ -20,11 +20,11 @@ public class AddCommentUseCase {
   }
 
   @Transactional
-  public KanbanComment execute(String userSub, String author, long itemId, String body) {
+  public KanbanComment execute(String userSub, String authorName, long itemId, String body) {
     items
         .findById(itemId)
         .filter(i -> i.userSub().equals(userSub))
         .orElseThrow(() -> new KanbanItemNotFoundException(itemId));
-    return comments.save(KanbanComment.newInstance(itemId, author, body));
+    return comments.save(KanbanComment.newInstance(itemId, userSub, authorName, body));
   }
 }

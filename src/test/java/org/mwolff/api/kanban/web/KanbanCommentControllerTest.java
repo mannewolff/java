@@ -59,8 +59,18 @@ class KanbanCommentControllerTest {
 
   @MockitoBean private JwtDecoder jwtDecoder;
 
+  private static RequestPostProcessor userJwtWithoutUsername() {
+    return jwt().jwt(j -> j.subject(SUB)).authorities(new SimpleGrantedAuthority("ROLE_USER"));
+  }
+
+  private static RequestPostProcessor userJwtBlankUsername() {
+    return jwt()
+        .jwt(j -> j.subject(SUB).claim("preferred_username", "  "))
+        .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+  }
+
   private static KanbanComment comment(long id, String body) {
-    return new KanbanComment(id, ITEM_ID, USERNAME, body, Instant.EPOCH, Instant.EPOCH);
+    return new KanbanComment(id, ITEM_ID, SUB, USERNAME, body, Instant.EPOCH, Instant.EPOCH);
   }
 
   @Test
@@ -106,6 +116,37 @@ class KanbanCommentControllerTest {
   }
 
   @Test
+  void createShouldFallBackToSubAsAuthorWhenUsernameBlank() throws Exception {
+    // Leerer preferred_username zählt wie fehlend → Fallback auf sub als Anzeigename.
+    given(addUseCase.execute(eq(SUB), eq(SUB), eq(ITEM_ID), eq("Hallo")))
+        .willReturn(comment(COMMENT_ID, "Hallo"));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items/5/comments")
+                .with(userJwtBlankUsername())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"body\":\"Hallo\"}"))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
+  void createShouldFallBackToSubAsAuthorWhenUsernameMissing() throws Exception {
+    // Fehlt preferred_username (z. B. Service-Account), wird der stabile sub als Anzeigename
+    // benutzt — nie null, sonst NPE/500 in der Domain.
+    given(addUseCase.execute(eq(SUB), eq(SUB), eq(ITEM_ID), eq("Hallo")))
+        .willReturn(comment(COMMENT_ID, "Hallo"));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items/5/comments")
+                .with(userJwtWithoutUsername())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"body\":\"Hallo\"}"))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
   void createShouldReturn400WhenBodyBlank() throws Exception {
     mockMvc
         .perform(
@@ -133,7 +174,7 @@ class KanbanCommentControllerTest {
 
   @Test
   void updateShouldReturnUpdated() throws Exception {
-    given(updateUseCase.execute(SUB, USERNAME, ITEM_ID, COMMENT_ID, "neu"))
+    given(updateUseCase.execute(SUB, ITEM_ID, COMMENT_ID, "neu"))
         .willReturn(comment(COMMENT_ID, "neu"));
 
     mockMvc
@@ -150,7 +191,7 @@ class KanbanCommentControllerTest {
   void updateUnknownCommentShouldReturn404() throws Exception {
     willThrow(new KanbanCommentNotFoundException(COMMENT_ID))
         .given(updateUseCase)
-        .execute(any(), any(), eq(ITEM_ID), eq(COMMENT_ID), any());
+        .execute(any(), eq(ITEM_ID), eq(COMMENT_ID), any());
 
     mockMvc
         .perform(
@@ -165,7 +206,7 @@ class KanbanCommentControllerTest {
   void updateForeignAuthorShouldReturn403() throws Exception {
     willThrow(new KanbanCommentForbiddenException(COMMENT_ID))
         .given(updateUseCase)
-        .execute(any(), any(), eq(ITEM_ID), eq(COMMENT_ID), any());
+        .execute(any(), eq(ITEM_ID), eq(COMMENT_ID), any());
 
     mockMvc
         .perform(
@@ -187,7 +228,7 @@ class KanbanCommentControllerTest {
   void deleteForeignAuthorShouldReturn403() throws Exception {
     willThrow(new KanbanCommentForbiddenException(COMMENT_ID))
         .given(deleteUseCase)
-        .execute(any(), any(), eq(ITEM_ID), eq(COMMENT_ID));
+        .execute(any(), eq(ITEM_ID), eq(COMMENT_ID));
 
     mockMvc
         .perform(delete("/api/kanban/items/5/comments/9").with(userJwt()))

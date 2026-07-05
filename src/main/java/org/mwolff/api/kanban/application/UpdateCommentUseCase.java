@@ -25,8 +25,7 @@ public class UpdateCommentUseCase {
   }
 
   @Transactional
-  public KanbanComment execute(
-      String userSub, String author, long itemId, long commentId, String body) {
+  public KanbanComment execute(String userSub, long itemId, long commentId, String body) {
     items
         .findById(itemId)
         .filter(i -> i.userSub().equals(userSub))
@@ -36,7 +35,7 @@ public class UpdateCommentUseCase {
             .findById(commentId)
             .filter(c -> c.itemId() == itemId)
             .orElseThrow(() -> new KanbanCommentNotFoundException(commentId));
-    if (!existing.author().equals(author)) {
+    if (!existing.isOwnedBy(userSub)) {
       throw new KanbanCommentForbiddenException(commentId);
     }
     return comments.save(existing.withBody(body));

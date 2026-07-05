@@ -23,6 +23,9 @@ class KanbanCommentEntity {
   @Column(name = "item_id", nullable = false)
   private long itemId;
 
+  @Column(name = "author_sub", nullable = false, length = 64)
+  private String authorSub;
+
   @Column(nullable = false, length = 255)
   private String author;
 
@@ -39,8 +42,9 @@ class KanbanCommentEntity {
     // JPA
   }
 
-  KanbanCommentEntity(long itemId, String author, String body) {
+  KanbanCommentEntity(long itemId, String authorSub, String author, String body) {
     this.itemId = itemId;
+    this.authorSub = authorSub;
     this.author = author;
     this.body = body;
   }
@@ -63,6 +67,10 @@ class KanbanCommentEntity {
 
   long getItemId() {
     return itemId;
+  }
+
+  String getAuthorSub() {
+    return authorSub;
   }
 
   String getAuthor() {

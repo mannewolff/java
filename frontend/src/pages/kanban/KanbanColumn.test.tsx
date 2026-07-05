@@ -37,6 +37,7 @@ function renderColumn(
         onArchive={vi.fn()}
         onRestore={vi.fn()}
         onForceDelete={vi.fn()}
+        onMove={vi.fn()}
       />
     </DndContext>,
   );

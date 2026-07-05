@@ -288,4 +288,21 @@ describe('authedFetch', () => {
     const headers = init?.headers as Headers;
     expect(headers.get('Authorization')).toBe('Bearer custom');
   });
+
+  it('behält den Bearer-Token, wenn der Aufrufer eigene init.headers mitgibt (#316)', async () => {
+    // Regression: früher überschrieb `...init` (mit init.headers) den ganzen Header-Block,
+    // sodass ein eigener Header den Authorization-Token verdrängte.
+    setTokenGetter(() => 'token-xyz');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+
+    await authedFetch('/api/special', {
+      method: 'POST',
+      headers: { 'X-Custom': 'value' },
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = new Headers(init?.headers as HeadersInit);
+    expect(headers.get('Authorization')).toBe('Bearer token-xyz');
+    expect(headers.get('X-Custom')).toBe('value');
+  });
 });

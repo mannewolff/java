@@ -29,6 +29,7 @@ function renderCard(item: KanbanItem, handlers: {
   onArchive?: (i: KanbanItem) => void;
   onRestore?: (i: KanbanItem) => void;
   onForceDelete?: (i: KanbanItem) => void;
+  onMove?: (i: KanbanItem, c: KanbanItem['column']) => void;
 } = {}) {
   return render(
     <DndContext>
@@ -41,6 +42,7 @@ function renderCard(item: KanbanItem, handlers: {
           onArchive={handlers.onArchive ?? vi.fn()}
           onRestore={handlers.onRestore ?? vi.fn()}
           onForceDelete={handlers.onForceDelete ?? vi.fn()}
+          onMove={handlers.onMove ?? vi.fn()}
         />
       </SortableContext>
     </DndContext>,
@@ -112,6 +114,20 @@ describe('KanbanCard', () => {
     await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
     await user.click(screen.getByRole('menuitem', { name: 'Archivieren' }));
     expect(onArchive).toHaveBeenCalledWith(item);
+  });
+
+  it('Menü bietet tastaturbedienbaren Statuswechsel in andere Spalten (#316)', async () => {
+    const onMove = vi.fn();
+    const item = makeItem({ archived: false, column: 'BACKLOG' });
+    renderCard(item, { onMove });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
+    // Aktuelle Spalte (Backlog) darf nicht als Ziel erscheinen.
+    expect(screen.queryByRole('menuitem', { name: 'Nach Backlog' })).not.toBeInTheDocument();
+    // Andere Spalten schon — hier nach Ready verschieben.
+    await user.click(screen.getByRole('menuitem', { name: 'Nach Ready' }));
+    expect(onMove).toHaveBeenCalledWith(item, 'READY');
   });
 
   it('archiviertes Item: Menü bietet Wiederherstellen und Endgültig löschen', async () => {

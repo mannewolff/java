@@ -35,13 +35,16 @@ async function request<T>(
   // noch den alten Token aus dem letzten React-Render (#237).
   const token = retryToken ?? getAccessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
+    // #316: `...init` MUSS vor `headers` stehen — sonst ersetzt ein Aufrufer mit init.headers den
+    // gesamten Header-Block inkl. Authorization/Content-Type (latenter Bearer-Verlust). So gewinnt
+    // stattdessen der zusammengesetzte headers-Block, in den init.headers gezielt einfließt.
+    ...init,
     headers: {
       Accept: 'application/json',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
-    ...init,
   });
 
   if (response.status === 401) {

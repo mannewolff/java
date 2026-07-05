@@ -14,8 +14,9 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import type { KanbanItem } from '../../api/kanban';
+import { KANBAN_COLUMNS, type KanbanColumn, type KanbanItem } from '../../api/kanban';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
+import { COLUMN_LABELS } from './columnMeta';
 import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 interface KanbanCardProps {
@@ -26,6 +27,7 @@ interface KanbanCardProps {
   onArchive: (item: KanbanItem) => void;
   onRestore: (item: KanbanItem) => void;
   onForceDelete: (item: KanbanItem) => void;
+  onMove: (item: KanbanItem, targetColumn: KanbanColumn) => void;
 }
 
 export default function KanbanCard({
@@ -36,6 +38,7 @@ export default function KanbanCard({
   onArchive,
   onRestore,
   onForceDelete,
+  onMove,
 }: KanbanCardProps): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -161,6 +164,21 @@ export default function KanbanCard({
             Archivieren
           </MenuItem>
         )}
+        {/* Tastaturbedienbarer Statuswechsel (#316): das Menü ist per Tastatur/Screenreader
+            nutzbar, anders als das reine Maus-Drag&Drop. Ein Eintrag je Zielspalte außer der
+            aktuellen. */}
+        {!item.archived &&
+          KANBAN_COLUMNS.filter((column) => column !== item.column).map((column) => (
+            <MenuItem
+              key={column}
+              onClick={() => {
+                setMenuAnchor(null);
+                onMove(item, column);
+              }}
+            >
+              Nach {COLUMN_LABELS[column]}
+            </MenuItem>
+          ))}
         {item.archived && (
           <MenuItem
             onClick={() => {

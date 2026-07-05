@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -101,6 +101,11 @@ export default function KanbanPage(): JSX.Element {
   // den reload() (Board) nicht erreicht. Jede Mutation inkrementiert diesen Key.
   const [listReloadKey, setListReloadKey] = useState(0);
 
+  // Laufende Nummer je Drag (#316): nur der zuletzt gestartete Move darf reloaden bzw. bei Fehler
+  // zurückrollen. So lässt ein verspäteter reload eines älteren Moves die Items nicht zurückspringen
+  // und ein Rollback macht keinen inzwischen erfolgten neueren Move rückgängig.
+  const moveSeqRef = useRef(0);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -202,6 +207,19 @@ export default function KanbanPage(): JSX.Element {
     }
   }
 
+  // Tastaturbedienbarer Statuswechsel über das Karten-Menü (#316): verschiebt das Item ans Ende
+  // der Zielspalte. Ergänzt das reine Maus-Drag&Drop für Tastatur- und Screenreader-Nutzung.
+  async function handleMoveToColumn(item: KanbanItem, targetColumn: KanbanColumnId): Promise<void> {
+    if (item.column === targetColumn) return;
+    const targetPosition = state.kind === 'ready' ? state.board[targetColumn].length : 0;
+    try {
+      await moveKanbanItem(item.id, targetColumn, targetPosition);
+      await refresh();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
+    }
+  }
+
   async function handleRestore(item: KanbanItem): Promise<void> {
     try {
       await restoreKanbanItem(item.id);
@@ -246,12 +264,21 @@ export default function KanbanPage(): JSX.Element {
     if (optimistic === previousBoard) return;
     setState({ kind: 'ready', board: optimistic });
 
+    const seq = ++moveSeqRef.current;
     try {
       await moveKanbanItem(itemId, targetColumn, targetPosition);
-      await reload();
+      // Nur der jüngste Move lädt neu — ein älterer, verspäteter reload würde die Anordnung
+      // eines inzwischen erfolgten neueren Moves überschreiben (#316).
+      if (seq === moveSeqRef.current) {
+        await reload();
+      }
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
-      setState({ kind: 'ready', board: previousBoard });
+      // Nur zurückrollen, wenn seither kein neuerer Move gestartet wurde — sonst würde der
+      // Rollback dessen (optimistische) Anordnung zerstören (#316).
+      if (seq === moveSeqRef.current) {
+        setState({ kind: 'ready', board: previousBoard });
+      }
     }
   }
 
@@ -311,6 +338,7 @@ export default function KanbanPage(): JSX.Element {
               onArchive={setPendingArchive}
               onRestore={(item) => void handleRestore(item)}
               onForceDelete={setPendingForceDelete}
+              onMove={(item, targetColumn) => void handleMoveToColumn(item, targetColumn)}
             />
           ))}
         </Stack>

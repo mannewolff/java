@@ -18,6 +18,7 @@ interface KanbanColumnProps {
   onArchive: (item: KanbanItem) => void;
   onRestore: (item: KanbanItem) => void;
   onForceDelete: (item: KanbanItem) => void;
+  onMove: (item: KanbanItem, targetColumn: KanbanColumnId) => void;
 }
 
 export default function KanbanColumnView({
@@ -31,6 +32,7 @@ export default function KanbanColumnView({
   onArchive,
   onRestore,
   onForceDelete,
+  onMove,
 }: KanbanColumnProps): JSX.Element {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column}`,
@@ -122,6 +124,7 @@ export default function KanbanColumnView({
               onArchive={onArchive}
               onRestore={onRestore}
               onForceDelete={onForceDelete}
+              onMove={onMove}
             />
           ))}
         </SortableContext>

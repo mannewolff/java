@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 
 import WidgetKanbanList from './WidgetKanbanList';
 import type { WidgetDto } from '../../../api/dashboard';
 import type { KanbanBoard, KanbanItem } from '../../../api/kanban';
+import { NotifyProvider } from '../../../notify/NotifyProvider';
 import { STATUS_COLORS } from '../../kanban/statusColors';
+
+// Das Widget nutzt seit #316 useNotify — alle Renders in den NotifyProvider einbetten.
+const render = (ui: ReactElement) => rtlRender(<NotifyProvider>{ui}</NotifyProvider>);
 
 vi.mock('../../../api/kanban', async () => {
   const actual = await vi.importActual<typeof import('../../../api/kanban')>('../../../api/kanban');

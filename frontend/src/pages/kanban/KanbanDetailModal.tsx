@@ -137,10 +137,12 @@ export default function KanbanDetailModal({
   };
 
   const canSubmit = title.trim().length > 0;
-  const showDoneHint = item.column === 'DONE' && item.movedToDoneAt != null;
-  const daysRemaining = showDoneHint
-    ? cleanupDaysRemaining(item.movedToDoneAt!, retentionDays)
-    : 0;
+  const { movedToDoneAt } = item;
+  const showDoneHint = item.column === 'DONE' && movedToDoneAt != null;
+  const daysRemaining =
+    showDoneHint && movedToDoneAt != null
+      ? cleanupDaysRemaining(movedToDoneAt, retentionDays)
+      : 0;
 
   const handleSave = async (): Promise<void> => {
     if (!canSubmit || saving) return;

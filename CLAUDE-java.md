@@ -113,10 +113,24 @@ Ausgeschlossen werden **ausschließlich**:
 
 - Generierter Code (`@Generated`, MapStruct-Output, Lombok-Generate).
 - Spring-Boot-Application-Klasse mit reiner `main`-Methode.
-- Konfigurations-Properties-Records ohne Logik.
-- DTOs/Records **nur**, wenn sie keinerlei Logik enthalten (keine compact constructors, keine berechneten Felder).
+- Konfigurations-Properties-/Bean-Wiring-Klassen ohne Fachlogik (z. B. `OpenApiConfig`).
+- DTOs/Records/Projektionen **nur**, wenn sie keinerlei Logik enthalten (keine compact constructors, keine berechneten Felder).
+- **Infrastruktur-Adapter, Entities und Spring-Data-Repositories, die nur gegen eine echte
+  Datenbank sinnvoll testbar sind** und dort per Testcontainers-`*IT` zu 100 % abgedeckt werden
+  (z. B. `JpaKanbanAdapter`, JPA-Entities, `*JpaRepository`). Die JaCoCo-Prüfung wertet die
+  Unit-Coverage (surefire) aus; IT-Coverage fließt nicht in `jacoco.exec` ein, daher der
+  Ausschluss trotz voller IT-Abdeckung. **Nicht** ausgeschlossen werden Adapter, die mit einem
+  gemockten Repository unit-testbar sind (z. B. `JpaStoredImageAdapter`) — diese bleiben in der
+  Coverage.
+- **Security-/Parsing-Plumbing mit nicht abdeckbaren, JVM-generierten Bytecode-Branches**
+  (Pattern-`instanceof`, garantiert-verfügbare Krypto-Provider), deren Fachlogik separat unit-
+  getestet ist (z. B. `IngestTokenAuthFilter*`, `IngestRateLimitFilter*`, `IngestRateLimiter`,
+  `CsvBulkParser*`, `Sha256TokenCryptoAdapter`, `ImageIoThumbnailer` — ImageIO-`IOException`-Pfade
+  sind mit In-Memory-Streams nicht erreichbar).
 
-Jeder Ausschluss steht **explizit** in der `pom.xml` und ist im Commit begründet. Pauschale Paket-Ausschlüsse sind verboten.
+Jeder Ausschluss steht **explizit** (klassenweise, keine Paket-Wildcards) in der `pom.xml` und
+ist dort begründet. Pauschale Paket-Ausschlüsse sind verboten. Für jede ausgeschlossene Klasse
+mit Fachlogik existiert ein separater `*Test` oder `*IT`, der diese Logik abdeckt.
 
 ### 5.3 PIT-Konfiguration (Mindestmutatoren)
 

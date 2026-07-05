@@ -18,7 +18,7 @@ Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Sti
 ## Projektstruktur
 
 ```
-src/main/java/org/mwolff/api/      Application + Domain (auth, dashboard, tools, common)
+src/main/java/org/mwolff/api/      Application + Domain (appversion, auth, dashboard, image, ingest, kanban, timeseries, tools, common)
 src/main/resources/                application.yml, Flyway-Migrationen
 src/test/java/org/mwolff/api/      Tests (*Test = schnell, *IT = Testcontainers)
 frontend/                          React-App (Vite + TS + MUI)

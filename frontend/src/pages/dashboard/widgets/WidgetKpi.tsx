@@ -128,6 +128,8 @@ const PROGRESS_DEFAULTS = {
   label: '',
   min: 0,
   max: 100,
+  // Ausnahme von "Farben nur über das Theme" (CLAUDE-react.md): Default-Füllfarbe der Gauge, vom
+  // Nutzer pro Widget frei überschreibbar — ein konkreter Startwert, kein allgemeines UI-Token.
   color: '#4caf50',
   display: 'percent' as GaugeDisplay,
   unit: '',

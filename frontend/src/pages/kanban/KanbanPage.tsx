@@ -46,6 +46,7 @@ import {
 } from '../../api/kanban';
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
+import { COLUMN_LABELS } from './columnMeta';
 import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
 import KanbanListView from './KanbanListView';
@@ -73,14 +74,6 @@ function saveView(value: KanbanView): void {
     // localStorage nicht verfügbar
   }
 }
-
-const COLUMN_LABELS: Record<KanbanColumnId, string> = {
-  BACKLOG: 'Backlog',
-  READY: 'Ready',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
-};
 
 type LoadState =
   | { kind: 'loading' }

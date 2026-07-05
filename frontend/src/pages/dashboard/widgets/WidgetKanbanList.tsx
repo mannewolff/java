@@ -40,6 +40,7 @@ import {
 import { ApiError } from '../../../api/client';
 import { useNotify } from '../../../notify/NotifyProvider';
 import KanbanDetailModal from '../../kanban/KanbanDetailModal';
+import { COLUMN_LABELS } from '../../kanban/columnMeta';
 import { STATUS_COLORS } from '../../kanban/statusColors';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
@@ -56,14 +57,6 @@ const DISPLAY_ORDER: readonly KanbanColumn[] = [
   'BACKLOG',
   'DONE',
 ];
-
-const COLUMN_LABELS: Record<KanbanColumn, string> = {
-  BACKLOG: 'Backlog',
-  READY: 'Ready',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
-};
 
 /**
  * Status-Icon je Spalte (#191). Die Akzentfarbe kommt aus {@link STATUS_COLORS} (#288),

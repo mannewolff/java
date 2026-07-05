@@ -18,8 +18,11 @@ export interface KanbanItem {
   position: number;
   createdAt: string;
   updatedAt: string;
-  /** Nur in der DONE-Spalte gesetzt — Basis fuer den Cleanup-Countdown. */
-  movedToDoneAt?: string;
+  /**
+   * Nur in der DONE-Spalte gesetzt — Basis fuer den Cleanup-Countdown. Das Backend serialisiert
+   * ausserhalb DONE {@code null} (nicht "fehlend"), daher {@code string | null}.
+   */
+  movedToDoneAt: string | null;
   /** Soft-Delete-Flag: archivierte Items werden standardmaessig nicht angezeigt. */
   archived: boolean;
   /** Fortlaufende, pro User eindeutige Anzeige-Nummer (#187/#188). */

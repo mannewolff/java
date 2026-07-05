@@ -206,7 +206,7 @@
   <div class="cards">
     <div class="card"><div class="icon">▦</div><h4>Dashboards</h4>Konfigurierbare Grid-Widgets (Textbox, KPI, Kanban-Vorschau) mit eigenem Layout pro Dashboard.</div>
     <div class="card"><div class="icon">▣</div><h4>Bild-Tools</h4>Hintergrund entfernen (rembg/U2Net), Resize (LANCZOS), Crop für OG-Bilder, SVG nach PNG, Farbpalette.</div>
-    <div class="card"><div class="icon">▤</div><h4>Kanban</h4>Vier Spalten, Drag&amp;Drop, Kommentare, Soft-Delete und automatisches Aufräumen erledigter Karten.</div>
+    <div class="card"><div class="icon">▤</div><h4>Kanban</h4>Fünf Spalten (Backlog, Ready, In Progress, In Review, Done), Drag&amp;Drop, Kommentare, Soft-Delete und automatisches Aufräumen erledigter Karten.</div>
     <div class="card"><div class="icon">∿</div><h4>Zeitreihen</h4>Datenpunkt-Ingestion per Maschinen-Token (ohne Login), Visualisierung im Frontend.</div>
     <div class="card"><div class="icon">⚿</div><h4>Passwort-Generator</h4>Rein clientseitig, ohne Server-Roundtrip.</div>
     <div class="card"><div class="icon">⎙</div><h4>Markdown nach PDF</h4>Live-Vorschau im Frontend, Rendering über weasyprint.</div>
@@ -322,11 +322,11 @@
     <tbody>
       <tr><td><code>auth</code></td><td>Sicherheit, Identität</td><td><code>SecurityConfig</code>, <code>JwtAuthoritiesConverter</code>, <code>MeController</code></td></tr>
       <tr><td><code>common</code></td><td>Querschnitt</td><td><code>GlobalExceptionHandler</code>, <code>SpaForwardingController</code>, <code>OpenApiConfig</code></td></tr>
-      <tr><td><code>dashboard</code></td><td>Dashboards + Widgets</td><td><code>Dashboard</code>, <code>Widget</code>, <code>DashboardController</code>, <code>JpaDashboardRepository</code></td></tr>
+      <tr><td><code>dashboard</code></td><td>Dashboards + Widgets</td><td><code>Dashboard</code>, <code>Widget</code>, <code>DashboardController</code>, <code>DashboardJpaRepository</code>, <code>JpaDashboardAdapter</code></td></tr>
       <tr><td><code>kanban</code></td><td>Kanban-Board</td><td><code>KanbanItem</code>, <code>KanbanSettings</code>, <code>DoneItemCleanupJob</code>, mehrere Controller</td></tr>
-      <tr><td><code>tools</code></td><td>Bild-Tool-Proxy</td><td><code>BackgroundRemovalController</code>, <code>PythonToolsClient</code>, <code>InvalidUploadException</code></td></tr>
-      <tr><td><code>timeseries</code></td><td>Zeitreihen</td><td><code>TimeSeries</code>, <code>TimeSeriesDataPoint</code>, <code>TimeSeriesController</code></td></tr>
-      <tr><td><code>ingest</code></td><td>Token-Ingestion</td><td><code>IngestController</code>, <code>IngestSecurityConfig</code>, <code>InMemoryRateLimiter</code></td></tr>
+      <tr><td><code>tools</code></td><td>Bild-Tool-Proxy</td><td><code>BackgroundRemovalController</code>, <code>RestClientPythonToolsAdapter</code>, <code>InvalidUploadException</code></td></tr>
+      <tr><td><code>timeseries</code></td><td>Zeitreihen</td><td><code>TimeSeries</code>, <code>TimeSeriesEntry</code>, <code>TimeSeriesController</code></td></tr>
+      <tr><td><code>ingest</code></td><td>Token-Ingestion</td><td><code>IngestController</code>, <code>IngestSecurityConfig</code>, <code>IngestRateLimiter</code></td></tr>
       <tr><td><code>image</code></td><td>Bild-Speicher</td><td><code>StoredImage</code>, <code>ImageController</code></td></tr>
       <tr><td><code>appversion</code></td><td>Versionierung + Deploy-Hook</td><td><code>AppVersion</code>, <code>AppVersionController</code></td></tr>
     </tbody>
@@ -344,7 +344,7 @@
   </table>
 
   <h3>python-tools: FastAPI-Microservice</h3>
-  <p>Eine schlanke FastAPI-App (<code>main.py</code>) mit den Endpunkten <code>/remove-bg</code>, <code>/crop</code>, <code>/palette</code>, <code>/resize</code>, <code>/svg-to-png</code>, <code>/md-to-pdf</code> und <code>/health</code>. Jeder Aufruf prüft den Header <code>X-Internal-Key</code> und die Dateigröße. Externe Ressourcen sind beim PDF-Rendering bewusst blockiert.</p>
+  <p>Eine schlanke FastAPI-App (<code>main.py</code>) mit den Endpunkten <code>/remove-bg</code>, <code>/crop</code>, <code>/palette</code>, <code>/resize</code>, <code>/svg-to-png</code>, <code>/raster-to-png</code>, <code>/md-to-pdf</code> und <code>/health</code>. Jeder Aufruf prüft den Header <code>X-Internal-Key</code> und die Dateigröße. Externe Ressourcen sind beim PDF-Rendering bewusst blockiert.</p>
 
   <!-- 6 -->
   <h2 id="k6"><span class="num">6.</span> Laufzeitsicht</h2>

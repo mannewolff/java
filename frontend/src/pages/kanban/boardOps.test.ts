@@ -11,7 +11,7 @@ function item(id: number, column: KanbanColumn, position: number, archived = fal
     position,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
-    movedToDoneAt: column === 'DONE' ? '2026-01-01T00:00:00Z' : undefined,
+    movedToDoneAt: column === 'DONE' ? '2026-01-01T00:00:00Z' : null,
     archived,
     number: id,
   };
@@ -89,7 +89,7 @@ describe('moveItem — cross column', () => {
   it('löscht movedToDoneAt beim Verlassen von DONE', () => {
     const b = boardOf({ DONE: [item(1, 'DONE', 0)] });
     const next = moveItem(b, 1, 'BACKLOG', 0);
-    expect(next.BACKLOG[0].movedToDoneAt).toBeUndefined();
+    expect(next.BACKLOG[0].movedToDoneAt).toBeNull();
   });
 
   it('gibt das Eingangs-Board zurück, wenn das Item nicht existiert', () => {

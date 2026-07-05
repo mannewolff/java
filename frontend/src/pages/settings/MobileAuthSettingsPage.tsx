@@ -62,6 +62,8 @@ export default function MobileAuthSettingsPage(): JSX.Element {
       <Paper sx={{ p: 3, maxWidth: 560 }}>
         <Stack spacing={3} alignItems="center">
           <Box
+            // Ausnahme von "Farben nur über das Theme" (CLAUDE-react.md): Der QR-Code braucht
+            // einen garantiert weißen Hintergrund für die Scanbarkeit, unabhängig vom Theme.
             sx={{ bgcolor: '#fff', p: 2, borderRadius: 1, lineHeight: 0 }}
             aria-label="QR-Code für den Handy-Zugang"
           >

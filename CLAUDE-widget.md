@@ -15,7 +15,10 @@ Komponente in `widgets/` und wird in `DashboardPage.renderWidgetBody` über ein
 `switch (widget.type)` gerendert. Der Widget-Typ ist ein Enum, das Backend und Frontend
 teilen.
 
-Aktuelle Typen: `TEXTBOX`, `KPI`, `PLOT`, `KANBAN_LIST`, `DIVIDER`.
+Aktuelle Typen: `TEXTBOX`, `KPI`, `PLOT`, `KANBAN_LIST`, `IMAGE`, `DIVIDER`.
+
+Der `IMAGE`-Typ referenziert ein im Backend gespeichertes Bild über seine `imageId`
+(siehe Modul `image/`, #181) statt Base64 in der Widget-`config` abzulegen.
 
 ---
 

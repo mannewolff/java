@@ -54,10 +54,12 @@ export default function KanbanCard({
     opacity: isDragging ? 0.5 : item.archived ? 0.5 : 1,
   };
 
-  const showDoneHint = item.column === 'DONE' && item.movedToDoneAt && !item.archived;
-  const daysRemaining = showDoneHint
-    ? cleanupDaysRemaining(item.movedToDoneAt!, retentionDays)
-    : 0;
+  const { movedToDoneAt } = item;
+  const showDoneHint = item.column === 'DONE' && movedToDoneAt != null && !item.archived;
+  const daysRemaining =
+    showDoneHint && movedToDoneAt != null
+      ? cleanupDaysRemaining(movedToDoneAt, retentionDays)
+      : 0;
 
   return (
     <Paper

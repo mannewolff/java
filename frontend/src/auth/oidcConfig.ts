@@ -45,6 +45,11 @@ export function buildOidcConfig(mobile: boolean): AuthProviderProps {
     // Token-Endpoint-Antworten via Background-Iframe sind im Dev unzuverlaessig —
     // Silent-Renew via Refresh-Token ist sauberer.
     automaticSilentRenew: true,
+    // Beim Logout Access- UND Refresh-/Offline-Token serverseitig am Revocation-Endpoint
+    // invalidieren (#312). Ohne das überlebt ein im (mobilen) localStorage abgelegter
+    // Offline-Token den Logout und bleibt bis zu 30 Tage einlösbar — ein reales Restrisiko
+    // bei XSS, Backup-Snapshot oder Gerätezugriff. Default der Property ist false.
+    revokeTokensOnSignout: true,
     // Entfernt ?code=...&state=... aus der URL nach erfolgreichem Login und setzt den
     // reload-festen Re-Login-Loop-Breaker zurück (#233).
     onSigninCallback: (): void => {

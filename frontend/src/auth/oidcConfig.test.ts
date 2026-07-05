@@ -9,6 +9,7 @@ interface OidcSettings {
   scope: string;
   response_type: string;
   automaticSilentRenew: boolean;
+  revokeTokensOnSignout: boolean;
   userStore: WebStorageStateStore;
 }
 const settings = (mobile: boolean): OidcSettings =>
@@ -39,6 +40,13 @@ describe('buildOidcConfig', () => {
     const cfg = settings(true);
     expect(cfg.response_type).toBe('code');
     expect(cfg.automaticSilentRenew).toBe(true);
+  });
+
+  it('revoziert Tokens beim Logout serverseitig (#312)', () => {
+    // In beiden Modi aktiv — der Offline-Token im Mobile-localStorage darf den Logout
+    // nicht überleben, aber auch der Desktop-Refresh-Token soll sauber invalidiert werden.
+    expect(settings(true).revokeTokensOnSignout).toBe(true);
+    expect(settings(false).revokeTokensOnSignout).toBe(true);
   });
 
   it('baut die Keycloak-Account-Console-URL', () => {

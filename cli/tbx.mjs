@@ -97,6 +97,10 @@ function requireStringFlag(flags, name) {
   if (flags[name] === true) {
     throw new CliError(`--${name} erwartet einen Wert`);
   }
+  // Leerer String (--host '') wuerde sonst unvalidiert in eine URL fallen (#315).
+  if (flags[name] === '') {
+    throw new CliError(`--${name} darf nicht leer sein`);
+  }
   return flags[name];
 }
 
@@ -111,10 +115,19 @@ export function resolveConfig(flags, storedConfig) {
 // --- JWT / Ablauf ------------------------------------------------------------
 
 export function decodeJwtPayload(token) {
-  const part = token.split('.')[1];
-  const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+  // Defensiv gegen korrupte/verkuerzte tokens.json (#315): ohne diese Pruefung wirft ein
+  // Token ohne '.'-Segmente einen kryptischen TypeError statt einer klaren Neu-Login-Meldung.
+  const parts = typeof token === 'string' ? token.split('.') : [];
+  if (parts.length !== 3 || !parts[1]) {
+    throw new AuthError('Ungültiges Token. Bitte neu anmelden: tbx auth login', 'invalid_token');
+  }
+  const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
   const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-  return JSON.parse(Buffer.from(padded, 'base64').toString('utf-8'));
+  try {
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf-8'));
+  } catch {
+    throw new AuthError('Ungültiges Token. Bitte neu anmelden: tbx auth login', 'invalid_token');
+  }
 }
 
 export function computeExpiry(expiresInSeconds, now = Date.now()) {
@@ -157,6 +170,22 @@ export class AuthError extends Error {
   }
 }
 
+/**
+ * Parst den Response-Body als JSON, aber faengt einen Nicht-JSON-Body ab (#315): waehrend
+ * eines Deploys liefert ein Reverse-Proxy z. B. eine HTML-502-Seite. `res.json()` wuerfe dann
+ * `Unexpected token '<'`; stattdessen kommt eine verstaendliche AuthError-Meldung.
+ */
+async function parseJsonBody(res, reason) {
+  try {
+    return await res.json();
+  } catch {
+    throw new AuthError(
+      `Unerwartete Antwort vom Server (HTTP ${res.status}, kein JSON). Bitte erneut versuchen.`,
+      reason,
+    );
+  }
+}
+
 // --- Device Flow ---------------------------------------------------------------
 
 export async function requestDeviceCode(cfg, fetchImpl = fetch) {
@@ -171,7 +200,7 @@ export async function requestDeviceCode(cfg, fetchImpl = fetch) {
   if (!res.ok) {
     throw new AuthError(`Device-Code konnte nicht angefordert werden (HTTP ${res.status})`, 'device_request_failed');
   }
-  return res.json();
+  return parseJsonBody(res, 'device_request_failed');
 }
 
 /**
@@ -181,12 +210,17 @@ export async function requestDeviceCode(cfg, fetchImpl = fetch) {
 export async function pollDeviceToken(
   cfg,
   device,
-  { fetchImpl = fetch, sleepImpl = (ms) => new Promise((r) => setTimeout(r, ms)), onWaiting } = {},
+  {
+    fetchImpl = fetch,
+    sleepImpl = (ms) => new Promise((r) => setTimeout(r, ms)),
+    nowImpl = Date.now,
+    onWaiting,
+  } = {},
 ) {
   let interval = device.interval || 5;
-  const deadline = Date.now() + (device.expires_in || 600) * 1000;
+  const deadline = nowImpl() + (device.expires_in || 600) * 1000;
 
-  while (Date.now() < deadline) {
+  while (nowImpl() < deadline) {
     await sleepImpl(interval * 1000);
     const res = await fetchImpl(
       `${cfg.keycloakUrl}/realms/${cfg.realm}/protocol/openid-connect/token`,
@@ -200,7 +234,7 @@ export async function pollDeviceToken(
         }),
       },
     );
-    const body = await res.json();
+    const body = await parseJsonBody(res, 'unknown');
     if (res.ok) return body;
 
     switch (body.error) {
@@ -234,11 +268,29 @@ export async function refreshTokens(cfg, refreshToken, fetchImpl = fetch) {
       refresh_token: refreshToken,
     }),
   });
-  const body = await res.json();
+  // Erst Status pruefen (#315): ein 502-HTML-Body vom Proxy darf keinen JSON-Parse-Crash
+  // ausloesen, sondern die vorgesehene "erneut anmelden"-Meldung.
   if (!res.ok) {
     throw new AuthError('Bitte erneut anmelden: tbx auth login', 'refresh_failed');
   }
-  return body;
+  return parseJsonBody(res, 'refresh_failed');
+}
+
+/**
+ * Revoziert den Refresh-/Offline-Token am Keycloak-Revocation-Endpoint (#315). Best-effort:
+ * Fehler werden vom Aufrufer geschluckt, damit ein lokales Logout nie an Netzwerkproblemen
+ * scheitert. Ohne das bliebe ein aus einem Backup wiederhergestellter Token serverseitig gueltig.
+ */
+export async function revokeRefreshToken(cfg, refreshToken, fetchImpl = fetch) {
+  await fetchImpl(`${cfg.keycloakUrl}/realms/${cfg.realm}/protocol/openid-connect/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      token: refreshToken,
+      token_type_hint: 'refresh_token',
+    }),
+  });
 }
 
 function tokensFromResponse(body, now = Date.now()) {
@@ -268,6 +320,10 @@ export async function apiFetch(path, options = {}, { fetchImpl = fetch, baseDir 
     const refreshed = await refreshTokens(config, tokens.refresh_token, fetchImpl);
     tokens = tokensFromResponse(refreshed);
     writeJsonFileSecure(tokensPath(baseDir), tokens);
+    // Restrisiko (#315): zwei parallele tbx-Prozesse koennen gleichzeitig mit demselben
+    // refresh_token refreshen; bei aktiver Rotation/Reuse-Detection invalidiert der zweite die
+    // Session des ersten. Kein File-Lock, weil tbx im Single-User-Kontext praktisch immer
+    // sequenziell laeuft. Falls parallele Nutzung real wird: Lock-Datei (O_EXCL) vor dem Refresh.
   }
 
   return fetchImpl(`${config.host}${path}`, {
@@ -485,7 +541,17 @@ function cmdStatus(io) {
   return 0;
 }
 
-function cmdLogout(io) {
+async function cmdLogout(io) {
+  // Offline-Token serverseitig invalidieren, bevor die lokale Kopie geloescht wird (#315).
+  const config = readJsonFile(configPath(io.baseDir));
+  const tokens = readJsonFile(tokensPath(io.baseDir));
+  if (config && tokens?.refresh_token) {
+    try {
+      await revokeRefreshToken(config, tokens.refresh_token, io.fetchImpl);
+    } catch {
+      // Best-effort: lokales Logout darf nicht an einem Netzwerk-/Revocation-Fehler scheitern.
+    }
+  }
   deleteFile(tokensPath(io.baseDir));
   io.stdout(JSON.stringify({ ok: true }, null, 2) + '\n');
   return 0;
@@ -520,7 +586,7 @@ export async function main(argv, io = defaultIo()) {
         case 'status':
           return cmdStatus(io);
         case 'logout':
-          return cmdLogout(io);
+          return await cmdLogout(io);
         default:
           io.stdout(HELP);
           io.stderr(`Fehler: Unbekannter auth-Befehl: '${command}'\n`);
@@ -578,8 +644,14 @@ export function resolveIsMainModule(argv1, metaUrl) {
   if (!argv1) return false;
   try {
     return metaUrl === pathToFileURL(realpathSync(argv1)).href;
-  } catch {
-    return false;
+  } catch (err) {
+    // Nur erwartete Dateisystem-Fehler abfangen (argv1 fehlt/unlesbar/Symlink-Schleife, #315):
+    // ein realpathSync auf einem nicht existierenden Pfad wirft ENOENT o.ae. — kein Grund, das
+    // Modul-Laden zu crashen. Unerwartete Fehler (z. B. Programmierfehler) bleiben sichtbar.
+    if (err && ['ENOENT', 'EACCES', 'ELOOP', 'ENOTDIR'].includes(err.code)) {
+      return false;
+    }
+    throw err;
   }
 }
 

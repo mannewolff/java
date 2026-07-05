@@ -19,6 +19,7 @@ import {
   requestDeviceCode,
   pollDeviceToken,
   refreshTokens,
+  revokeRefreshToken,
   apiFetch,
   main,
   AuthError,
@@ -724,4 +725,131 @@ test('resolveIsMainModule: liefert false ohne argv1', () => {
 
 test('resolveIsMainModule: crasht nicht bei nicht existierendem Pfad, liefert false (Issue #299)', () => {
   assert.equal(resolveIsMainModule('/pfad/existiert/nicht/tbx.mjs', 'file:///whatever'), false);
+});
+
+// --- #315: Robustheit ---------------------------------------------------------
+
+/** Response, dessen json() wirft — simuliert eine HTML-502-Proxy-Seite. */
+function nonJsonResponse(status) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => {
+      throw new SyntaxError("Unexpected token '<', \"<html>\"... is not valid JSON");
+    },
+  };
+}
+
+const CFG = { keycloakUrl: 'https://kc.example', realm: 'toolbox', host: 'https://api.example' };
+
+test('refreshTokens: Nicht-JSON-502-Body liefert AuthError statt JSON-Crash (#315)', async () => {
+  const fetchImpl = async () => nonJsonResponse(502);
+  await assert.rejects(refreshTokens(CFG, 'rt', fetchImpl), (err) => {
+    assert.ok(err instanceof AuthError);
+    assert.equal(err.reason, 'refresh_failed');
+    return true;
+  });
+});
+
+test('pollDeviceToken: überschrittene Deadline liefert expired_token (#315)', async () => {
+  // nowImpl springt nach dem ersten Vergleich über die Deadline — der Loop endet ohne Erfolg.
+  let calls = 0;
+  const nowImpl = () => (calls++ === 0 ? 0 : 10_000_000);
+  const fetchImpl = async () => jsonResponse(400, { error: 'authorization_pending' });
+  await assert.rejects(
+    pollDeviceToken(CFG, { device_code: 'd', interval: 1, expires_in: 600 }, {
+      fetchImpl,
+      sleepImpl: async () => {},
+      nowImpl,
+    }),
+    (err) => {
+      assert.ok(err instanceof AuthError);
+      assert.equal(err.reason, 'expired_token');
+      return true;
+    },
+  );
+});
+
+test('pollDeviceToken: Nicht-JSON-Antwort liefert AuthError (#315)', async () => {
+  const fetchImpl = async () => nonJsonResponse(502);
+  await assert.rejects(
+    pollDeviceToken(CFG, { device_code: 'd', interval: 1, expires_in: 600 }, {
+      fetchImpl,
+      sleepImpl: async () => {},
+    }),
+    (err) => {
+      assert.ok(err instanceof AuthError);
+      return true;
+    },
+  );
+});
+
+test('decodeJwtPayload: korruptes Token liefert AuthError statt TypeError (#315)', () => {
+  assert.throws(() => decodeJwtPayload('kaputt'), (err) => {
+    assert.ok(err instanceof AuthError);
+    assert.equal(err.reason, 'invalid_token');
+    return true;
+  });
+  assert.throws(() => decodeJwtPayload(undefined), (err) => err instanceof AuthError);
+});
+
+test('resolveConfig: leerer --host-Wert wird abgelehnt (#315)', () => {
+  assert.throws(() => resolveConfig({ host: '' }, null), (err) => {
+    assert.ok(err instanceof CliError);
+    return true;
+  });
+});
+
+test('revokeRefreshToken: ruft den Revocation-Endpoint mit dem Token (#315)', async () => {
+  let captured;
+  const fetchImpl = async (url, opts) => {
+    captured = { url, body: opts.body };
+    return { ok: true, status: 200 };
+  };
+  await revokeRefreshToken(CFG, 'the-refresh-token', fetchImpl);
+  assert.ok(captured.url.endsWith('/protocol/openid-connect/revoke'));
+  assert.equal(captured.body.get('token'), 'the-refresh-token');
+  assert.equal(captured.body.get('token_type_hint'), 'refresh_token');
+});
+
+test('main auth logout: revoziert das Offline-Token vor dem Löschen von tokens.json (#315)', async () => {
+  await withTempConfigDir(async (dir) => {
+    writeJsonFileSecure(configPath(dir), CFG);
+    writeJsonFileSecure(tokensPath(dir), {
+      access_token: 'at',
+      refresh_token: 'rt-to-revoke',
+      expires_at: Date.now() + 60_000,
+    });
+
+    let revokedToken;
+    const fetchImpl = async (url, opts) => {
+      if (url.endsWith('/revoke')) revokedToken = opts.body.get('token');
+      return { ok: true, status: 200 };
+    };
+    const io = { stdout: () => {}, stderr: () => {}, fetchImpl, baseDir: dir };
+
+    const code = await main(['auth', 'logout'], io);
+    assert.equal(code, 0);
+    assert.equal(revokedToken, 'rt-to-revoke');
+    assert.equal(readJsonFile(tokensPath(dir)), null); // lokale Kopie geloescht
+  });
+});
+
+test('main auth logout: bleibt erfolgreich, wenn die Revocation fehlschlägt (#315)', async () => {
+  await withTempConfigDir(async (dir) => {
+    writeJsonFileSecure(configPath(dir), CFG);
+    writeJsonFileSecure(tokensPath(dir), {
+      access_token: 'at',
+      refresh_token: 'rt',
+      expires_at: Date.now() + 60_000,
+    });
+    const fetchImpl = async () => {
+      throw new Error('network down');
+    };
+    const io = { stdout: () => {}, stderr: () => {}, fetchImpl, baseDir: dir };
+
+    const code = await main(['auth', 'logout'], io);
+    assert.equal(code, 0);
+    assert.equal(readJsonFile(tokensPath(dir)), null);
+  });
 });

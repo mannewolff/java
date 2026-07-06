@@ -2,6 +2,9 @@ import { api } from './client';
 
 export type KanbanColumn = 'BACKLOG' | 'READY' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
 
+/** Typ eines Kanban-Eintrags: normale Board-Karte oder übergeordnetes Epic (#321). */
+export type KanbanItemType = 'ITEM' | 'EPIC';
+
 export const KANBAN_COLUMNS: readonly KanbanColumn[] = [
   'BACKLOG',
   'READY',
@@ -27,9 +30,23 @@ export interface KanbanItem {
   archived: boolean;
   /** Fortlaufende, pro User eindeutige Anzeige-Nummer (#187/#188). */
   number: number;
+  /** Typ: normale Karte (ITEM) oder Epic (#321). Epics erscheinen nicht auf dem Board. */
+  type: KanbanItemType;
+  /** ID des zugeordneten Epics oder {@code null}, wenn keinem Epic zugeordnet (#321). */
+  parentId: number | null;
 }
 
 export type KanbanBoard = Record<KanbanColumn, KanbanItem[]>;
+
+/** Ein Epic mit berechnetem Fortschritt (#322). */
+export interface KanbanEpic {
+  id: number;
+  number: number;
+  title: string;
+  body: string;
+  type: 'EPIC';
+  progress: { done: number; total: number };
+}
 
 export interface KanbanSettings {
   doneRetentionDays: number;
@@ -56,8 +73,15 @@ export function createKanbanItem(
   title: string,
   body: string,
   column?: KanbanColumn,
+  type: KanbanItemType = 'ITEM',
+  parentId: number | null = null,
 ): Promise<KanbanItem> {
-  return api.post<KanbanItem>(`${PATH}/items`, { title, body, column });
+  return api.post<KanbanItem>(`${PATH}/items`, { title, body, column, type, parentId });
+}
+
+/** Liefert die eigenen Epics inkl. Fortschritt (#322). */
+export function getKanbanEpics(): Promise<KanbanEpic[]> {
+  return api.get<KanbanEpic[]>(`${PATH}/epics`);
 }
 
 export function updateKanbanItem(

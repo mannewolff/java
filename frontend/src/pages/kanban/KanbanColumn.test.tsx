@@ -17,6 +17,8 @@ function makeItem(id: number, title: string): KanbanItem {
     movedToDoneAt: null,
     archived: false,
     number: id,
+    type: 'ITEM' as const,
+    parentId: null,
   };
 }
 

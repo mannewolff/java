@@ -69,6 +69,8 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
     movedToDoneAt: null,
     archived: false,
     number: 1,
+    type: 'ITEM',
+    parentId: null,
     ...overrides,
   };
 }

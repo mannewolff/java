@@ -43,6 +43,7 @@ import {
   type KanbanBoard,
   type KanbanColumn as KanbanColumnId,
   type KanbanItem,
+  type KanbanItemType,
 } from '../../api/kanban';
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
@@ -175,11 +176,16 @@ export default function KanbanPage(): JSX.Element {
     }
   }
 
-  async function handleSubmitCreate(title: string, body: string): Promise<void> {
+  async function handleSubmitCreate(
+    title: string,
+    body: string,
+    type: KanbanItemType,
+    parentId: number | null,
+  ): Promise<void> {
     if (!createColumn) return;
     try {
-      await createKanbanItem(title, body, createColumn);
-      notify.success('Item angelegt.');
+      await createKanbanItem(title, body, createColumn, type, parentId);
+      notify.success(type === 'EPIC' ? 'Epic angelegt.' : 'Item angelegt.');
       setCreateColumn(null);
       await refresh();
     } catch (e) {

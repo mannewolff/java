@@ -14,6 +14,8 @@ function item(id: number, column: KanbanColumn, position: number, archived = fal
     movedToDoneAt: column === 'DONE' ? '2026-01-01T00:00:00Z' : null,
     archived,
     number: id,
+    type: 'ITEM' as const,
+    parentId: null,
   };
 }
 

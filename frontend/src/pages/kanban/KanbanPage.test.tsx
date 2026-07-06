@@ -16,6 +16,7 @@ vi.mock('../../api/kanban', () => ({
   restoreKanbanItem: vi.fn(),
   getKanbanSettings: vi.fn(),
   updateKanbanSettings: vi.fn(),
+  getKanbanEpics: vi.fn(),
   listKanbanComments: vi.fn(),
   addKanbanComment: vi.fn(),
   updateKanbanComment: vi.fn(),
@@ -61,6 +62,7 @@ function installMemoryLocalStorage(): void {
 import {
   archiveKanbanItem,
   createKanbanItem,
+  getKanbanEpics,
   getKanbanSettings,
   listKanbanComments,
   listKanbanItems,
@@ -69,6 +71,7 @@ import {
 } from '../../api/kanban';
 
 const list = listKanbanItems as ReturnType<typeof vi.fn>;
+const getEpics = getKanbanEpics as ReturnType<typeof vi.fn>;
 const create = createKanbanItem as ReturnType<typeof vi.fn>;
 const update = updateKanbanItem as ReturnType<typeof vi.fn>;
 const archive = archiveKanbanItem as ReturnType<typeof vi.fn>;
@@ -96,6 +99,8 @@ function makeItem(overrides = {}) {
     movedToDoneAt: null,
     archived: false,
     number: 1,
+    type: 'ITEM',
+    parentId: null,
     ...overrides,
   };
 }
@@ -110,8 +115,10 @@ describe('KanbanPage', () => {
     getSettings.mockReset();
     putSettings.mockReset();
     listComments.mockReset();
+    getEpics.mockReset();
     getSettings.mockResolvedValue({ doneRetentionDays: 5 });
     listComments.mockResolvedValue([]);
+    getEpics.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -188,6 +195,8 @@ describe('KanbanPage', () => {
         'Neu',
         '## Kontext\n\n## Aufgabe\n\n## Akzeptanzkriterium\n\n## Abhängigkeiten\n',
         'BACKLOG',
+        'ITEM',
+        null,
       ),
     );
     await waitFor(() => expect(screen.getByText('Neu')).toBeInTheDocument());
@@ -392,7 +401,7 @@ describe('KanbanPage', () => {
 
     // Body-Template ist hier nebensächlich — der Test prüft den Reload-Trigger.
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith('Neu', expect.any(String), 'BACKLOG'),
+      expect(create).toHaveBeenCalledWith('Neu', expect.any(String), 'BACKLOG', 'ITEM', null),
     );
     // Der an die Liste durchgereichte reloadKey ist gestiegen — die Liste lädt neu.
     await waitFor(() =>

@@ -68,6 +68,8 @@ function makeItem(id: number, title: string, position: number, body = ''): Kanba
     movedToDoneAt: null,
     archived: false,
     number: id,
+    type: 'ITEM' as const,
+    parentId: null,
   };
 }
 

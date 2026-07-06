@@ -12,19 +12,25 @@ import org.springframework.data.repository.query.Param;
 
 interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> {
 
+  // Board- und Positionslogik sehen nur normale Items — Epics nehmen nicht am
+  // Spalten-Workflow teil und halten keine aktive Position (#321).
   @Query(
       "select i from KanbanItemEntity i where i.userSub = :userSub and i.archived = false "
+          + "and i.itemType = org.mwolff.api.kanban.domain.KanbanItemType.ITEM "
           + "order by i.columnName asc, i.positionInColumn asc")
   List<KanbanItemEntity> findActiveByUserSub(@Param("userSub") String userSub);
 
   @Query(
       "select i from KanbanItemEntity i where i.userSub = :userSub and i.columnName = :column "
-          + "and i.archived = false order by i.positionInColumn asc")
+          + "and i.archived = false "
+          + "and i.itemType = org.mwolff.api.kanban.domain.KanbanItemType.ITEM "
+          + "order by i.positionInColumn asc")
   List<KanbanItemEntity> findActiveByUserSubAndColumn(
       @Param("userSub") String userSub, @Param("column") KanbanColumn column);
 
   @Query(
       "select i from KanbanItemEntity i where i.userSub = :userSub "
+          + "and i.itemType = org.mwolff.api.kanban.domain.KanbanItemType.ITEM "
           + "order by i.columnName asc, i.positionInColumn asc")
   List<KanbanItemEntity> findAllByUserSubIncludingArchived(@Param("userSub") String userSub);
 

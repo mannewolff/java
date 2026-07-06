@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 
 /** Response-DTO eines einzelnen Items. */
 public record KanbanItemResponse(
@@ -16,7 +17,9 @@ public record KanbanItemResponse(
     Instant updatedAt,
     Instant movedToDoneAt,
     boolean archived,
-    int number) {
+    int number,
+    KanbanItemType type,
+    Long parentId) {
 
   public static KanbanItemResponse from(KanbanItem item) {
     return new KanbanItemResponse(
@@ -29,6 +32,8 @@ public record KanbanItemResponse(
         item.updatedAt(),
         item.movedToDoneAt(),
         item.archived(),
-        item.number());
+        item.number(),
+        item.type(),
+        item.parentId());
   }
 }

@@ -21,6 +21,7 @@ import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemPort;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.mwolff.api.kanban.domain.KanbanSettings;
 import org.mwolff.api.kanban.domain.KanbanSettingsPort;
 
@@ -142,6 +143,33 @@ class KanbanUseCasesTest {
 
     assertThat(moved.column()).isEqualTo(KanbanColumn.READY);
     verify(items).updatePosition(2L, 0);
+  }
+
+  @Test
+  void moveRejectsEpics() {
+    // Epics nehmen nicht am Spalten-Workflow teil (#321): Move → 400 statt Positions-Chaos.
+    final KanbanItem epic =
+        new KanbanItem(
+            1L,
+            SUB_OWNER,
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findById(1L)).willReturn(Optional.of(epic));
+
+    assertThatThrownBy(
+            () -> new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.READY, 0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("epic");
+    verify(items, never()).save(any());
   }
 
   // ----- create -------------------------------------------------------------

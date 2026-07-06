@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mwolff.api.AbstractIntegrationTest;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.mwolff.api.kanban.domain.KanbanSettings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -270,5 +271,72 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     final KanbanItem item = persist(USER_A, "T", "", KanbanColumn.BACKLOG, 0);
     assertThat(item.createdAt()).isNotNull();
     assertThat(item.updatedAt()).isNotNull();
+  }
+
+  // ----- Epics (#321) --------------------------------------------------------
+
+  /** Legt ein Epic an (position 0 fix — Epics halten keine aktive Position). */
+  private KanbanItem persistEpic(String user, String title) {
+    final int number = adapter.getMaxNumberForUser(user).map(max -> max + 1).orElse(1);
+    return adapter.save(
+        KanbanItem.newInstance(
+                user, title, "", KanbanColumn.BACKLOG, 0, Instant.now(), KanbanItemType.EPIC, null)
+            .withNumber(number));
+  }
+
+  @Test
+  void epicRoundTripsTypeAndIsExcludedFromBoardQueries() {
+    final KanbanItem epic = persistEpic(USER_A, "Mein Epic");
+    persist(USER_A, "Normales Item", "", KanbanColumn.BACKLOG, 0);
+
+    // Direktzugriff liefert das Epic mit Typ...
+    assertThat(adapter.findById(epic.id()))
+        .hasValueSatisfying(e -> assertThat(e.type()).isEqualTo(KanbanItemType.EPIC));
+    // ...aber Board-, Spalten- und Listen-Queries sehen nur ITEMs.
+    assertThat(adapter.findAllByUser(USER_A))
+        .extracting(KanbanItem::title)
+        .containsExactly("Normales Item");
+    assertThat(adapter.findByUserAndColumn(USER_A, KanbanColumn.BACKLOG))
+        .extracting(KanbanItem::title)
+        .containsExactly("Normales Item");
+    assertThat(adapter.findAllByUserIncludingArchived(USER_A))
+        .extracting(KanbanItem::title)
+        .containsExactly("Normales Item");
+  }
+
+  @Test
+  void epicDoesNotCollideWithItemPositionZero() {
+    // Beide auf (BACKLOG, position 0): der Unique-Index uk_kanban_active_position darf nicht
+    // anschlagen, weil Epics per V22 aus dem aktiven Positions-Namespace fallen.
+    persistEpic(USER_A, "Epic auf Position 0");
+    final KanbanItem item = persist(USER_A, "Item auf Position 0", "", KanbanColumn.BACKLOG, 0);
+
+    assertThat(adapter.findById(item.id())).isPresent();
+  }
+
+  @Test
+  void parentIdRoundTripsOnInsertAndUpdate() {
+    final KanbanItem epic = persistEpic(USER_A, "Parent-Epic");
+    final int number = adapter.getMaxNumberForUser(USER_A).map(max -> max + 1).orElse(1);
+    final KanbanItem story =
+        adapter.save(
+            KanbanItem.newInstance(
+                    USER_A,
+                    "Story",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.now(),
+                    KanbanItemType.ITEM,
+                    epic.id())
+                .withNumber(number));
+
+    assertThat(story.parentId()).isEqualTo(epic.id());
+    assertThat(adapter.findById(story.id()))
+        .hasValueSatisfying(s -> assertThat(s.parentId()).isEqualTo(epic.id()));
+
+    // Update-Pfad erhält die Zuordnung (withContent trägt parentId weiter).
+    final KanbanItem renamed = adapter.save(story.withContent("Story umbenannt", "b"));
+    assertThat(renamed.parentId()).isEqualTo(epic.id());
   }
 }

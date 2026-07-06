@@ -17,6 +17,7 @@ import org.mwolff.api.kanban.application.MoveItemUseCase;
 import org.mwolff.api.kanban.application.RestoreItemUseCase;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -131,7 +132,8 @@ class KanbanPositionIntegrityIT extends AbstractIntegrationTest {
     createIn(KanbanColumn.BACKLOG, "a"); // aktive Position 0
 
     final KanbanItemEntity duplicate =
-        new KanbanItemEntity(USER, "dup", "", KanbanColumn.BACKLOG, 0, null);
+        new KanbanItemEntity(
+            USER, "dup", "", KanbanItemType.ITEM, null, KanbanColumn.BACKLOG, 0, null);
     duplicate.setNumber(999);
 
     assertThatThrownBy(() -> repo.saveAndFlush(duplicate))

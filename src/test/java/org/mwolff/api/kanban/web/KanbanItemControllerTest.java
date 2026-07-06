@@ -1,5 +1,6 @@
 package org.mwolff.api.kanban.web;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -103,6 +104,9 @@ class KanbanItemControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.BACKLOG").isArray())
         .andExpect(jsonPath("$.BACKLOG[0].id").value(1))
+        // Epics-Fundament (#321): Typ und Epic-Zuordnung sind Teil des Wire-Formats.
+        .andExpect(jsonPath("$.BACKLOG[0].type").value("ITEM"))
+        .andExpect(jsonPath("$.BACKLOG[0].parentId").value(nullValue()))
         .andExpect(jsonPath("$.READY").isEmpty())
         .andExpect(jsonPath("$.IN_PROGRESS").isEmpty())
         .andExpect(jsonPath("$.IN_REVIEW").isEmpty())
@@ -279,6 +283,23 @@ class KanbanItemControllerTest {
                 .with(userJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"column\":\"DONE\",\"position\":-1}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void moveShouldReturn400WhenTargetIsEpic() throws Exception {
+    // Epics nehmen nicht am Spalten-Workflow teil (#321): der Use-Case-Guard wird vom
+    // KanbanExceptionHandler auf 400 gemappt (statt 500).
+    willThrow(new IllegalArgumentException("epics cannot be moved on the board"))
+        .given(moveUseCase)
+        .execute(SUB, 9L, KanbanColumn.DONE, 0);
+
+    mockMvc
+        .perform(
+            put("/api/kanban/items/9/move")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"column\":\"DONE\",\"position\":0}"))
         .andExpect(status().isBadRequest());
   }
 

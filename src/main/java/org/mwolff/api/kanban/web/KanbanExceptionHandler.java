@@ -24,6 +24,15 @@ public class KanbanExceptionHandler {
   }
 
   /**
+   * Fachliche Regel-Verletzungen aus den Use-Cases (#321): z. B. der Versuch, ein Epic auf dem
+   * Board zu verschieben. Ohne dieses Mapping fiele der Fall auf 500 zurück statt auf 400.
+   */
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+  }
+
+  /**
    * Verletzung eines DB-Constraints unter Nebenläufigkeit (#309): kollidierende Anzeige-Nummer
    * (uk_kanban_item_number_per_user) oder aktive Position (uk_kanban_active_position) bei
    * parallelen Create-/Move-Requests. Ein sauberes 409 signalisiert dem Client einen per Retry

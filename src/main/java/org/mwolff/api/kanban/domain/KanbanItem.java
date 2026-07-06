@@ -11,6 +11,12 @@ import java.util.Objects;
  * ist. Beim Verlassen von DONE wird der Zeitpunkt zurückgesetzt. Das Feld ist Basis für den
  * automatischen Cleanup.
  *
+ * <p>Epics (#321): {@code type} unterscheidet normale Items von Epics. Ein Item kann über {@code
+ * parentId} genau einem Epic zugeordnet sein; ein Epic selbst darf keinen Parent haben. Epics
+ * nehmen nicht am Spalten-Workflow teil — sie erscheinen nicht auf dem Board und werden nicht
+ * verschoben (Guard im Move-Use-Case; die Prüfung „parent ist ein EPIC" liegt ebenfalls im
+ * Use-Case, da sie andere Items braucht).
+ *
  * @param id ID nach Speicherung (vor Erstinsert {@code null})
  * @param userSub Keycloak-{@code sub} des Eigentümers
  * @param title pflicht, max 200 Zeichen, nicht leer
@@ -21,6 +27,9 @@ import java.util.Objects;
  * @param updatedAt letzte Änderung
  * @param movedToDoneAt Zeitpunkt des letzten Wechsels nach DONE (null außerhalb DONE)
  * @param archived {@code true} = archiviert (Soft-Delete), wird standardmäßig nicht angezeigt
+ * @param number fortlaufende, pro User eindeutige Anzeige-Nummer (#187)
+ * @param type {@link KanbanItemType#ITEM} (Board-Karte) oder {@link KanbanItemType#EPIC}
+ * @param parentId ID des zugeordneten Epics ({@code null} = keinem Epic zugeordnet)
  */
 public record KanbanItem(
     Long id,
@@ -33,7 +42,9 @@ public record KanbanItem(
     Instant updatedAt,
     Instant movedToDoneAt,
     boolean archived,
-    int number) {
+    int number,
+    KanbanItemType type,
+    Long parentId) {
 
   /** Maximale Länge des Titels — entspricht dem Schema. */
   public static final int MAX_TITLE_LENGTH = 200;
@@ -67,18 +78,82 @@ public record KanbanItem(
     if (number < 0) {
       throw new IllegalArgumentException("number must be >= 0");
     }
+    Objects.requireNonNull(type, "type must not be null");
+    if (type == KanbanItemType.EPIC && parentId != null) {
+      throw new IllegalArgumentException("an EPIC must not have a parent");
+    }
   }
 
   /**
-   * Erzeugt ein noch nicht persistiertes Item, am Ende der Zielspalte (position wird
-   * Use-Case-seitig gesetzt).
+   * Komfort-Konstruktor für normale Items ohne Epic-Zuordnung ({@code type=ITEM}, {@code
+   * parentId=null}) — hält die vor #321 entstandenen Aufrufstellen stabil.
+   */
+  public KanbanItem(
+      Long id,
+      String userSub,
+      String title,
+      String body,
+      KanbanColumn column,
+      int position,
+      Instant createdAt,
+      Instant updatedAt,
+      Instant movedToDoneAt,
+      boolean archived,
+      int number) {
+    this(
+        id,
+        userSub,
+        title,
+        body,
+        column,
+        position,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived,
+        number,
+        KanbanItemType.ITEM,
+        null);
+  }
+
+  /**
+   * Erzeugt ein noch nicht persistiertes Item ({@code type=ITEM}, kein Epic), am Ende der
+   * Zielspalte (position wird Use-Case-seitig gesetzt).
    */
   public static KanbanItem newInstance(
       String userSub, String title, String body, KanbanColumn column, int position, Instant now) {
+    return newInstance(userSub, title, body, column, position, now, KanbanItemType.ITEM, null);
+  }
+
+  /**
+   * Erzeugt ein noch nicht persistiertes Item mit explizitem Typ und optionaler Epic-Zuordnung
+   * (#321). Die Existenz-/Typ-Prüfung des Parents liegt im Create-Use-Case.
+   */
+  public static KanbanItem newInstance(
+      String userSub,
+      String title,
+      String body,
+      KanbanColumn column,
+      int position,
+      Instant now,
+      KanbanItemType type,
+      Long parentId) {
     final Instant movedToDone = column == KanbanColumn.DONE ? now : null;
     // number = 0: noch nicht vergeben; der Create-Use-Case setzt sie via withNumber (#187).
     return new KanbanItem(
-        null, userSub, title, body, column, position, null, null, movedToDone, false, 0);
+        null,
+        userSub,
+        title,
+        body,
+        column,
+        position,
+        null,
+        null,
+        movedToDone,
+        false,
+        0,
+        type,
+        parentId);
   }
 
   /** Kopie mit gesetzter Anzeige-Nummer (#187). Alle anderen Felder bleiben unverändert. */
@@ -94,7 +169,9 @@ public record KanbanItem(
         updatedAt,
         movedToDoneAt,
         archived,
-        newNumber);
+        newNumber,
+        type,
+        parentId);
   }
 
   /** Kopie mit neuem Titel und neuem Body. Alle anderen Felder bleiben unverändert. */
@@ -110,7 +187,9 @@ public record KanbanItem(
         updatedAt,
         movedToDoneAt,
         archived,
-        number);
+        number,
+        type,
+        parentId);
   }
 
   /**
@@ -132,7 +211,9 @@ public record KanbanItem(
         updatedAt,
         nextMovedToDone,
         archived,
-        number);
+        number,
+        type,
+        parentId);
   }
 
   /** Kopie mit neuer Position (gleiche Spalte). */
@@ -148,6 +229,8 @@ public record KanbanItem(
         updatedAt,
         movedToDoneAt,
         archived,
-        number);
+        number,
+        type,
+        parentId);
   }
 }

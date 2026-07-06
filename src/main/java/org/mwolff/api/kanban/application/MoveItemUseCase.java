@@ -8,6 +8,7 @@ import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemPort;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +44,11 @@ public class MoveItemUseCase {
             .findById(itemId)
             .filter(i -> i.userSub().equals(userSub))
             .orElseThrow(() -> new KanbanItemNotFoundException(itemId));
+    // Epics nehmen nicht am Spalten-Workflow teil (#321) — ein Move würde die
+    // Positions-Invarianten der Zielspalte unterlaufen (Epics halten keine aktive Position).
+    if (existing.type() == KanbanItemType.EPIC) {
+      throw new IllegalArgumentException("epics cannot be moved on the board");
+    }
 
     final KanbanColumn sourceColumn = existing.column();
     final int sourcePosition = existing.position();

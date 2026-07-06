@@ -118,6 +118,8 @@ describe('KanbanDetailModal', () => {
 
     expect(screen.getByLabelText('Titel')).toHaveValue('Titel');
     expect(screen.getByLabelText('Markdown-Beschreibung')).toHaveValue('## Kontext\nBody-Text');
+    // Feste Starthöhe (kein Autosize), damit der CSS-Ziehgriff greift (#338).
+    expect(screen.getByLabelText('Markdown-Beschreibung')).toHaveAttribute('rows', '8');
     // Kommentare sind im Edit-Modus ausgeblendet.
     expect(screen.queryByText('Kommentare')).not.toBeInTheDocument();
   });

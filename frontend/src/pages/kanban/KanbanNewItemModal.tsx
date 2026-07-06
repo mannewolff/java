@@ -153,11 +153,11 @@ export default function KanbanNewItemModal({
           <TextField
             label="Beschreibung"
             multiline
-            minRows={8}
+            rows={8}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             inputProps={{ maxLength: 10_000, 'aria-label': 'Beschreibung' }}
-            sx={{ '& textarea': { fontFamily: 'monospace' } }}
+            sx={{ '& textarea': { fontFamily: 'monospace', resize: 'vertical' } }}
             fullWidth
           />
         </Stack>

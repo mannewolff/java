@@ -226,7 +226,7 @@ export default function KanbanDetailModal({
               <TextField
                 label="Markdown-Beschreibung"
                 multiline
-                minRows={8}
+                rows={8}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 inputProps={{
@@ -234,6 +234,7 @@ export default function KanbanDetailModal({
                   'aria-label': 'Markdown-Beschreibung',
                   style: { fontFamily: 'monospace' },
                 }}
+                sx={{ '& textarea': { resize: 'vertical' } }}
                 fullWidth
               />
             </>

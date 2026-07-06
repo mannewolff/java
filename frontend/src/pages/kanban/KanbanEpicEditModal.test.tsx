@@ -31,6 +31,12 @@ describe('KanbanEpicEditModal', () => {
     expect(screen.getByLabelText('Kürzel')).toHaveValue('WSA');
   });
 
+  it('rendert das Beschreibungsfeld mit fester Starthöhe (kein Autosize, #338)', () => {
+    render(<KanbanEpicEditModal open epic={epic()} onClose={vi.fn()} onSubmit={vi.fn()} />);
+
+    expect(screen.getByLabelText('Beschreibung')).toHaveAttribute('rows', '8');
+  });
+
   it('sendet Titel, Body und Kürzel beim Speichern', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<KanbanEpicEditModal open epic={epic()} onClose={vi.fn()} onSubmit={onSubmit} />);

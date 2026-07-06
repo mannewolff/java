@@ -40,6 +40,14 @@ describe('KanbanNewItemModal', () => {
     expect(screen.getByLabelText('Beschreibung')).toHaveValue(TEMPLATE);
   });
 
+  it('rendert das Beschreibungsfeld mit fester Starthöhe (kein Autosize, #338)', () => {
+    render(<KanbanNewItemModal open onClose={vi.fn()} onSubmit={vi.fn()} />);
+
+    // rows={8} statt minRows => feste Höhe, MUI überschreibt die Höhe nicht per
+    // inline-style, damit der CSS-Ziehgriff (resize: vertical) greift.
+    expect(screen.getByLabelText('Beschreibung')).toHaveAttribute('rows', '8');
+  });
+
   it('Anlegen ist disabled, solange der Titel leer ist', () => {
     render(<KanbanNewItemModal open onClose={vi.fn()} onSubmit={vi.fn()} />);
 

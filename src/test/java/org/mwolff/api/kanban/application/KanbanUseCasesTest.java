@@ -3,6 +3,7 @@ package org.mwolff.api.kanban.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.mwolff.api.kanban.domain.EpicHasChildrenException;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
@@ -53,6 +55,24 @@ class KanbanUseCasesTest {
 
   private static KanbanItem item(long id, String sub, KanbanColumn column, int position) {
     return item(id, sub, column, position, column == KanbanColumn.DONE ? Instant.EPOCH : null);
+  }
+
+  private static KanbanItem epic(long id, String sub, String title, String shortcode) {
+    return new KanbanItem(
+        id,
+        sub,
+        title,
+        "body-" + id,
+        KanbanColumn.BACKLOG,
+        0,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        null,
+        false,
+        0,
+        KanbanItemType.EPIC,
+        null,
+        shortcode);
   }
 
   private static KanbanItem archivedItem(long id, String sub, KanbanColumn column, int position) {
@@ -471,6 +491,77 @@ class KanbanUseCasesTest {
   void updateContentShouldThrowWhenMissing() {
     given(items.findById(99L)).willReturn(Optional.empty());
     assertThatThrownBy(() -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 99L, "x", "y"))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+  }
+
+  @Test
+  void updateContentShouldPersistShortcodeOnEpic() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", null)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem updated =
+        new UpdateItemContentUseCase(items).execute(SUB_OWNER, 7L, "Neuer Titel", "Body", "ITB");
+
+    assertThat(updated.title()).isEqualTo("Neuer Titel");
+    assertThat(updated.shortcode()).isEqualTo("ITB");
+  }
+
+  @Test
+  void updateContentShouldRejectShortcodeOnNonEpic() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+
+    assertThatThrownBy(
+            () -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", "X"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+    verify(items, never()).save(any());
+  }
+
+  // ----- delete epic --------------------------------------------------------
+
+  @Test
+  void deleteEpicShouldPhysicallyDeleteWhenNoChildren() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", "ITB")));
+    given(items.countChildren(7L)).willReturn(0L);
+
+    new DeleteEpicUseCase(items).execute(SUB_OWNER, 7L);
+
+    verify(items).deleteById(7L);
+  }
+
+  @Test
+  void deleteEpicShouldThrowConflictWhenChildrenExist() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", "ITB")));
+    given(items.countChildren(7L)).willReturn(3L);
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OWNER, 7L))
+        .isInstanceOf(EpicHasChildrenException.class);
+    verify(items, never()).deleteById(7L);
+  }
+
+  @Test
+  void deleteEpicShouldThrowNotFoundForForeignEpic() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", null)));
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OTHER, 7L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+    verify(items, never()).deleteById(anyLong());
+  }
+
+  @Test
+  void deleteEpicShouldThrowNotFoundWhenTargetIsNotAnEpic() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OWNER, 1L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+    verify(items, never()).deleteById(anyLong());
+  }
+
+  @Test
+  void deleteEpicShouldThrowNotFoundWhenMissing() {
+    given(items.findById(99L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OWNER, 99L))
         .isInstanceOf(KanbanItemNotFoundException.class);
   }
 

@@ -42,6 +42,11 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
           + "order by i.number asc")
   List<KanbanItemEntity> findEpicsByUserSub(@Param("userSub") String userSub);
 
+  // Zählt alle Kinder eines Epics (inkl. archivierter) für den Referenz-Check vor dem Löschen
+  // (#330). Archivierte Kinder halten weiterhin eine parentId-Referenz und dürfen nicht verwaisen.
+  @Query("select count(i) from KanbanItemEntity i where i.parentId = :epicId")
+  long countByParentId(@Param("epicId") long epicId);
+
   // Max über ALLE Items des Users (auch archivierte), damit neue Nummern nie kollidieren (#187).
   @Query("select max(i.number) from KanbanItemEntity i where i.userSub = :userSub")
   Optional<Integer> findMaxNumberByUserSub(@Param("userSub") String userSub);

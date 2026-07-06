@@ -1,5 +1,6 @@
 package org.mwolff.api.kanban.web;
 
+import org.mwolff.api.kanban.domain.EpicHasChildrenException;
 import org.mwolff.api.kanban.domain.KanbanCommentForbiddenException;
 import org.mwolff.api.kanban.domain.KanbanCommentNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
@@ -21,6 +22,15 @@ public class KanbanExceptionHandler {
   @ExceptionHandler(KanbanCommentForbiddenException.class)
   public ResponseEntity<Void> handleForbidden(KanbanCommentForbiddenException ex) {
     return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+  }
+
+  /**
+   * Versuch, ein Epic zu löschen, auf das noch Items verweisen (#330). 409 signalisiert dem Client
+   * einen auflösbaren Konflikt: erst die zugeordneten Items umhängen/löschen, dann das Epic.
+   */
+  @ExceptionHandler(EpicHasChildrenException.class)
+  public ResponseEntity<Void> handleEpicHasChildren(EpicHasChildrenException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).build();
   }
 
   /**

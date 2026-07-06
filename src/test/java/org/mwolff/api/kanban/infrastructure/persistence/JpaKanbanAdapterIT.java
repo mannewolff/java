@@ -393,4 +393,41 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     final KanbanItem renamed = adapter.save(story.withContent("Story umbenannt", "b"));
     assertThat(renamed.parentId()).isEqualTo(epic.id());
   }
+
+  @Test
+  void countChildrenCountsAllReferencingItemsIncludingArchived() {
+    final KanbanItem epic = persistEpic(USER_A, "Epic mit Kindern");
+    final KanbanItem other = persistEpic(USER_A, "Anderes Epic");
+
+    assertThat(adapter.countChildren(epic.id())).isZero();
+
+    final KanbanItem child = persistChild(USER_A, "Kind", epic.id());
+    final KanbanItem archivedChild = persistChild(USER_A, "Archiviertes Kind", epic.id());
+    persistChild(USER_A, "Kind von anderem Epic", other.id());
+
+    adapter.archiveById(archivedChild.id());
+
+    // Archivierte Kinder halten weiterhin eine Referenz und zählen mit (#330).
+    assertThat(adapter.countChildren(epic.id())).isEqualTo(2);
+    assertThat(adapter.countChildren(other.id())).isEqualTo(1);
+
+    adapter.deleteById(child.id());
+    adapter.deleteById(archivedChild.id());
+    assertThat(adapter.countChildren(epic.id())).isZero();
+  }
+
+  private KanbanItem persistChild(String user, String title, long parentId) {
+    final int number = adapter.getMaxNumberForUser(user).map(max -> max + 1).orElse(1);
+    return adapter.save(
+        KanbanItem.newInstance(
+                user,
+                title,
+                "",
+                KanbanColumn.BACKLOG,
+                number,
+                Instant.now(),
+                KanbanItemType.ITEM,
+                parentId)
+            .withNumber(number));
+  }
 }

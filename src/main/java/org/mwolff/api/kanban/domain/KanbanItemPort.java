@@ -28,6 +28,13 @@ public interface KanbanItemPort {
   Optional<KanbanItem> findById(long id);
 
   /**
+   * Zählt alle Items, die dem Epic mit {@code epicId} zugeordnet sind ({@code parentId == epicId}),
+   * inklusive archivierter Items. Grundlage des Referenz-Checks vor dem Löschen eines Epics (#330):
+   * ein archiviertes Kind hält weiterhin eine Referenz und darf nicht verwaisen.
+   */
+  long countChildren(long epicId);
+
+  /**
    * Höchste vergebene Anzeige-Nummer (#187) eines Users über ALLE Items (inkl. archivierter), damit
    * neu vergebene Nummern nie mit denen archivierter Items kollidieren (Unique-Constraint). Leer,
    * wenn der User noch keine Items hat.

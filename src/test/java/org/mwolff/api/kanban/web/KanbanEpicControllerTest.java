@@ -1,7 +1,10 @@
 package org.mwolff.api.kanban.web;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,10 +14,13 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.auth.infrastructure.SecurityConfig;
+import org.mwolff.api.kanban.application.DeleteEpicUseCase;
 import org.mwolff.api.kanban.application.GetEpicsUseCase;
 import org.mwolff.api.kanban.application.GetEpicsUseCase.EpicWithProgress;
+import org.mwolff.api.kanban.domain.EpicHasChildrenException;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
+import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -38,6 +44,7 @@ class KanbanEpicControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private GetEpicsUseCase getEpicsUseCase;
+  @MockitoBean private DeleteEpicUseCase deleteEpicUseCase;
   @MockitoBean private JwtDecoder jwtDecoder;
 
   private static KanbanItem epic(long id, int number, String title, String shortcode) {
@@ -77,5 +84,32 @@ class KanbanEpicControllerTest {
   @Test
   void listWithoutJwtReturns401() throws Exception {
     mockMvc.perform(get("/api/kanban/epics")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void deleteReturns204AndDelegatesToUseCase() throws Exception {
+    mockMvc
+        .perform(delete("/api/kanban/epics/5").with(userJwt()))
+        .andExpect(status().isNoContent());
+    then(deleteEpicUseCase).should().execute(SUB, 5L);
+  }
+
+  @Test
+  void deleteReturns409WhenEpicStillHasChildren() throws Exception {
+    willThrow(new EpicHasChildrenException(5L, 2)).given(deleteEpicUseCase).execute(SUB, 5L);
+
+    mockMvc.perform(delete("/api/kanban/epics/5").with(userJwt())).andExpect(status().isConflict());
+  }
+
+  @Test
+  void deleteReturns404WhenEpicUnknownOrForeign() throws Exception {
+    willThrow(new KanbanItemNotFoundException(9L)).given(deleteEpicUseCase).execute(SUB, 9L);
+
+    mockMvc.perform(delete("/api/kanban/epics/9").with(userJwt())).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void deleteWithoutJwtReturns401() throws Exception {
+    mockMvc.perform(delete("/api/kanban/epics/5")).andExpect(status().isUnauthorized());
   }
 }

@@ -55,6 +55,11 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   }
 
   @Override
+  public long countChildren(long epicId) {
+    return itemRepo.countByParentId(epicId);
+  }
+
+  @Override
   public KanbanItem save(KanbanItem item) {
     final KanbanItemEntity entity;
     if (item.id() == null) {

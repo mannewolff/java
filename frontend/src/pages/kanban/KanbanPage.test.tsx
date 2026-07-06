@@ -293,7 +293,7 @@ describe('KanbanPage', () => {
     await user.type(titleInput, 'Neu');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    await waitFor(() => expect(update).toHaveBeenCalledWith(1, 'Neu', 'AlterBody'));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(1, 'Neu', 'AlterBody', null, null));
   });
 
   it('zeigt den Cleanup-Countdown bei DONE-Items', async () => {

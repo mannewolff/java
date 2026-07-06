@@ -517,6 +517,78 @@ class KanbanUseCasesTest {
     verify(items, never()).save(any());
   }
 
+  @Test
+  void updateShouldAssignItemToOwnEpic() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", null)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem updated =
+        new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", null, 7L);
+
+    assertThat(updated.parentId()).isEqualTo(7L);
+  }
+
+  @Test
+  void updateShouldReassignItemToAnotherEpic() {
+    given(items.findById(1L)).willReturn(Optional.of(childOf(7L, KanbanColumn.BACKLOG)));
+    given(items.findById(8L)).willReturn(Optional.of(epic(8, SUB_OWNER, "Anderes", null)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem updated =
+        new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", null, 8L);
+
+    assertThat(updated.parentId()).isEqualTo(8L);
+  }
+
+  @Test
+  void updateShouldRemoveEpicAssignmentWhenParentIsNull() {
+    given(items.findById(1L)).willReturn(Optional.of(childOf(7L, KanbanColumn.BACKLOG)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem updated =
+        new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", null, null);
+
+    assertThat(updated.parentId()).isNull();
+    // Kein Parent-Lookup nötig, wenn die Zuordnung entfernt wird.
+    verify(items, never()).findById(7L);
+  }
+
+  @Test
+  void updateShouldRejectUnknownParent() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+    given(items.findById(9L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", null, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not found");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void updateShouldRejectNonEpicParent() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+    given(items.findById(9L)).willReturn(Optional.of(item(9, SUB_OWNER, KanbanColumn.BACKLOG, 1)));
+
+    assertThatThrownBy(
+            () -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", null, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not an epic");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void updateShouldRejectParentOnEpic() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", null)));
+
+    assertThatThrownBy(
+            () -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 7L, "T", "B", null, 8L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("EPIC");
+    verify(items, never()).save(any());
+  }
+
   // ----- delete epic --------------------------------------------------------
 
   @Test

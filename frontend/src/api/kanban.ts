@@ -99,8 +99,9 @@ export function updateKanbanItem(
   title: string,
   body: string,
   shortcode: string | null = null,
+  parentId: number | null = null,
 ): Promise<KanbanItem> {
-  return api.put<KanbanItem>(`${PATH}/items/${id}`, { title, body, shortcode });
+  return api.put<KanbanItem>(`${PATH}/items/${id}`, { title, body, shortcode, parentId });
 }
 
 /** Löscht ein Epic. Backend antwortet 409, wenn noch Items zugeordnet sind (#330/#331). */

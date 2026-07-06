@@ -57,7 +57,7 @@ public class CreateItemUseCase {
       Long parentId,
       String shortcode) {
     final KanbanItemType itemType = type == null ? KanbanItemType.ITEM : type;
-    validateParent(userSub, itemType, parentId);
+    EpicAssignment.validateParent(items, userSub, itemType, parentId);
 
     final KanbanColumn target = column == null ? KanbanColumn.BACKLOG : column;
     // Epics halten keine aktive Position (V22) — Position 0 genügt und wird ignoriert.
@@ -79,31 +79,5 @@ public class CreateItemUseCase {
                 parentId,
                 shortcode)
             .withNumber(nextNumber));
-  }
-
-  /**
-   * Prüft die Epic-Zuordnung: Ein Epic darf keinen Parent haben; ein Item mit {@code parentId} muss
-   * auf ein existierendes, eigenes Epic verweisen. Verstöße → {@link IllegalArgumentException} (vom
-   * {@code KanbanExceptionHandler} auf 400 gemappt).
-   */
-  private void validateParent(String userSub, KanbanItemType type, Long parentId) {
-    if (type == KanbanItemType.EPIC) {
-      if (parentId != null) {
-        throw new IllegalArgumentException("an EPIC must not be assigned to a parent");
-      }
-      return;
-    }
-    if (parentId == null) {
-      return;
-    }
-    final KanbanItem parent =
-        items
-            .findById(parentId)
-            .filter(p -> p.userSub().equals(userSub))
-            .orElseThrow(
-                () -> new IllegalArgumentException("parent epic " + parentId + " not found"));
-    if (parent.type() != KanbanItemType.EPIC) {
-      throw new IllegalArgumentException("parent " + parentId + " is not an epic");
-    }
   }
 }

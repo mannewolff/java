@@ -3,10 +3,11 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import KanbanDetailModal from './KanbanDetailModal';
-import type { KanbanComment, KanbanItem } from '../../api/kanban';
+import type { KanbanComment, KanbanEpic, KanbanItem } from '../../api/kanban';
 import {
   addKanbanComment,
   deleteKanbanComment,
+  getKanbanEpics,
   listKanbanComments,
   updateKanbanComment,
 } from '../../api/kanban';
@@ -32,8 +33,22 @@ vi.mock('../../api/kanban', async () => {
     addKanbanComment: vi.fn(),
     updateKanbanComment: vi.fn(),
     deleteKanbanComment: vi.fn(),
+    getKanbanEpics: vi.fn(),
   };
 });
+
+function epic(overrides: Partial<KanbanEpic> = {}): KanbanEpic {
+  return {
+    id: 7,
+    number: 3,
+    title: 'Workshop',
+    body: '',
+    type: 'EPIC',
+    shortcode: null,
+    progress: { done: 0, total: 0 },
+    ...overrides,
+  };
+}
 
 function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
   return {
@@ -77,6 +92,7 @@ describe('KanbanDetailModal', () => {
     vi.mocked(addKanbanComment).mockResolvedValue(makeComment());
     vi.mocked(updateKanbanComment).mockResolvedValue(makeComment());
     vi.mocked(deleteKanbanComment).mockResolvedValue(undefined);
+    vi.mocked(getKanbanEpics).mockResolvedValue([]);
   });
 
   afterEach(() => cleanup());
@@ -163,11 +179,96 @@ describe('KanbanDetailModal', () => {
     await user.type(titleInput, '  Neu  ');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body');
+    expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body', null);
     // Nach dem Speichern wieder im Lesemodus (Bearbeiten-Button sichtbar).
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument(),
     );
+  });
+
+  it('belegt die Epic-Auswahl im Edit-Modus mit der aktuellen Zuordnung vor (#339)', async () => {
+    vi.mocked(getKanbanEpics).mockResolvedValue([epic({ id: 7, title: 'Workshop' })]);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ parentId: 7 })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await screen.findByRole('option', { name: /Workshop/ });
+
+    expect(screen.getByLabelText('Epic')).toHaveValue('7');
+  });
+
+  it('ordnet ein Item nachträglich einem Epic zu und übergibt parentId (#339)', async () => {
+    vi.mocked(getKanbanEpics).mockResolvedValue([epic({ id: 7, title: 'Workshop' })]);
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ parentId: null })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await screen.findByRole('option', { name: /Workshop/ });
+    await user.selectOptions(screen.getByLabelText('Epic'), '7');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', 7);
+  });
+
+  it('entfernt die Epic-Zuordnung, wenn „(kein Epic)" gewählt wird (#339)', async () => {
+    vi.mocked(getKanbanEpics).mockResolvedValue([epic({ id: 7, title: 'Workshop' })]);
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ parentId: 7 })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await screen.findByRole('option', { name: /Workshop/ });
+    await user.selectOptions(screen.getByLabelText('Epic'), '');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', null);
+  });
+
+  it('zeigt keine Epic-Auswahl, wenn das Item selbst ein Epic ist (#339)', async () => {
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ type: 'EPIC' })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+
+    expect(screen.queryByLabelText('Epic')).not.toBeInTheDocument();
+    expect(getKanbanEpics).not.toHaveBeenCalled();
   });
 
   it('Abbrechen verwirft den Draft und kehrt in den Lesemodus zurück', async () => {

@@ -32,6 +32,20 @@ public class UpdateItemContentUseCase {
     return items.save(load(userSub, itemId).withContent(title, body, shortcode));
   }
 
+  /**
+   * Aktualisiert Titel, Body, Kürzel und Epic-Zuordnung (#339). Die Parent-Zuordnung wird gegen
+   * dieselbe Regel wie beim Anlegen geprüft (existiert, Typ EPIC, Owner → sonst {@link
+   * IllegalArgumentException} → 400). {@code parentId = null} entfernt eine bestehende Zuordnung;
+   * ein EPIC darf keinen Parent bekommen.
+   */
+  @Transactional
+  public KanbanItem execute(
+      String userSub, long itemId, String title, String body, String shortcode, Long parentId) {
+    final KanbanItem existing = load(userSub, itemId);
+    EpicAssignment.validateParent(items, userSub, existing.type(), parentId);
+    return items.save(existing.withContent(title, body, shortcode, parentId));
+  }
+
   private KanbanItem load(String userSub, long itemId) {
     return items
         .findById(itemId)

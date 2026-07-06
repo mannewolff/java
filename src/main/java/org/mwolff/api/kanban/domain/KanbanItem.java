@@ -292,6 +292,31 @@ public record KanbanItem(
   }
 
   /**
+   * Kopie mit neuem Titel, Body, Kürzel und Epic-Zuordnung (#339) — für das Bearbeiten eines Items
+   * inklusive nachträglicher Epic-Zuordnung ({@code parentId = null} entfernt die Zuordnung). Die
+   * Existenz-/Typ-/Owner-Prüfung des Parents liegt im Update-Use-Case. Alle anderen Felder bleiben
+   * unverändert.
+   */
+  public KanbanItem withContent(
+      String newTitle, String newBody, String newShortcode, Long newParentId) {
+    return new KanbanItem(
+        id,
+        userSub,
+        newTitle,
+        newBody,
+        column,
+        position,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived,
+        number,
+        type,
+        newParentId,
+        newShortcode);
+  }
+
+  /**
    * Kopie mit neuer Spalte und Position. Setzt {@code movedToDoneAt} korrekt: ans aktuelle "now"
    * beim Eintritt in DONE, auf {@code null} beim Verlassen, sonst unverändert.
    */

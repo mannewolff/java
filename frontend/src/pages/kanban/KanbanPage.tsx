@@ -190,10 +190,14 @@ export default function KanbanPage(): JSX.Element {
     setCreateParentId(null);
   }
 
-  async function handleSubmitDetail(title: string, body: string): Promise<void> {
+  async function handleSubmitDetail(
+    title: string,
+    body: string,
+    parentId: number | null,
+  ): Promise<void> {
     if (!detailItem) return;
     try {
-      await updateKanbanItem(detailItem.id, title, body);
+      await updateKanbanItem(detailItem.id, title, body, null, parentId);
       notify.success('Item gespeichert.');
       setDetailItem(null);
       await refresh();

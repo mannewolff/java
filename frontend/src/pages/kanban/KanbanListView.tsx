@@ -6,15 +6,18 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import {
   KANBAN_COLUMNS,
   forceDeleteKanbanItem,
+  getKanbanEpics,
   listKanbanItems,
   moveKanbanItem,
   restoreKanbanItem,
   updateKanbanItem,
   type KanbanColumn,
+  type KanbanEpic,
   type KanbanItem,
 } from '../../api/kanban';
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
+import EpicBadge from './EpicBadge';
 import KanbanDetailModal from './KanbanDetailModal';
 import { COLUMN_LABELS } from './columnMeta';
 import { ARCHIVED_STATUS_COLOR, STATUS_COLORS, type StatusColorSet } from './statusColors';
@@ -77,6 +80,7 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
     () => new Set<FilterKey>(KANBAN_COLUMNS),
   );
   const [board, setBoard] = useState<KanbanItem[] | null>(null);
+  const [epicsById, setEpicsById] = useState<Record<number, KanbanEpic>>({});
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [detailItem, setDetailItem] = useState<KanbanItem | null>(null);
@@ -111,6 +115,23 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
       cancelled = true;
     };
   }, [archiveActive, reloadNonce, reloadKey]);
+
+  // Epics laden, um pro Zeile das Epic-Badge zu zeigen (#342). Fehler bleiben still (kein Badge).
+  useEffect(() => {
+    let cancelled = false;
+    getKanbanEpics()
+      .then((epics) => {
+        if (!cancelled) {
+          setEpicsById(Object.fromEntries(epics.map((e) => [e.id, e])));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setEpicsById({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadNonce, reloadKey]);
 
   function toggleFilter(key: FilterKey): void {
     setActiveFilters((prev) => {
@@ -340,6 +361,9 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
                     fontWeight: 600,
                   }}
                 />
+                {item.parentId != null && epicsById[item.parentId] && (
+                  <EpicBadge epic={epicsById[item.parentId]} />
+                )}
                 <Typography
                   variant="body2"
                   sx={{

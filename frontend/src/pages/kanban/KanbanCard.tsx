@@ -22,7 +22,8 @@ import {
 } from '../../api/kanban';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
 import { COLUMN_LABELS } from './columnMeta';
-import { epicColor, epicShortcode } from './epicMeta';
+import { epicColor } from './epicMeta';
+import EpicBadge from './EpicBadge';
 import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 interface KanbanCardProps {
@@ -94,29 +95,7 @@ export default function KanbanCard({
       }}
       aria-label={`Kanban-Item ${item.title}`}
     >
-      {epic && epicHue && (
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={0.5}
-          sx={{
-            mb: 0.5,
-            width: 'fit-content',
-            px: 0.75,
-            py: 0.25,
-            borderRadius: 1,
-            bgcolor: `${epicHue}22`,
-          }}
-          aria-label={`Epic ${epicShortcode(epic.title, epic.shortcode)}`}
-        >
-          <Box
-            sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: epicHue, flexShrink: 0 }}
-          />
-          <Typography variant="caption" sx={{ fontWeight: 700, color: epicHue, lineHeight: 1 }}>
-            {epicShortcode(epic.title, epic.shortcode)}
-          </Typography>
-        </Stack>
-      )}
+      {epic && epicHue && <EpicBadge epic={epic} sx={{ mb: 0.5 }} />}
 
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={0.5}>
         <Tooltip title={item.title} enterDelay={500}>

@@ -15,11 +15,13 @@ vi.mock('../../api/kanban', async () => {
     updateKanbanItem: vi.fn(),
     restoreKanbanItem: vi.fn(),
     forceDeleteKanbanItem: vi.fn(),
+    getKanbanEpics: vi.fn(),
   };
 });
 
 import {
   forceDeleteKanbanItem,
+  getKanbanEpics,
   listKanbanItems,
   moveKanbanItem,
   restoreKanbanItem,
@@ -59,6 +61,7 @@ const moveItem = moveKanbanItem as ReturnType<typeof vi.fn>;
 const updateItem = updateKanbanItem as ReturnType<typeof vi.fn>;
 const restoreItem = restoreKanbanItem as ReturnType<typeof vi.fn>;
 const forceDeleteItem = forceDeleteKanbanItem as ReturnType<typeof vi.fn>;
+const listEpics = getKanbanEpics as ReturnType<typeof vi.fn>;
 
 function dragEvent(): { dataTransfer: { setData: ReturnType<typeof vi.fn>; effectAllowed: string } } {
   return { dataTransfer: { setData: vi.fn(), effectAllowed: '' } };
@@ -121,6 +124,8 @@ describe('KanbanListView', () => {
     restoreItem.mockResolvedValue(makeItem());
     forceDeleteItem.mockReset();
     forceDeleteItem.mockResolvedValue(undefined);
+    listEpics.mockReset();
+    listEpics.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -156,6 +161,37 @@ describe('KanbanListView', () => {
     expect(within(row).getByText('Ready')).toBeInTheDocument();
     expect(within(row).getByText('Startklar')).toBeInTheDocument();
     expect(within(row).getByText('H fett')).toBeInTheDocument();
+  });
+
+  it('zeigt neben dem Status-Badge das Epic-Badge, wenn das Item einem Epic zugeordnet ist (#342)', async () => {
+    listEpics.mockResolvedValue([
+      {
+        id: 42,
+        number: 5,
+        title: 'Workshop',
+        body: '',
+        type: 'EPIC' as const,
+        shortcode: 'WS',
+        progress: { done: 0, total: 0 },
+      },
+    ]);
+    listItems.mockResolvedValue(
+      boardOf({ READY: [makeItem({ id: 7, number: 7, column: 'READY', title: 'Zugeordnet', parentId: 42 })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const row = await screen.findByRole('button', { name: /Detail öffnen: Zugeordnet/ });
+    expect(await within(row).findByLabelText('Epic WS')).toBeInTheDocument();
+  });
+
+  it('zeigt kein Epic-Badge, wenn das Item keinem Epic zugeordnet ist (#342)', async () => {
+    listItems.mockResolvedValue(
+      boardOf({ READY: [makeItem({ id: 7, number: 7, column: 'READY', title: 'Frei', parentId: null })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const row = await screen.findByRole('button', { name: /Detail öffnen: Frei/ });
+    expect(within(row).queryByLabelText(/^Epic /)).not.toBeInTheDocument();
   });
 
   it('blendet Status über Filter-Chips aus', async () => {

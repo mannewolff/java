@@ -61,13 +61,15 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
   @Query("update KanbanItemEntity i set i.archived = false where i.id = :id")
   void restoreById(@Param("id") long id);
 
+  // Abgelaufene DONE-Items werden archiviert (Soft-Delete), nicht gelöscht (#327): sie bleiben
+  // über den Archiv-Filter der Listenansicht erreichbar. Bereits archivierte bleiben unangetastet.
   @Modifying(clearAutomatically = true)
   @Query(
-      "delete from KanbanItemEntity i where i.userSub = :userSub "
+      "update KanbanItemEntity i set i.archived = true where i.userSub = :userSub "
           + "and i.columnName = org.mwolff.api.kanban.domain.KanbanColumn.DONE "
           + "and i.movedToDoneAt < :threshold "
           + "and i.archived = false")
-  int deleteDoneOlderThan(@Param("userSub") String userSub, @Param("threshold") Instant threshold);
+  int archiveDoneOlderThan(@Param("userSub") String userSub, @Param("threshold") Instant threshold);
 
   @Query(
       "select distinct i.userSub from KanbanItemEntity i "

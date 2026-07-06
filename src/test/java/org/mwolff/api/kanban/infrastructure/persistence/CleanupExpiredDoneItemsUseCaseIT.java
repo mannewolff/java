@@ -24,10 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Reproduziert den Scheduler-Prod-Pfad von {@link CleanupExpiredDoneItemsUseCase#execute()}: Aufruf
  * <b>ohne</b> umgebende Transaktion (via {@code @Transactional(propagation = NOT_SUPPORTED)}). Vor
- * dem Fix umging der Selbstaufruf {@code this.deleteForUser(...)} den Spring-Proxy, sodass die
- * {@code @Modifying}-Delete-Query ohne Transaktion lief und {@code TransactionRequiredException}
- * warf (#305). Jetzt öffnet {@link ExpiredDoneItemsPerUserCleanup} pro User eine eigene
- * Transaktion.
+ * dem Fix umging der Selbstaufruf {@code this.archiveForUser(...)} den Spring-Proxy, sodass die
+ * {@code @Modifying}-Query ohne Transaktion lief und {@code TransactionRequiredException} warf
+ * (#305). Jetzt öffnet {@link ExpiredDoneItemsPerUserCleanup} pro User eine eigene Transaktion.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -47,15 +46,22 @@ class CleanupExpiredDoneItemsUseCaseIT extends AbstractIntegrationTest {
 
   @Test
   @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  void executeDeletesExpiredDoneItemsWithoutSurroundingTransaction() {
+  void executeArchivesExpiredDoneItemsWithoutSurroundingTransaction() {
     final long expiredId = persistDone(NOW.minus(java.time.Duration.ofDays(365)));
     final long freshId = persistDone(NOW);
 
-    final int deleted = cleanup.execute();
+    final int archived = cleanup.execute();
 
-    assertThat(deleted).isEqualTo(1);
-    assertThat(adapter.findById(expiredId)).isEmpty();
-    assertThat(adapter.findById(freshId)).isPresent();
+    assertThat(archived).isEqualTo(1);
+    // #327: abgelaufene DONE-Items werden archiviert (Soft-Delete), nicht gelöscht.
+    assertThat(adapter.findById(expiredId))
+        .hasValueSatisfying(
+            i -> {
+              assertThat(i.archived()).isTrue();
+              assertThat(i.column()).isEqualTo(KanbanColumn.DONE);
+            });
+    assertThat(adapter.findById(freshId))
+        .hasValueSatisfying(i -> assertThat(i.archived()).isFalse());
   }
 
   /**

@@ -57,13 +57,13 @@ public interface KanbanItemPort {
   List<KanbanItem> findAllByUserIncludingArchived(String userSub);
 
   /**
-   * Löscht alle nicht-archivierten Items eines Users, die in der DONE-Spalte liegen und deren
-   * {@code movedToDoneAt} vor dem übergebenen Threshold liegt. Archivierte Items sind davon
-   * ausgenommen (intentional archival). Verwendet vom Auto-Cleanup-Scheduler.
+   * Archiviert alle nicht-archivierten Items eines Users, die in der DONE-Spalte liegen und deren
+   * {@code movedToDoneAt} vor dem übergebenen Threshold liegt (#327). Bereits archivierte Items
+   * bleiben unangetastet. Verwendet vom Auto-Archivierungs-Scheduler.
    *
-   * @return Anzahl gelöschter Items, für Logging.
+   * @return Anzahl archivierter Items, für Logging.
    */
-  int deleteDoneOlderThan(String userSub, Instant threshold);
+  int archiveDoneOlderThan(String userSub, Instant threshold);
 
   /**
    * Liefert die distinkten {@code userSub}s, die mindestens ein nicht-archiviertes DONE-Item haben

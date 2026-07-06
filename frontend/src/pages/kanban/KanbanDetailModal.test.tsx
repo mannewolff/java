@@ -266,7 +266,7 @@ describe('KanbanDetailModal', () => {
 
     await screen.findByText('Noch keine Kommentare.');
     // 5 Tage Retention, 2 Tage vergangen → 3 Tage übrig.
-    expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
+    expect(screen.getByText(/wird in 3 Tagen archiviert/)).toBeInTheDocument();
   });
 
   it('lädt Kommentare beim Öffnen und bietet Edit/Delete nur für eigene', async () => {

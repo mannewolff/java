@@ -198,7 +198,7 @@ describe('KanbanCard Kit-Look (#281)', () => {
     const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
     renderCard(makeItem({ column: 'DONE', movedToDoneAt: moved }));
 
-    expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
+    expect(screen.getByText(/wird in 3 Tagen archiviert/)).toBeInTheDocument();
   });
 
   it('zeigt ein Epic-Badge mit Kürzel, wenn das Item einem Epic zugeordnet ist (#325)', () => {

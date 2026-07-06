@@ -304,7 +304,7 @@ describe('KanbanPage', () => {
 
     renderPage();
     await waitFor(() => expect(screen.getByText('Erledigt')).toBeInTheDocument());
-    expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
+    expect(screen.getByText(/wird in 3 Tagen archiviert/)).toBeInTheDocument();
   });
 
   it('rendert einen Error-State, wenn der Initial-Load scheitert', async () => {

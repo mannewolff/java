@@ -30,14 +30,14 @@ describe('cleanupDaysRemaining', () => {
 
 describe('cleanupCountdownLabel', () => {
   it('formatiert 0 als "heute"', () => {
-    expect(cleanupCountdownLabel(0)).toBe('wird heute gelöscht');
+    expect(cleanupCountdownLabel(0)).toBe('wird heute archiviert');
   });
 
   it('formatiert 1 als "morgen"', () => {
-    expect(cleanupCountdownLabel(1)).toBe('wird morgen gelöscht');
+    expect(cleanupCountdownLabel(1)).toBe('wird morgen archiviert');
   });
 
   it('formatiert mehrere Tage in Tagen', () => {
-    expect(cleanupCountdownLabel(5)).toBe('wird in 5 Tagen gelöscht');
+    expect(cleanupCountdownLabel(5)).toBe('wird in 5 Tagen archiviert');
   });
 });

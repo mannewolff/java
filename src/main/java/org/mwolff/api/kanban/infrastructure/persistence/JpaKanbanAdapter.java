@@ -116,8 +116,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   }
 
   @Override
-  public int deleteDoneOlderThan(String userSub, Instant threshold) {
-    return itemRepo.deleteDoneOlderThan(userSub, threshold);
+  public int archiveDoneOlderThan(String userSub, Instant threshold) {
+    return itemRepo.archiveDoneOlderThan(userSub, threshold);
   }
 
   @Override

@@ -5,7 +5,7 @@
  * @param movedToDoneAt ISO-Timestamp, an dem das Item nach DONE wechselte
  * @param retentionDays User-Setting in Tagen
  * @param now aktuelle Zeit (Default {@code Date.now()})
- * @returns Anzahl Tage bis zum Loeschen, mindestens 0
+ * @returns Anzahl Tage bis zur Archivierung, mindestens 0
  */
 export function cleanupDaysRemaining(
   movedToDoneAt: string,
@@ -18,9 +18,9 @@ export function cleanupDaysRemaining(
   return Math.max(0, Math.ceil(remaining / 86_400_000));
 }
 
-/** Liefert den Label-Text fuer den DONE-Cleanup-Hinweis. */
+/** Liefert den Label-Text fuer den DONE-Archivierungs-Hinweis (#327). */
 export function cleanupCountdownLabel(days: number): string {
-  if (days === 0) return 'wird heute gelöscht';
-  if (days === 1) return 'wird morgen gelöscht';
-  return `wird in ${days} Tagen gelöscht`;
+  if (days === 0) return 'wird heute archiviert';
+  if (days === 1) return 'wird morgen archiviert';
+  return `wird in ${days} Tagen archiviert`;
 }

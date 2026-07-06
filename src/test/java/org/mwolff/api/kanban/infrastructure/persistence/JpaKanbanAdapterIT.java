@@ -121,7 +121,7 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
-  void deleteDoneOlderThanRemovesOnlyExpiredDoneItems() {
+  void archiveDoneOlderThanArchivesOnlyExpiredDoneItems() {
     final Instant old = Instant.parse("2026-01-01T00:00:00Z");
     final Instant fresh = Instant.parse("2026-05-27T00:00:00Z");
     // Erst alle anlegen, dann via save() in DONE setzen mit explizitem movedToDoneAt.
@@ -156,11 +156,19 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             false,
             freshDone.number()));
 
-    final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-03-01T00:00:00Z"));
+    final int archived =
+        adapter.archiveDoneOlderThan(USER_A, Instant.parse("2026-03-01T00:00:00Z"));
 
-    assertThat(deleted).isEqualTo(1);
-    assertThat(adapter.findById(oldDone.id())).isEmpty();
-    assertThat(adapter.findById(freshDone.id())).isPresent();
+    assertThat(archived).isEqualTo(1);
+    // #327: abgelaufenes DONE-Item ist archiviert (nicht gelöscht) und bleibt in DONE.
+    assertThat(adapter.findById(oldDone.id()))
+        .hasValueSatisfying(
+            i -> {
+              assertThat(i.archived()).isTrue();
+              assertThat(i.column()).isEqualTo(KanbanColumn.DONE);
+            });
+    assertThat(adapter.findById(freshDone.id()))
+        .hasValueSatisfying(i -> assertThat(i.archived()).isFalse());
     assertThat(adapter.findById(backlog.id())).isPresent();
   }
 
@@ -220,7 +228,7 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
-  void deleteDoneOlderThanSkipsArchivedItems() {
+  void archiveDoneOlderThanSkipsAlreadyArchivedItems() {
     final KanbanItem archivedDone = persist(USER_A, "OldArchived", "", KanbanColumn.DONE, 0);
     adapter.save(
         new KanbanItem(
@@ -237,9 +245,11 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             archivedDone.number()));
     adapter.archiveById(archivedDone.id());
 
-    final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-06-01T00:00:00Z"));
+    final int archived =
+        adapter.archiveDoneOlderThan(USER_A, Instant.parse("2026-06-01T00:00:00Z"));
 
-    assertThat(deleted).isEqualTo(0);
+    // Bereits archivierte Items werden nicht erneut angefasst (0 Änderungen).
+    assertThat(archived).isEqualTo(0);
     assertThat(adapter.findById(archivedDone.id())).isPresent();
   }
 

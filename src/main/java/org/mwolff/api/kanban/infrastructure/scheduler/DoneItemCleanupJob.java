@@ -33,9 +33,9 @@ public class DoneItemCleanupJob {
 
   @Scheduled(cron = "${toolbox.kanban.cleanup-cron:0 0 3 * * *}")
   public void run() {
-    final int deleted = cleanup.execute();
-    if (deleted > 0) {
-      LOG.info("Kanban cleanup deleted {} expired DONE items", deleted);
+    final int archived = cleanup.execute();
+    if (archived > 0) {
+      LOG.info("Kanban cleanup archived {} expired DONE items", archived);
     }
   }
 }

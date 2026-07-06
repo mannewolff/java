@@ -831,22 +831,22 @@ class KanbanUseCasesTest {
   // ----- cleanup ------------------------------------------------------------
 
   @Test
-  void cleanupDeletesForEachUserUsingTheirRetention() {
+  void cleanupArchivesForEachUserUsingTheirRetention() {
     given(items.distinctUsersWithDoneItems()).willReturn(List.of(SUB_OWNER, SUB_OTHER));
     given(settings.findByUser(SUB_OWNER))
         .willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 10)));
     given(settings.findByUser(SUB_OTHER)).willReturn(Optional.empty()); // Default 5
-    given(items.deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any()))
+    given(items.archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any()))
         .willReturn(2);
-    given(items.deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any()))
+    given(items.archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any()))
         .willReturn(3);
 
     final ExpiredDoneItemsPerUserCleanup perUser =
         new ExpiredDoneItemsPerUserCleanup(items, settings, clock);
-    final int deleted = new CleanupExpiredDoneItemsUseCase(items, perUser).execute();
+    final int archived = new CleanupExpiredDoneItemsUseCase(items, perUser).execute();
 
-    assertThat(deleted).isEqualTo(5);
-    verify(items, times(1)).deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any());
-    verify(items, times(1)).deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any());
+    assertThat(archived).isEqualTo(5);
+    verify(items, times(1)).archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any());
+    verify(items, times(1)).archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any());
   }
 }

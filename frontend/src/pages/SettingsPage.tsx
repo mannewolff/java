@@ -18,7 +18,6 @@ import {
   Typography,
 } from '@mui/material';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -85,17 +84,6 @@ export default function SettingsPage() {
             <ListItemText
               primary="Ingest-Tokens"
               secondary="Tokens für externen Schreibzugriff auf Zeitreihen verwalten"
-            />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/settings/mobile-auth">
-            <ListItemIcon>
-              <PhoneIphoneIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Handy-Zugang"
-              secondary="QR-Code scannen — Handy 30 Tage ohne Neuanmeldung nutzen"
             />
           </ListItemButton>
         </ListItem>

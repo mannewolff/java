@@ -14,7 +14,6 @@ import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -53,7 +52,6 @@ export const navItems: NavNode[] = [
       { kind: 'link', label: 'Epics', path: '/kanban/epics', icon: AccountTreeIcon },
     ],
   },
-  { kind: 'link', label: 'Mobile', path: '/mobile', icon: PhoneIphoneIcon },
   {
     kind: 'group',
     label: 'Bildverarbeitung',

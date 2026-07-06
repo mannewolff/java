@@ -24,16 +24,12 @@ const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
 const ApiConsolePage = lazy(() => import('./pages/tools/ApiConsolePage'));
 const MarkdownToPdfPage = lazy(() => import('./pages/tools/MarkdownToPdfPage'));
 const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
-const MobilePage = lazy(() => import('./pages/mobile/MobilePage'));
 const TimeSeriesListPage = lazy(() => import('./pages/timeseries/TimeSeriesListPage'));
 const TimeSeriesDetailPage = lazy(
   () => import('./pages/timeseries/TimeSeriesDetailPage'),
 );
 const IngestTokenSettingsPage = lazy(
   () => import('./pages/settings/IngestTokenSettingsPage'),
-);
-const MobileAuthSettingsPage = lazy(
-  () => import('./pages/settings/MobileAuthSettingsPage'),
 );
 
 export default function App() {
@@ -171,14 +167,6 @@ export default function App() {
           }
         />
         <Route
-          path="/mobile"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <MobilePage />
-            </Suspense>
-          }
-        />
-        <Route
           path="/timeseries"
           element={
             <Suspense fallback={<PageLoader />}>
@@ -207,14 +195,6 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <IngestTokenSettingsPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/settings/mobile-auth"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <MobileAuthSettingsPage />
             </Suspense>
           }
         />

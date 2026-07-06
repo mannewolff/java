@@ -260,6 +260,24 @@ describe('AppShell collapsed sidebar', () => {
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Einstellungen' })).toBeInTheDocument();
   });
+
+  it('öffnet im collapsed-Zustand ein Flyout-Menü mit den Gruppen-Unterpunkten und navigiert (#340)', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true');
+    renderShell('/dashboards/default');
+    const user = userEvent.setup();
+
+    // Klick aufs Kanban-Gruppen-Icon öffnet das Flyout mit Board/Liste/Epics.
+    await user.click(screen.getByRole('button', { name: 'Kanban' }));
+    const menu = await screen.findByRole('menu', { name: 'Kanban' });
+    expect(within(menu).getByText('Board')).toBeInTheDocument();
+    expect(within(menu).getByText('Liste')).toBeInTheDocument();
+    expect(within(menu).getByText('Epics')).toBeInTheDocument();
+
+    // Auswahl navigiert und schließt das Flyout.
+    await user.click(within(menu).getByText('Liste'));
+    expect(screen.getByText('Kanban-Listen-Inhalt')).toBeInTheDocument();
+    expect(screen.queryByRole('menu', { name: 'Kanban' })).not.toBeInTheDocument();
+  });
 });
 
 describe('AppShell App-Version (#163)', () => {

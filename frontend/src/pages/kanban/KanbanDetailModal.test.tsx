@@ -3,10 +3,11 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import KanbanDetailModal from './KanbanDetailModal';
-import type { KanbanComment, KanbanItem } from '../../api/kanban';
+import type { KanbanComment, KanbanEpic, KanbanItem } from '../../api/kanban';
 import {
   addKanbanComment,
   deleteKanbanComment,
+  getKanbanEpics,
   listKanbanComments,
   updateKanbanComment,
 } from '../../api/kanban';
@@ -32,8 +33,22 @@ vi.mock('../../api/kanban', async () => {
     addKanbanComment: vi.fn(),
     updateKanbanComment: vi.fn(),
     deleteKanbanComment: vi.fn(),
+    getKanbanEpics: vi.fn(),
   };
 });
+
+function epic(overrides: Partial<KanbanEpic> = {}): KanbanEpic {
+  return {
+    id: 7,
+    number: 3,
+    title: 'Workshop',
+    body: '',
+    type: 'EPIC',
+    shortcode: null,
+    progress: { done: 0, total: 0 },
+    ...overrides,
+  };
+}
 
 function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
   return {
@@ -77,6 +92,7 @@ describe('KanbanDetailModal', () => {
     vi.mocked(addKanbanComment).mockResolvedValue(makeComment());
     vi.mocked(updateKanbanComment).mockResolvedValue(makeComment());
     vi.mocked(deleteKanbanComment).mockResolvedValue(undefined);
+    vi.mocked(getKanbanEpics).mockResolvedValue([]);
   });
 
   afterEach(() => cleanup());
@@ -118,6 +134,8 @@ describe('KanbanDetailModal', () => {
 
     expect(screen.getByLabelText('Titel')).toHaveValue('Titel');
     expect(screen.getByLabelText('Markdown-Beschreibung')).toHaveValue('## Kontext\nBody-Text');
+    // Feste Starthöhe (kein Autosize), damit der CSS-Ziehgriff greift (#338).
+    expect(screen.getByLabelText('Markdown-Beschreibung')).toHaveAttribute('rows', '8');
     // Kommentare sind im Edit-Modus ausgeblendet.
     expect(screen.queryByText('Kommentare')).not.toBeInTheDocument();
   });
@@ -161,11 +179,177 @@ describe('KanbanDetailModal', () => {
     await user.type(titleInput, '  Neu  ');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body');
+    expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body', null);
     // Nach dem Speichern wieder im Lesemodus (Bearbeiten-Button sichtbar).
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument(),
     );
+  });
+
+  it('belegt die Epic-Auswahl im Edit-Modus mit der aktuellen Zuordnung vor (#339)', async () => {
+    vi.mocked(getKanbanEpics).mockResolvedValue([epic({ id: 7, title: 'Workshop' })]);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ parentId: 7 })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await screen.findByRole('option', { name: /Workshop/ });
+
+    expect(screen.getByLabelText('Epic')).toHaveValue('7');
+  });
+
+  it('ordnet ein Item nachträglich einem Epic zu und übergibt parentId (#339)', async () => {
+    vi.mocked(getKanbanEpics).mockResolvedValue([epic({ id: 7, title: 'Workshop' })]);
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ parentId: null })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await screen.findByRole('option', { name: /Workshop/ });
+    await user.selectOptions(screen.getByLabelText('Epic'), '7');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', 7);
+  });
+
+  it('entfernt die Epic-Zuordnung, wenn „(kein Epic)" gewählt wird (#339)', async () => {
+    vi.mocked(getKanbanEpics).mockResolvedValue([epic({ id: 7, title: 'Workshop' })]);
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ parentId: 7 })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await screen.findByRole('option', { name: /Workshop/ });
+    await user.selectOptions(screen.getByLabelText('Epic'), '');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', null);
+  });
+
+  it('bietet Wiederherstellen/Endgültig-Löschen nur bei archivierten Items (#341)', async () => {
+    const { rerender } = render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: false })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={vi.fn()}
+      />,
+    );
+    await screen.findByText('Noch keine Kommentare.');
+    expect(screen.queryByRole('button', { name: 'Wiederherstellen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument();
+
+    rerender(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Wiederherstellen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Endgültig löschen' })).toBeInTheDocument();
+  });
+
+  it('Wiederherstellen ruft onRestore (#341)', async () => {
+    const onRestore = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={onRestore}
+        onForceDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
+
+    expect(onRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it('Endgültig löschen ruft onForceDelete erst nach Bestätigung (#341)', async () => {
+    const onForceDelete = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true, title: 'Weg damit' })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={onForceDelete}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Endgültig löschen' }));
+
+    // Bestätigungsdialog erscheint; ohne Bestätigung kein Aufruf.
+    expect(await screen.findByText(/wird unwiderruflich entfernt/)).toBeInTheDocument();
+    expect(onForceDelete).not.toHaveBeenCalled();
+
+    // Der bestätigende Button im Dialog (zweiter „Endgültig löschen").
+    const confirmButtons = screen.getAllByRole('button', { name: 'Endgültig löschen' });
+    await user.click(confirmButtons[confirmButtons.length - 1]);
+
+    expect(onForceDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('zeigt keine Epic-Auswahl, wenn das Item selbst ein Epic ist (#339)', async () => {
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ type: 'EPIC' })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+
+    expect(screen.queryByLabelText('Epic')).not.toBeInTheDocument();
+    expect(getKanbanEpics).not.toHaveBeenCalled();
   });
 
   it('Abbrechen verwirft den Draft und kehrt in den Lesemodus zurück', async () => {

@@ -19,13 +19,15 @@ import ReactMarkdown from 'react-markdown';
 import {
   addKanbanComment,
   deleteKanbanComment,
+  getKanbanEpics,
   listKanbanComments,
   updateKanbanComment,
 } from '../../api/kanban';
-import type { KanbanComment, KanbanItem } from '../../api/kanban';
+import type { KanbanComment, KanbanEpic, KanbanItem } from '../../api/kanban';
 import { useAuth } from '../../auth/useAuth';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
 import { COLUMN_LABELS } from './columnMeta';
+import { epicShortcode } from './epicMeta';
 import { MODAL_BORDER, MODAL_TEXT_PRIMARY, MODAL_TEXT_SECONDARY, STATUS_COLORS } from './statusColors';
 import KanbanCommentForm from './KanbanCommentForm';
 import KanbanCommentList from './KanbanCommentList';
@@ -35,7 +37,11 @@ interface KanbanDetailModalProps {
   item: KanbanItem;
   retentionDays: number;
   onClose: () => void;
-  onSubmit: (title: string, body: string) => Promise<void> | void;
+  onSubmit: (title: string, body: string, parentId: number | null) => Promise<void> | void;
+  /** Stellt ein archiviertes Item wieder her (#341). Nur relevant, wenn {@code item.archived}. */
+  onRestore?: () => Promise<void> | void;
+  /** Löscht ein archiviertes Item endgültig (#341), nach Bestätigung im Modal. */
+  onForceDelete?: () => Promise<void> | void;
 }
 
 /**
@@ -54,12 +60,20 @@ export default function KanbanDetailModal({
   retentionDays,
   onClose,
   onSubmit,
+  onRestore,
+  onForceDelete,
 }: KanbanDetailModalProps): JSX.Element {
   const { username } = useAuth();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
+  const [parentId, setParentId] = useState<number | null>(item.parentId);
+  const [epics, setEpics] = useState<KanbanEpic[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  // Nur normale Items lassen sich einem Epic zuordnen; ein Epic selbst bekommt keinen Parent (#339).
+  const canAssignEpic = item.type !== 'EPIC';
 
   const [comments, setComments] = useState<KanbanComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -73,8 +87,26 @@ export default function KanbanDetailModal({
       setEditing(false);
       setTitle(item.title);
       setBody(item.body);
+      setParentId(item.parentId);
+      setConfirmingDelete(false);
     }
-  }, [open, item.title, item.body]);
+  }, [open, item.title, item.body, item.parentId]);
+
+  // Epic-Liste fuer die Zuordnungs-Auswahl laden (nur relevant fuer normale Items).
+  useEffect(() => {
+    if (!open || !canAssignEpic) return;
+    let cancelled = false;
+    getKanbanEpics()
+      .then((loaded) => {
+        if (!cancelled) setEpics(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setEpics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, canAssignEpic]);
 
   const refreshComments = useCallback(async (): Promise<void> => {
     setComments(await listKanbanComments(item.id));
@@ -150,6 +182,7 @@ export default function KanbanDetailModal({
   const startEditing = (): void => {
     setTitle(item.title);
     setBody(item.body);
+    setParentId(item.parentId);
     setEditing(true);
   };
 
@@ -161,7 +194,8 @@ export default function KanbanDetailModal({
     if (!canSubmit || saving) return;
     setSaving(true);
     try {
-      await onSubmit(title.trim(), body);
+      // Ein Epic bekommt keinen Parent; sonst die (evtl. entfernte) Zuordnung uebergeben.
+      await onSubmit(title.trim(), body, canAssignEpic ? parentId : null);
       setEditing(false);
     } finally {
       setSaving(false);
@@ -226,7 +260,7 @@ export default function KanbanDetailModal({
               <TextField
                 label="Markdown-Beschreibung"
                 multiline
-                minRows={8}
+                rows={8}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 inputProps={{
@@ -234,8 +268,30 @@ export default function KanbanDetailModal({
                   'aria-label': 'Markdown-Beschreibung',
                   style: { fontFamily: 'monospace' },
                 }}
+                sx={{ '& textarea': { resize: 'vertical' } }}
                 fullWidth
               />
+              {canAssignEpic && (
+                <TextField
+                  select
+                  SelectProps={{ native: true }}
+                  label="Epic"
+                  value={parentId ?? ''}
+                  onChange={(e) =>
+                    setParentId(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                  inputProps={{ 'aria-label': 'Epic' }}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                >
+                  <option value="">(kein Epic)</option>
+                  {epics.map((epic) => (
+                    <option key={epic.id} value={epic.id}>
+                      {epicShortcode(epic.title, epic.shortcode)} – {epic.title}
+                    </option>
+                  ))}
+                </TextField>
+              )}
             </>
           ) : (
             <Box aria-label="Beschreibung" sx={{ '& :first-of-type': { mt: 0 } }}>
@@ -286,9 +342,44 @@ export default function KanbanDetailModal({
             </Button>
           </>
         ) : (
-          <Button onClick={onClose}>Schließen</Button>
+          <>
+            {item.archived && onRestore && (
+              <Button onClick={() => void onRestore()}>Wiederherstellen</Button>
+            )}
+            {item.archived && onForceDelete && (
+              <Button color="error" onClick={() => setConfirmingDelete(true)}>
+                Endgültig löschen
+              </Button>
+            )}
+            <Box sx={{ flexGrow: 1 }} />
+            <Button onClick={onClose}>Schließen</Button>
+          </>
         )}
       </DialogActions>
+
+      <Dialog
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        aria-labelledby="kanban-force-delete-title"
+      >
+        <DialogTitle id="kanban-force-delete-title">Endgültig löschen?</DialogTitle>
+        <DialogContent>
+          <Typography>„{item.title}” wird unwiderruflich entfernt.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmingDelete(false)}>Abbrechen</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmingDelete(false);
+              void onForceDelete?.();
+            }}
+          >
+            Endgültig löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

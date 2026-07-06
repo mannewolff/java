@@ -27,7 +27,7 @@ interface KanbanNewItemModalProps {
     parentId: number | null,
     shortcode: string | null,
   ) => Promise<void> | void;
-  /** Vorbelegtes Epic (z. B. „+ Neue Story" aus der Epic-Detailansicht, #326). */
+  /** Vorbelegtes Epic (z. B. „+ Neues Item" aus der Epic-Detailansicht, #326). */
   defaultParentId?: number | null;
 }
 
@@ -153,11 +153,11 @@ export default function KanbanNewItemModal({
           <TextField
             label="Beschreibung"
             multiline
-            minRows={8}
+            rows={8}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             inputProps={{ maxLength: 10_000, 'aria-label': 'Beschreibung' }}
-            sx={{ '& textarea': { fontFamily: 'monospace' } }}
+            sx={{ '& textarea': { fontFamily: 'monospace', resize: 'vertical' } }}
             fullWidth
           />
         </Stack>

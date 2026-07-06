@@ -366,6 +366,21 @@ class KanbanItemTest {
   }
 
   @Test
+  void withContentFourArgUpdatesParentAssignment() {
+    final KanbanItem story =
+        KanbanItem.newInstance(
+            "u", "Story", "b", KanbanColumn.BACKLOG, 0, Instant.EPOCH, KanbanItemType.ITEM, 7L);
+
+    final KanbanItem reassigned = story.withContent("Neu", "b2", null, 9L);
+    assertThat(reassigned.title()).isEqualTo("Neu");
+    assertThat(reassigned.body()).isEqualTo("b2");
+    assertThat(reassigned.parentId()).isEqualTo(9L);
+
+    // parentId = null entfernt die Zuordnung.
+    assertThat(story.withContent("Neu", "b2", null, null).parentId()).isNull();
+  }
+
+  @Test
   void copyMethodsPreserveTypeAndParent() {
     final KanbanItem story =
         KanbanItem.newInstance(

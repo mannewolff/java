@@ -326,7 +326,7 @@ class KanbanItemControllerTest {
 
   @Test
   void updateShouldReturnUpdated() throws Exception {
-    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null))
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, null))
         .willReturn(item(5L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -341,7 +341,7 @@ class KanbanItemControllerTest {
 
   @Test
   void updateShouldPassShortcodeThrough() throws Exception {
-    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", "ITB"))
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", "ITB", null))
         .willReturn(item(5L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -354,10 +354,39 @@ class KanbanItemControllerTest {
   }
 
   @Test
+  void updateShouldPassParentIdThrough() throws Exception {
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, 42L))
+        .willReturn(item(5L, KanbanColumn.BACKLOG, 0));
+
+    mockMvc
+        .perform(
+            put("/api/kanban/items/5")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Neu\",\"body\":\"Body\",\"parentId\":42}"))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void updateWithInvalidParentShouldReturn400() throws Exception {
+    willThrow(new IllegalArgumentException("parent epic 42 not found"))
+        .given(updateUseCase)
+        .execute(any(), eq(5L), any(), any(), any(), any());
+
+    mockMvc
+        .perform(
+            put("/api/kanban/items/5")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Neu\",\"body\":\"Body\",\"parentId\":42}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void updateForeignItemShouldReturn404() throws Exception {
     willThrow(new KanbanItemNotFoundException(5L))
         .given(updateUseCase)
-        .execute(any(), eq(5L), any(), any(), any());
+        .execute(any(), eq(5L), any(), any(), any(), any());
 
     mockMvc
         .perform(

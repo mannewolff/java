@@ -8,28 +8,50 @@ import { NotifyProvider } from '../../notify/NotifyProvider';
 
 vi.mock('../../api/kanban', async () => {
   const actual = await vi.importActual<typeof import('../../api/kanban')>('../../api/kanban');
-  return { ...actual, listKanbanItems: vi.fn(), moveKanbanItem: vi.fn(), updateKanbanItem: vi.fn() };
+  return {
+    ...actual,
+    listKanbanItems: vi.fn(),
+    moveKanbanItem: vi.fn(),
+    updateKanbanItem: vi.fn(),
+    restoreKanbanItem: vi.fn(),
+    forceDeleteKanbanItem: vi.fn(),
+    getKanbanEpics: vi.fn(),
+  };
 });
 
-import { listKanbanItems, moveKanbanItem, updateKanbanItem } from '../../api/kanban';
+import {
+  forceDeleteKanbanItem,
+  getKanbanEpics,
+  listKanbanItems,
+  moveKanbanItem,
+  restoreKanbanItem,
+  updateKanbanItem,
+} from '../../api/kanban';
 
 // Leichtgewichtiger Modal-Stub — wir testen nur die Verdrahtung aus der Liste.
 // Der "Speichern"-Button ruft onSubmit mit Test-Werten auf, damit
-// handleDetailSubmit (inkl. Fehlerbehandlung) getestet werden kann.
+// handleDetailSubmit (inkl. Fehlerbehandlung) getestet werden kann. Restore/Löschen
+// werden nur angeboten, wenn der Parent die Callbacks durchreicht (#341).
 vi.mock('./KanbanDetailModal', () => ({
   default: ({
     open,
     item,
     onSubmit,
+    onRestore,
+    onForceDelete,
   }: {
     open: boolean;
     item: KanbanItem;
-    onSubmit: (title: string, body: string) => Promise<void> | void;
+    onSubmit: (title: string, body: string, parentId: number | null) => Promise<void> | void;
+    onRestore?: () => Promise<void> | void;
+    onForceDelete?: () => Promise<void> | void;
   }) =>
     open ? (
       <div role="dialog" aria-label="Detail-Stub">
         Detail: {item.title} #{item.number}
-        <button onClick={() => onSubmit('Neuer Titel', 'Neuer Body')}>Speichern</button>
+        <button onClick={() => onSubmit('Neuer Titel', 'Neuer Body', null)}>Speichern</button>
+        {onRestore && <button onClick={() => void onRestore()}>Wiederherstellen</button>}
+        {onForceDelete && <button onClick={() => void onForceDelete()}>Endgültig löschen</button>}
       </div>
     ) : null,
 }));
@@ -37,6 +59,9 @@ vi.mock('./KanbanDetailModal', () => ({
 const listItems = listKanbanItems as ReturnType<typeof vi.fn>;
 const moveItem = moveKanbanItem as ReturnType<typeof vi.fn>;
 const updateItem = updateKanbanItem as ReturnType<typeof vi.fn>;
+const restoreItem = restoreKanbanItem as ReturnType<typeof vi.fn>;
+const forceDeleteItem = forceDeleteKanbanItem as ReturnType<typeof vi.fn>;
+const listEpics = getKanbanEpics as ReturnType<typeof vi.fn>;
 
 function dragEvent(): { dataTransfer: { setData: ReturnType<typeof vi.fn>; effectAllowed: string } } {
   return { dataTransfer: { setData: vi.fn(), effectAllowed: '' } };
@@ -95,6 +120,12 @@ describe('KanbanListView', () => {
     moveItem.mockResolvedValue(makeItem());
     updateItem.mockReset();
     updateItem.mockResolvedValue(makeItem());
+    restoreItem.mockReset();
+    restoreItem.mockResolvedValue(makeItem());
+    forceDeleteItem.mockReset();
+    forceDeleteItem.mockResolvedValue(undefined);
+    listEpics.mockReset();
+    listEpics.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -130,6 +161,37 @@ describe('KanbanListView', () => {
     expect(within(row).getByText('Ready')).toBeInTheDocument();
     expect(within(row).getByText('Startklar')).toBeInTheDocument();
     expect(within(row).getByText('H fett')).toBeInTheDocument();
+  });
+
+  it('zeigt neben dem Status-Badge das Epic-Badge, wenn das Item einem Epic zugeordnet ist (#342)', async () => {
+    listEpics.mockResolvedValue([
+      {
+        id: 42,
+        number: 5,
+        title: 'Workshop',
+        body: '',
+        type: 'EPIC' as const,
+        shortcode: 'WS',
+        progress: { done: 0, total: 0 },
+      },
+    ]);
+    listItems.mockResolvedValue(
+      boardOf({ READY: [makeItem({ id: 7, number: 7, column: 'READY', title: 'Zugeordnet', parentId: 42 })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const row = await screen.findByRole('button', { name: /Detail öffnen: Zugeordnet/ });
+    expect(await within(row).findByLabelText('Epic WS')).toBeInTheDocument();
+  });
+
+  it('zeigt kein Epic-Badge, wenn das Item keinem Epic zugeordnet ist (#342)', async () => {
+    listItems.mockResolvedValue(
+      boardOf({ READY: [makeItem({ id: 7, number: 7, column: 'READY', title: 'Frei', parentId: null })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const row = await screen.findByRole('button', { name: /Detail öffnen: Frei/ });
+    expect(within(row).queryByLabelText(/^Epic /)).not.toBeInTheDocument();
   });
 
   it('blendet Status über Filter-Chips aus', async () => {
@@ -196,6 +258,38 @@ describe('KanbanListView', () => {
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Detail-Stub' })).toBeInTheDocument();
+  });
+
+  it('stellt ein archiviertes Item aus dem Detail-Modal wieder her und entfernt es aus dem Archiv (#341)', async () => {
+    const archived = makeItem({ id: 9, number: 9, column: 'DONE', title: 'Archiv-Item', archived: true });
+    listItems.mockResolvedValueOnce(boardOf()); // initial (nicht-archiviert)
+    listItems.mockResolvedValueOnce(boardOf({ DONE: [archived] })); // Archiv-Filter aktiv
+    listItems.mockResolvedValue(boardOf()); // nach dem Wiederherstellen: Archiv leer
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filter Archiv' }));
+    await user.click(await screen.findByRole('button', { name: /Detail öffnen: Archiv-Item/ }));
+    await user.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
+
+    expect(restoreItem).toHaveBeenCalledWith(9);
+    await waitFor(() => expect(screen.queryByText('Archiv-Item')).not.toBeInTheDocument());
+  });
+
+  it('löscht ein archiviertes Item aus dem Detail-Modal endgültig (#341)', async () => {
+    const archived = makeItem({ id: 9, number: 9, column: 'DONE', title: 'Archiv-Item', archived: true });
+    listItems.mockResolvedValueOnce(boardOf()); // initial (nicht-archiviert)
+    listItems.mockResolvedValueOnce(boardOf({ DONE: [archived] })); // Archiv-Filter aktiv
+    listItems.mockResolvedValue(boardOf()); // nach dem Löschen: Archiv leer
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filter Archiv' }));
+    await user.click(await screen.findByRole('button', { name: /Detail öffnen: Archiv-Item/ }));
+    await user.click(screen.getByRole('button', { name: 'Endgültig löschen' }));
+
+    expect(forceDeleteItem).toHaveBeenCalledWith(9);
+    await waitFor(() => expect(screen.queryByText('Archiv-Item')).not.toBeInTheDocument());
   });
 
   it('zeigt einen Empty-State, wenn der Filter nichts übrig lässt', async () => {

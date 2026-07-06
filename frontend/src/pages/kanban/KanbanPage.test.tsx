@@ -293,7 +293,7 @@ describe('KanbanPage', () => {
     await user.type(titleInput, 'Neu');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    await waitFor(() => expect(update).toHaveBeenCalledWith(1, 'Neu', 'AlterBody'));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(1, 'Neu', 'AlterBody', null, null));
   });
 
   it('zeigt den Cleanup-Countdown bei DONE-Items', async () => {
@@ -437,8 +437,10 @@ describe('KanbanPage', () => {
     expect(await screen.findByText('Story X')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Alle Epics' })).toBeInTheDocument();
 
-    // „Neue Story" legt ein Item an, das dem Epic zugeordnet ist (parentId=7).
-    await user.click(screen.getByRole('button', { name: 'Neue Story' }));
+    // Der Spalten-„+"-Einstieg legt ein Item an, das dem Epic zugeordnet ist (parentId=7).
+    // Kein doppelter „Neue Story"-Kopf-Button mehr (#343).
+    expect(screen.queryByRole('button', { name: 'Neue Story' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Neues Item in Backlog' }));
     await user.type(await screen.findByLabelText('Titel'), 'Neue Story');
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 

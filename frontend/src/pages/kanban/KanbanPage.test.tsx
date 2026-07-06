@@ -408,4 +408,47 @@ describe('KanbanPage', () => {
       expect(screen.getByTestId('list-view-stub')).toHaveTextContent('reloadKey=1'),
     );
   });
+
+  it('Epics-Ansicht: zeigt Kacheln, öffnet das Detail als Voll-Board und legt eine Story im Epic an (#326)', async () => {
+    list.mockResolvedValue({
+      BACKLOG: [],
+      READY: [],
+      IN_PROGRESS: [makeItem({ id: 50, title: 'Story X', column: 'IN_PROGRESS', parentId: 7 })],
+      IN_REVIEW: [],
+      DONE: [],
+    });
+    getEpics.mockResolvedValue([
+      {
+        id: 7,
+        number: 3,
+        title: 'Workshop A',
+        body: 'Beschreibung',
+        type: 'EPIC',
+        progress: { done: 1, total: 2 },
+      },
+    ]);
+    create.mockResolvedValueOnce(makeItem({ id: 60, title: 'Neue Story', parentId: 7 }));
+
+    renderPage();
+    const user = userEvent.setup();
+
+    // In die Epics-Ansicht wechseln → Kachel mit Fortschritt.
+    await user.click(await screen.findByRole('button', { name: 'Epics' }));
+    expect(await screen.findByText('Workshop A')).toBeInTheDocument();
+    expect(screen.getByText('1/2 Stories fertig')).toBeInTheDocument();
+
+    // Detail öffnen → Voll-Board mit dem Kind-Item in seiner Spalte.
+    await user.click(screen.getByRole('button', { name: 'Epic öffnen: Workshop A' }));
+    expect(await screen.findByText('Story X')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Alle Epics' })).toBeInTheDocument();
+
+    // „Neue Story" legt ein Item an, das dem Epic zugeordnet ist (parentId=7).
+    await user.click(screen.getByRole('button', { name: 'Neue Story' }));
+    await user.type(await screen.findByLabelText('Titel'), 'Neue Story');
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith('Neue Story', expect.any(String), 'BACKLOG', 'ITEM', 7),
+    );
+  });
 });

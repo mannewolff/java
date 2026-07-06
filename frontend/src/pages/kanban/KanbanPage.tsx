@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -21,6 +21,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import ViewListIcon from '@mui/icons-material/ViewList';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   DndContext,
   PointerSensor,
@@ -50,8 +52,10 @@ import {
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
 import { COLUMN_LABELS } from './columnMeta';
+import { epicColor, epicShortcode } from './epicMeta';
 import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
+import KanbanEpicsView from './KanbanEpicsView';
 import KanbanListView from './KanbanListView';
 import KanbanNewItemModal from './KanbanNewItemModal';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
@@ -60,11 +64,12 @@ import { emptyBoard, moveItem } from './boardOps';
 const DEFAULT_RETENTION_DAYS = 5;
 const VIEW_KEY = 'kanban.view';
 
-type KanbanView = 'board' | 'list';
+type KanbanView = 'board' | 'list' | 'epics';
 
 function loadView(): KanbanView {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'board';
+    const stored = localStorage.getItem(VIEW_KEY);
+    return stored === 'list' || stored === 'epics' ? stored : 'board';
   } catch {
     return 'board';
   }
@@ -96,9 +101,17 @@ export default function KanbanPage(): JSX.Element {
   // Reload-Trigger für die Listenansicht (#308): die Liste besitzt eigenen Daten-State,
   // den reload() (Board) nicht erreicht. Jede Mutation inkrementiert diesen Key.
   const [listReloadKey, setListReloadKey] = useState(0);
-  // Epics nach ID für die Board-Karten-Badges (#325). Best-effort: schlägt das Laden fehl,
-  // bleiben die Karten ohne Badge (das Board selbst funktioniert weiter).
-  const [epicsById, setEpicsById] = useState<Record<number, KanbanEpic>>({});
+  // Epics für Badges (#325) und die Epics-Ansicht (#326). Best-effort: schlägt das Laden fehl,
+  // bleiben Karten ohne Badge und die Liste leer (das Board selbst funktioniert weiter).
+  const [epics, setEpics] = useState<KanbanEpic[]>([]);
+  const epicsById = useMemo(
+    () => Object.fromEntries(epics.map((e) => [e.id, e])) as Record<number, KanbanEpic>,
+    [epics],
+  );
+  // Ausgewähltes Epic in der Epics-Ansicht (#326): null = Kachel-Liste, sonst Epic-Detail.
+  const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
+  // Vorbelegtes Epic beim Anlegen einer Story aus der Epic-Detailansicht (#326).
+  const [createParentId, setCreateParentId] = useState<number | null>(null);
 
   // Laufende Nummer je Drag (#316): nur der zuletzt gestartete Move darf reloaden bzw. bei Fehler
   // zurückrollen. So lässt ein verspäteter reload eines älteren Moves die Items nicht zurückspringen
@@ -124,12 +137,11 @@ export default function KanbanPage(): JSX.Element {
         message: e instanceof ApiError ? e.message : 'Kanban-Items konnten nicht geladen werden.',
       });
     }
-    // Epics best-effort für die Badges — Fehler dürfen das Board nicht stören.
+    // Epics best-effort für Badges und die Epics-Ansicht — Fehler dürfen das Board nicht stören.
     try {
-      const epics = await getKanbanEpics();
-      setEpicsById(Object.fromEntries(epics.map((e) => [e.id, e])));
+      setEpics(await getKanbanEpics());
     } catch {
-      setEpicsById({});
+      setEpics([]);
     }
   }, []);
 
@@ -149,15 +161,17 @@ export default function KanbanPage(): JSX.Element {
       });
   }, []);
 
-  // Board-Daten nur laden, wenn die Board-Ansicht aktiv ist — die Listenansicht lädt selbst.
+  // Board-Daten laden, wenn Board- oder Epics-Ansicht aktiv ist (das Epic-Detail nutzt denselben
+  // Board-State + die Epics). Die Listenansicht lädt selbst.
   useEffect(() => {
-    if (view === 'board') void reload();
+    if (view === 'board' || view === 'epics') void reload();
   }, [reload, view]);
 
   function handleViewChange(_event: MouseEvent<HTMLElement>, next: KanbanView | null): void {
     if (next != null) {
       setView(next);
       saveView(next);
+      setSelectedEpicId(null);
     }
   }
 
@@ -173,7 +187,19 @@ export default function KanbanPage(): JSX.Element {
   }
 
   function startCreate(defaultColumn: KanbanColumnId): void {
+    setCreateParentId(null);
     setCreateColumn(defaultColumn);
+  }
+
+  // „+ Neue Story" aus der Epic-Detailansicht (#326): Item vorbelegt mit dem Epic als Parent.
+  function startCreateStory(epicId: number, defaultColumn: KanbanColumnId): void {
+    setCreateParentId(epicId);
+    setCreateColumn(defaultColumn);
+  }
+
+  function closeCreate(): void {
+    setCreateColumn(null);
+    setCreateParentId(null);
   }
 
   async function handleSubmitDetail(title: string, body: string): Promise<void> {
@@ -298,6 +324,37 @@ export default function KanbanPage(): JSX.Element {
       ? KANBAN_COLUMNS.reduce((sum, col) => sum + state.board[col].length, 0)
       : 0;
 
+  // Rendert die fünf Board-Spalten inkl. Drag&Drop. Wird sowohl vom Hauptboard als auch vom
+  // Epic-Detail (#326) über die volle Breite genutzt — dieselbe Optik, gefilterte Items.
+  function renderColumns(
+    board: KanbanBoard,
+    onCreateInColumn: (column: KanbanColumnId) => void,
+  ): JSX.Element {
+    return (
+      <DndContext sensors={sensors} onDragEnd={(e) => void handleDragEnd(e)}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
+          {KANBAN_COLUMNS.map((col) => (
+            <KanbanColumnView
+              key={col}
+              column={col}
+              label={COLUMN_LABELS[col]}
+              items={board[col]}
+              retentionDays={retentionDays}
+              epicsById={epicsById}
+              onCreate={onCreateInColumn}
+              onOpenDetail={setDetailItem}
+              onEdit={setDetailItem}
+              onArchive={setPendingArchive}
+              onRestore={(item) => void handleRestore(item)}
+              onForceDelete={setPendingForceDelete}
+              onMove={(item, targetColumn) => void handleMoveToColumn(item, targetColumn)}
+            />
+          ))}
+        </Stack>
+      </DndContext>
+    );
+  }
+
   const boardBody =
     state.kind === 'loading' ? (
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} aria-busy="true">
@@ -334,27 +391,65 @@ export default function KanbanPage(): JSX.Element {
         </Button>
       </Paper>
     ) : (
-      <DndContext sensors={sensors} onDragEnd={(e) => void handleDragEnd(e)}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
-          {KANBAN_COLUMNS.map((col) => (
-            <KanbanColumnView
-              key={col}
-              column={col}
-              label={COLUMN_LABELS[col]}
-              items={state.board[col]}
-              retentionDays={retentionDays}
-              epicsById={epicsById}
-              onCreate={startCreate}
-              onOpenDetail={setDetailItem}
-              onEdit={setDetailItem}
-              onArchive={setPendingArchive}
-              onRestore={(item) => void handleRestore(item)}
-              onForceDelete={setPendingForceDelete}
-              onMove={(item, targetColumn) => void handleMoveToColumn(item, targetColumn)}
-            />
-          ))}
+      renderColumns(state.board, startCreate)
+    );
+
+  const selectedEpic = selectedEpicId != null ? epicsById[selectedEpicId] : null;
+
+  function childrenBoardOf(epicId: number): KanbanBoard {
+    const b = emptyBoard();
+    if (state.kind === 'ready') {
+      for (const col of KANBAN_COLUMNS) {
+        b[col] = state.board[col].filter((i) => i.parentId === epicId);
+      }
+    }
+    return b;
+  }
+
+  const epicsBody =
+    selectedEpic == null ? (
+      <KanbanEpicsView epics={epics} onOpen={(epic) => setSelectedEpicId(epic.id)} />
+    ) : (
+      <Box>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ mb: 2, flexWrap: 'wrap' }}
+        >
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => setSelectedEpicId(null)}
+            aria-label="Alle Epics"
+          >
+            Alle Epics
+          </Button>
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: epicColor(selectedEpic.id),
+              flexShrink: 0,
+            }}
+          />
+          <Typography variant="caption" sx={{ fontWeight: 700, color: epicColor(selectedEpic.id) }}>
+            {epicShortcode(selectedEpic.title)}
+          </Typography>
+          <Typography variant="h6">{selectedEpic.title}</Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => startCreateStory(selectedEpic.id, 'BACKLOG')}
+          >
+            Neue Story
+          </Button>
         </Stack>
-      </DndContext>
+        {renderColumns(childrenBoardOf(selectedEpic.id), (col) =>
+          startCreateStory(selectedEpic.id, col),
+        )}
+      </Box>
     );
 
   return (
@@ -382,6 +477,10 @@ export default function KanbanPage(): JSX.Element {
               <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
               Liste
             </ToggleButton>
+            <ToggleButton value="epics" aria-label="Epics">
+              <AccountTreeIcon fontSize="small" sx={{ mr: 0.5 }} />
+              Epics
+            </ToggleButton>
           </ToggleButtonGroup>
           <Button
             variant="contained"
@@ -403,14 +502,17 @@ export default function KanbanPage(): JSX.Element {
 
       {view === 'list' ? (
         <KanbanListView retentionDays={retentionDays} reloadKey={listReloadKey} />
+      ) : view === 'epics' ? (
+        epicsBody
       ) : (
         boardBody
       )}
 
       <KanbanNewItemModal
         open={createColumn != null}
-        onClose={() => setCreateColumn(null)}
+        onClose={closeCreate}
         onSubmit={handleSubmitCreate}
+        defaultParentId={createParentId}
       />
 
       {detailItem != null && (

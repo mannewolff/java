@@ -265,6 +265,8 @@ describe('KanbanPage', () => {
     await user.click(screen.getByRole('button', { name: 'Item-Menü' }));
     await user.click(screen.getByRole('menuitem', { name: 'Bearbeiten' }));
 
+    // Das Modal öffnet im Lesemodus — erst über den Modal-Button "Bearbeiten" in den Edit-Modus.
+    await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
     const titleInput = await screen.findByLabelText('Titel');
     expect(titleInput).toHaveValue('Alt');
     await user.clear(titleInput);

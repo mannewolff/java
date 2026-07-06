@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
   Chip,
   CircularProgress,
@@ -9,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -39,10 +39,11 @@ interface KanbanDetailModalProps {
 }
 
 /**
- * Detail-Modal eines Kanban-Items: zeigt Titel + Markdown-Body sofort bearbeitbar, sowohl beim
- * Klick auf die Karte als auch ueber das Karten-Menue "Bearbeiten" (Issue #304). Standalone und
- * controlled — Open/Item-State liegt beim Aufrufer, damit das Modal auch ausserhalb des Boards
- * (Dashboard-Widget) wiederverwendbar ist.
+ * Detail-Modal eines Kanban-Items. Es oeffnet im **Lesemodus**: der Markdown-Body wird gerendert
+ * angezeigt, darunter die Kommentare (Vorlage board-ui). Ueber "Bearbeiten" wechselt es in den
+ * **Edit-Modus** mit Titel-Feld und Roh-Markdown-Textarea; Speichern rendert wieder, Abbrechen
+ * verwirft den Draft. Standalone und controlled — Open/Item-State liegt beim Aufrufer, damit das
+ * Modal auch ausserhalb des Boards (Dashboard-Widget) wiederverwendbar ist.
  *
  * {@code DialogContent} scrollt vertikal, falls der Inhalt hoeher als der Viewport ist; der
  * Dialog waechst dank {@code scroll="paper"} nicht ueber das Browserfenster hinaus.
@@ -55,6 +56,7 @@ export default function KanbanDetailModal({
   onSubmit,
 }: KanbanDetailModalProps): JSX.Element {
   const { username } = useAuth();
+  const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
   const [saving, setSaving] = useState(false);
@@ -64,10 +66,11 @@ export default function KanbanDetailModal({
   const [commentBusy, setCommentBusy] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
 
-  // Beim Oeffnen den Draft aus dem Item uebernehmen — verhindert, dass ein verworfener Draft
-  // beim naechsten Oeffnen nachklingt.
+  // Beim Oeffnen in den Lesemodus zuruecksetzen und den Draft aus dem Item uebernehmen — verhindert,
+  // dass ein verworfener Draft oder Edit-Zustand beim naechsten Oeffnen nachklingt.
   useEffect(() => {
     if (open) {
+      setEditing(false);
       setTitle(item.title);
       setBody(item.body);
     }
@@ -144,11 +147,22 @@ export default function KanbanDetailModal({
       ? cleanupDaysRemaining(movedToDoneAt, retentionDays)
       : 0;
 
+  const startEditing = (): void => {
+    setTitle(item.title);
+    setBody(item.body);
+    setEditing(true);
+  };
+
+  const cancelEditing = (): void => {
+    setEditing(false);
+  };
+
   const handleSave = async (): Promise<void> => {
     if (!canSubmit || saving) return;
     setSaving(true);
     try {
       await onSubmit(title.trim(), body);
+      setEditing(false);
     } finally {
       setSaving(false);
     }
@@ -188,73 +202,92 @@ export default function KanbanDetailModal({
           <Typography component="span" style={{ fontWeight: 600, color: MODAL_TEXT_PRIMARY }}>
             {item.title}
           </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          {!editing && (
+            <Button size="small" variant="outlined" onClick={startEditing}>
+              Bearbeiten
+            </Button>
+          )}
         </Stack>
       </DialogTitle>
       <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
-          <TextField
-            label="Titel"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            inputProps={{ maxLength: 200, 'aria-label': 'Titel' }}
-            fullWidth
-            autoFocus
-          />
-          <TextField
-            label="Markdown-Beschreibung"
-            multiline
-            minRows={6}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            inputProps={{ maxLength: 10_000, 'aria-label': 'Markdown-Beschreibung' }}
-            fullWidth
-          />
-          <Stack spacing={0.5}>
-            <Typography variant="caption" color="text.secondary">
-              Live-Vorschau
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2, minHeight: 80 }} aria-label="Live-Vorschau">
-              <ReactMarkdown>{body}</ReactMarkdown>
-            </Paper>
-          </Stack>
+          {editing ? (
+            <>
+              <TextField
+                label="Titel"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                inputProps={{ maxLength: 200, 'aria-label': 'Titel' }}
+                fullWidth
+                autoFocus
+              />
+              <TextField
+                label="Markdown-Beschreibung"
+                multiline
+                minRows={8}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                inputProps={{
+                  maxLength: 10_000,
+                  'aria-label': 'Markdown-Beschreibung',
+                  style: { fontFamily: 'monospace' },
+                }}
+                fullWidth
+              />
+            </>
+          ) : (
+            <Box aria-label="Beschreibung" sx={{ '& :first-of-type': { mt: 0 } }}>
+              <ReactMarkdown>{item.body}</ReactMarkdown>
+            </Box>
+          )}
           {showDoneHint && (
             <Typography variant="caption" color="text.secondary">
               {cleanupCountdownLabel(daysRemaining)}
             </Typography>
           )}
 
-          <Divider />
-
-          <Stack spacing={1.5}>
-            <Typography variant="subtitle1">Kommentare</Typography>
-            {commentError && <Alert severity="error">{commentError}</Alert>}
-            {loadingComments ? (
-              <Stack alignItems="center" sx={{ py: 2 }}>
-                <CircularProgress size={24} aria-label="Kommentare werden geladen" />
+          {!editing && (
+            <>
+              <Divider />
+              <Stack spacing={1.5}>
+                <Typography variant="subtitle1">Kommentare</Typography>
+                {commentError && <Alert severity="error">{commentError}</Alert>}
+                {loadingComments ? (
+                  <Stack alignItems="center" sx={{ py: 2 }}>
+                    <CircularProgress size={24} aria-label="Kommentare werden geladen" />
+                  </Stack>
+                ) : (
+                  <KanbanCommentList
+                    comments={comments}
+                    currentUsername={username}
+                    onUpdate={handleUpdateComment}
+                    onDelete={handleDeleteComment}
+                  />
+                )}
+                <KanbanCommentForm onAdd={handleAddComment} busy={commentBusy} />
               </Stack>
-            ) : (
-              <KanbanCommentList
-                comments={comments}
-                currentUsername={username}
-                onUpdate={handleUpdateComment}
-                onDelete={handleDeleteComment}
-              />
-            )}
-            <KanbanCommentForm onAdd={handleAddComment} busy={commentBusy} />
-          </Stack>
+            </>
+          )}
         </Stack>
       </DialogContent>
       <Divider />
       <DialogActions>
-        <Button onClick={onClose}>Abbrechen</Button>
-        <Button
-          variant="contained"
-          onClick={() => void handleSave()}
-          disabled={!canSubmit || saving}
-        >
-          Speichern
-        </Button>
+        {editing ? (
+          <>
+            <Button onClick={cancelEditing}>Abbrechen</Button>
+            <Button
+              variant="contained"
+              onClick={() => void handleSave()}
+              disabled={!canSubmit || saving}
+            >
+              Speichern
+            </Button>
+          </>
+        ) : (
+          <Button onClick={onClose}>Schließen</Button>
+        )}
       </DialogActions>
     </Dialog>
   );

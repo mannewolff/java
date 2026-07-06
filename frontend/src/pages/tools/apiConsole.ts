@@ -90,12 +90,32 @@ export function buildHeaders(
   return headers;
 }
 
+/**
+ * Struktur-Guard (#316): validiert einen geladenen Eintrag Feld für Feld, statt blind nach
+ * {@link SavedRequest} zu casten. Ein Legacy-/kaputter Eintrag (z. B. ohne `headers`-Array) würde
+ * sonst erst später beim Rendern/Absenden crashen.
+ */
+function isSavedRequest(value: unknown): value is SavedRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const r = value as Record<string, unknown>;
+  return (
+    typeof r.id === 'string' &&
+    typeof r.name === 'string' &&
+    typeof r.method === 'string' &&
+    typeof r.path === 'string' &&
+    Array.isArray(r.headers) &&
+    typeof r.body === 'string' &&
+    typeof r.authMode === 'string'
+  );
+}
+
 export function loadSavedRequests(): SavedRequest[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SavedRequest[]) : [];
+    // Ungültige/Legacy-Einträge werden verworfen statt durchgereicht (#316).
+    return Array.isArray(parsed) ? parsed.filter(isSavedRequest) : [];
   } catch {
     return [];
   }

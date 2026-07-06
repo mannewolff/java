@@ -39,13 +39,16 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
   return {
     id: 1,
     title: 'Titel',
-    body: 'Body-Text',
+    body: '## Kontext\nBody-Text',
     column: 'BACKLOG',
     position: 0,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
+    movedToDoneAt: null,
     archived: false,
     number: 1,
+    type: 'ITEM',
+    parentId: null,
     ...overrides,
   };
 }
@@ -62,6 +65,11 @@ function makeComment(overrides: Partial<KanbanComment> = {}): KanbanComment {
   };
 }
 
+/** Wechselt vom Lese- in den Edit-Modus. */
+async function enterEdit(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+}
+
 describe('KanbanDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,7 +81,7 @@ describe('KanbanDetailModal', () => {
 
   afterEach(() => cleanup());
 
-  it('zeigt Titel und Body sofort bearbeitbar', async () => {
+  it('öffnet im Lesemodus mit gerendertem Markdown und ohne Roh-Textarea', async () => {
     render(
       <KanbanDetailModal
         open
@@ -85,8 +93,33 @@ describe('KanbanDetailModal', () => {
     );
 
     await screen.findByText('Noch keine Kommentare.');
+    // Markdown gerendert: die Ueberschrift "Kontext" erscheint als heading, nicht als "## Kontext".
+    expect(screen.getByRole('heading', { name: 'Kontext' })).toBeInTheDocument();
+    expect(screen.getByText('Body-Text')).toBeInTheDocument();
+    // Keine Bearbeitungsfelder im Lesemodus.
+    expect(screen.queryByLabelText('Markdown-Beschreibung')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Titel')).not.toBeInTheDocument();
+  });
+
+  it('zeigt im Edit-Modus die Roh-Markdown-Textarea und keine Kommentare', async () => {
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem()}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+
     expect(screen.getByLabelText('Titel')).toHaveValue('Titel');
-    expect(screen.getByLabelText('Markdown-Beschreibung')).toHaveValue('Body-Text');
+    expect(screen.getByLabelText('Markdown-Beschreibung')).toHaveValue('## Kontext\nBody-Text');
+    // Kommentare sind im Edit-Modus ausgeblendet.
+    expect(screen.queryByText('Kommentare')).not.toBeInTheDocument();
   });
 
   it('Speichern ist disabled, solange der Titel leer ist', async () => {
@@ -102,12 +135,13 @@ describe('KanbanDetailModal', () => {
 
     await screen.findByText('Noch keine Kommentare.');
     const user = userEvent.setup();
+    await enterEdit(user);
     await user.clear(screen.getByLabelText('Titel'));
 
     expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled();
   });
 
-  it('Speichern ruft onSubmit mit getrimmtem Titel und Body', async () => {
+  it('Speichern ruft onSubmit mit getrimmtem Titel und Body und kehrt in den Lesemodus zurück', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(
       <KanbanDetailModal
@@ -121,33 +155,61 @@ describe('KanbanDetailModal', () => {
 
     await screen.findByText('Noch keine Kommentare.');
     const user = userEvent.setup();
+    await enterEdit(user);
     const titleInput = screen.getByLabelText('Titel');
     await user.clear(titleInput);
     await user.type(titleInput, '  Neu  ');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
     expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body');
+    // Nach dem Speichern wieder im Lesemodus (Bearbeiten-Button sichtbar).
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument(),
+    );
   });
 
-  it('Abbrechen ruft onClose, ohne zu speichern', async () => {
-    const onClose = vi.fn();
+  it('Abbrechen verwirft den Draft und kehrt in den Lesemodus zurück', async () => {
     const onSubmit = vi.fn();
     render(
       <KanbanDetailModal
         open
-        item={makeItem()}
+        item={makeItem({ title: 'Alt' })}
         retentionDays={5}
-        onClose={onClose}
+        onClose={vi.fn()}
         onSubmit={onSubmit}
       />,
     );
 
     await screen.findByText('Noch keine Kommentare.');
     const user = userEvent.setup();
+    await enterEdit(user);
+    await user.clear(screen.getByLabelText('Titel'));
+    await user.type(screen.getByLabelText('Titel'), 'Verworfen');
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
 
-    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
+    // Zurueck im Lesemodus; erneutes Bearbeiten zeigt den unveraenderten Titel.
+    await enterEdit(user);
+    expect(screen.getByLabelText('Titel')).toHaveValue('Alt');
+  });
+
+  it('Schließen ruft onClose', async () => {
+    const onClose = vi.fn();
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem()}
+        retentionDays={5}
+        onClose={onClose}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('zeigt Status-Badge und Item-Nummer im Header (Kit-Optik)', async () => {
@@ -204,7 +266,7 @@ describe('KanbanDetailModal', () => {
 
     await screen.findByText('Noch keine Kommentare.');
     // 5 Tage Retention, 2 Tage vergangen → 3 Tage übrig.
-    expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
+    expect(screen.getByText(/wird in 3 Tagen archiviert/)).toBeInTheDocument();
   });
 
   it('lädt Kommentare beim Öffnen und bietet Edit/Delete nur für eigene', async () => {
@@ -272,8 +334,8 @@ describe('KanbanDetailModal', () => {
     const editArea = screen.getByLabelText('Kommentar bearbeiten');
     await user.clear(editArea);
     await user.type(editArea, 'Neu');
-    // Zwei "Speichern": das Edit-Feld (zuerst im DOM) und der Modal-Footer.
-    await user.click(screen.getAllByRole('button', { name: 'Speichern' })[0]);
+    // Im Lesemodus gibt es nur ein "Speichern" — das des Kommentar-Edits.
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() => expect(updateKanbanComment).toHaveBeenCalledWith(1, 10, 'Neu'));
   });

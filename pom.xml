@@ -290,6 +290,13 @@
                                 -->
                                 <exclude>org/mwolff/api/tools/infrastructure/python/PythonToolsConfig.class</exclude>
                                 <!--
+                                  JwtDecoderConfig (#311): baut den NimbusJwtDecoder mit
+                                  OIDC-Discovery gegen Keycloak — reine Bean-Wiring-Konfiguration,
+                                  ohne echtes Keycloak nicht unit-testbar. Die Audience-Logik ist im
+                                  separat getesteten AudienceValidator (100% gedeckt).
+                                -->
+                                <exclude>org/mwolff/api/auth/infrastructure/JwtDecoderConfig.class</exclude>
+                                <!--
                                   JPA-Adapter und -Entities: nur via Testcontainers-MariaDB
                                   sinnvoll testbar (*IT-Tests). Die fachliche Logik liegt in den
                                   Application-Use-Cases und ist dort zu 100% gedeckt. Jede

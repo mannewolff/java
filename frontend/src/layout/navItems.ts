@@ -10,8 +10,10 @@ import ImageIcon from '@mui/icons-material/Image';
 import BuildIcon from '@mui/icons-material/Build';
 import ApiIcon from '@mui/icons-material/Api';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -40,8 +42,16 @@ export const navItems: NavNode[] = [
   // zum Verwalten/Anlegen/Löschen.
   { kind: 'link', label: 'Home', path: '/dashboards/default', icon: HomeIcon },
   { kind: 'link', label: 'Zeitreihen', path: '/timeseries', icon: ShowChartIcon },
-  { kind: 'link', label: 'Kanban', path: '/kanban', icon: ViewKanbanIcon },
-  { kind: 'link', label: 'Mobile', path: '/mobile', icon: PhoneIphoneIcon },
+  {
+    kind: 'group',
+    label: 'Kanban',
+    icon: ViewKanbanIcon,
+    children: [
+      { kind: 'link', label: 'Board', path: '/kanban/board', icon: ViewColumnIcon },
+      { kind: 'link', label: 'Liste', path: '/kanban/list', icon: ViewListIcon },
+      { kind: 'link', label: 'Epics', path: '/kanban/epics', icon: AccountTreeIcon },
+    ],
+  },
   {
     kind: 'group',
     label: 'Bildverarbeitung',

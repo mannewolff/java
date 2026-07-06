@@ -19,7 +19,20 @@ public interface KanbanItemPort {
   /** Alle Items einer Spalte für einen User, aufsteigend nach position. */
   List<KanbanItem> findByUserAndColumn(String userSub, KanbanColumn column);
 
+  /**
+   * Alle Epics eines Users (Typ {@link KanbanItemType#EPIC}), aufsteigend nach Anzeige-Nummer.
+   * Epics erscheinen nicht auf dem Board; diese Methode speist die Epic-Ansicht (#322).
+   */
+  List<KanbanItem> findEpicsByUser(String userSub);
+
   Optional<KanbanItem> findById(long id);
+
+  /**
+   * Zählt alle Items, die dem Epic mit {@code epicId} zugeordnet sind ({@code parentId == epicId}),
+   * inklusive archivierter Items. Grundlage des Referenz-Checks vor dem Löschen eines Epics (#330):
+   * ein archiviertes Kind hält weiterhin eine Referenz und darf nicht verwaisen.
+   */
+  long countChildren(long epicId);
 
   /**
    * Höchste vergebene Anzeige-Nummer (#187) eines Users über ALLE Items (inkl. archivierter), damit
@@ -51,13 +64,13 @@ public interface KanbanItemPort {
   List<KanbanItem> findAllByUserIncludingArchived(String userSub);
 
   /**
-   * Löscht alle nicht-archivierten Items eines Users, die in der DONE-Spalte liegen und deren
-   * {@code movedToDoneAt} vor dem übergebenen Threshold liegt. Archivierte Items sind davon
-   * ausgenommen (intentional archival). Verwendet vom Auto-Cleanup-Scheduler.
+   * Archiviert alle nicht-archivierten Items eines Users, die in der DONE-Spalte liegen und deren
+   * {@code movedToDoneAt} vor dem übergebenen Threshold liegt (#327). Bereits archivierte Items
+   * bleiben unangetastet. Verwendet vom Auto-Archivierungs-Scheduler.
    *
-   * @return Anzahl gelöschter Items, für Logging.
+   * @return Anzahl archivierter Items, für Logging.
    */
-  int deleteDoneOlderThan(String userSub, Instant threshold);
+  int archiveDoneOlderThan(String userSub, Instant threshold);
 
   /**
    * Liefert die distinkten {@code userSub}s, die mindestens ein nicht-archiviertes DONE-Item haben

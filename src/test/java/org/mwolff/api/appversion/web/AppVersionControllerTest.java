@@ -1,5 +1,6 @@
 package org.mwolff.api.appversion.web;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -7,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.appversion.application.GetAppVersionUseCase;
 import org.mwolff.api.appversion.application.IncrementMajorVersionUseCase;
@@ -34,7 +36,14 @@ class AppVersionControllerTest {
   @MockitoBean private GetAppVersionUseCase getUseCase;
   @MockitoBean private IncrementMinorVersionUseCase incrementMinorUseCase;
   @MockitoBean private IncrementMajorVersionUseCase incrementMajorUseCase;
+  @MockitoBean private AppVersionRateLimiter rateLimiter;
   @MockitoBean private JwtDecoder jwtDecoder;
+
+  @BeforeEach
+  void allowRateLimitByDefault() {
+    // Standardmäßig Requests durchlassen; der Drosselungs-Test überschreibt das gezielt.
+    given(rateLimiter.tryAcquire(any())).willReturn(true);
+  }
 
   private static org.springframework.test.web.servlet.request.RequestPostProcessor userJwt() {
     return jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"));
@@ -95,5 +104,15 @@ class AppVersionControllerTest {
     mockMvc
         .perform(post("/api/app/version/increment-major").header(TOKEN_HEADER, "wrong"))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void incrementIsThrottledWhenRateLimitExceeded() throws Exception {
+    // Rate-Limit greift VOR der Secret-Prüfung (#311): selbst mit gültigem Token -> 429.
+    given(rateLimiter.tryAcquire(any())).willReturn(false);
+
+    mockMvc
+        .perform(post("/api/app/version/increment-minor").header(TOKEN_HEADER, "test-secret"))
+        .andExpect(status().isTooManyRequests());
   }
 }

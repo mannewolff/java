@@ -1,4 +1,5 @@
-import { type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -11,16 +12,15 @@ import {
   Paper,
   Skeleton,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import ViewListIcon from '@mui/icons-material/ViewList';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import {
   DndContext,
   PointerSensor,
@@ -33,7 +33,9 @@ import {
   KANBAN_COLUMNS,
   archiveKanbanItem,
   createKanbanItem,
+  deleteKanbanEpic,
   forceDeleteKanbanItem,
+  getKanbanEpics,
   getKanbanSettings,
   listKanbanItems,
   moveKanbanItem,
@@ -42,45 +44,31 @@ import {
   updateKanbanSettings,
   type KanbanBoard,
   type KanbanColumn as KanbanColumnId,
+  type KanbanEpic,
   type KanbanItem,
+  type KanbanItemType,
 } from '../../api/kanban';
 import { ApiError } from '../../api/client';
 import { useNotify } from '../../notify/NotifyProvider';
+import { COLUMN_LABELS } from './columnMeta';
+import { epicColor, epicShortcode } from './epicMeta';
 import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
+import KanbanEpicEditModal from './KanbanEpicEditModal';
+import KanbanEpicsView from './KanbanEpicsView';
 import KanbanListView from './KanbanListView';
 import KanbanNewItemModal from './KanbanNewItemModal';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
 
 const DEFAULT_RETENTION_DAYS = 5;
-const VIEW_KEY = 'kanban.view';
 
-type KanbanView = 'board' | 'list';
+type KanbanView = 'board' | 'list' | 'epics';
 
-function loadView(): KanbanView {
-  try {
-    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'board';
-  } catch {
-    return 'board';
-  }
+/** Normalisiert den Routen-Param auf eine gültige Ansicht; unbekannt → Board. */
+function toView(param: string | undefined): KanbanView {
+  return param === 'list' || param === 'epics' ? param : 'board';
 }
-
-function saveView(value: KanbanView): void {
-  try {
-    localStorage.setItem(VIEW_KEY, value);
-  } catch {
-    // localStorage nicht verfügbar
-  }
-}
-
-const COLUMN_LABELS: Record<KanbanColumnId, string> = {
-  BACKLOG: 'Backlog',
-  READY: 'Ready',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
-};
 
 type LoadState =
   | { kind: 'loading' }
@@ -96,7 +84,30 @@ export default function KanbanPage(): JSX.Element {
   const [pendingForceDelete, setPendingForceDelete] = useState<KanbanItem | null>(null);
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [view, setView] = useState<KanbanView>(loadView);
+  // Die aktive Ansicht kommt aus der Route (/kanban/board|list|epics) — die linke Navigation
+  // steuert sie (#328); kein lokaler Toggle-/localStorage-State mehr.
+  const view = toView(useParams().view);
+  // Reload-Trigger für die Listenansicht (#308): die Liste besitzt eigenen Daten-State,
+  // den reload() (Board) nicht erreicht. Jede Mutation inkrementiert diesen Key.
+  const [listReloadKey, setListReloadKey] = useState(0);
+  // Epics für Badges (#325) und die Epics-Ansicht (#326). Best-effort: schlägt das Laden fehl,
+  // bleiben Karten ohne Badge und die Liste leer (das Board selbst funktioniert weiter).
+  const [epics, setEpics] = useState<KanbanEpic[]>([]);
+  const epicsById = useMemo(
+    () => Object.fromEntries(epics.map((e) => [e.id, e])) as Record<number, KanbanEpic>,
+    [epics],
+  );
+  // Ausgewähltes Epic in der Epics-Ansicht (#326): null = Kachel-Liste, sonst Epic-Detail.
+  const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
+  const [editEpic, setEditEpic] = useState<KanbanEpic | null>(null);
+  const [pendingDeleteEpic, setPendingDeleteEpic] = useState<KanbanEpic | null>(null);
+  // Vorbelegtes Epic beim Anlegen einer Story aus der Epic-Detailansicht (#326).
+  const [createParentId, setCreateParentId] = useState<number | null>(null);
+
+  // Laufende Nummer je Drag (#316): nur der zuletzt gestartete Move darf reloaden bzw. bei Fehler
+  // zurückrollen. So lässt ein verspäteter reload eines älteren Moves die Items nicht zurückspringen
+  // und ein Rollback macht keinen inzwischen erfolgten neueren Move rückgängig.
+  const moveSeqRef = useRef(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -117,7 +128,20 @@ export default function KanbanPage(): JSX.Element {
         message: e instanceof ApiError ? e.message : 'Kanban-Items konnten nicht geladen werden.',
       });
     }
+    // Epics best-effort für Badges und die Epics-Ansicht — Fehler dürfen das Board nicht stören.
+    try {
+      setEpics(await getKanbanEpics());
+    } catch {
+      setEpics([]);
+    }
   }, []);
+
+  // Aktualisiert beide Ansichten nach einer Mutation: Board-State neu laden und den
+  // Listen-Reload-Key hochzählen, damit die selbstständige Liste (#308) nachzieht.
+  const refresh = useCallback(async (): Promise<void> => {
+    setListReloadKey((k) => k + 1);
+    await reload();
+  }, [reload]);
 
   // Retention-Setting wird in beiden Ansichten gebraucht (Board-Countdown + Listen-Modal).
   useEffect(() => {
@@ -128,17 +152,16 @@ export default function KanbanPage(): JSX.Element {
       });
   }, []);
 
-  // Board-Daten nur laden, wenn die Board-Ansicht aktiv ist — die Listenansicht lädt selbst.
+  // Board-Daten laden, wenn Board- oder Epics-Ansicht aktiv ist (das Epic-Detail nutzt denselben
+  // Board-State + die Epics). Die Listenansicht lädt selbst.
   useEffect(() => {
-    if (view === 'board') void reload();
+    if (view === 'board' || view === 'epics') void reload();
   }, [reload, view]);
 
-  function handleViewChange(_event: MouseEvent<HTMLElement>, next: KanbanView | null): void {
-    if (next != null) {
-      setView(next);
-      saveView(next);
-    }
-  }
+  // Verlässt man die Epics-Ansicht (Navigation zu Board/Liste), das offene Epic-Detail zurücksetzen.
+  useEffect(() => {
+    if (view !== 'epics') setSelectedEpicId(null);
+  }, [view]);
 
   async function handleSettingsSubmit(doneRetentionDays: number): Promise<void> {
     try {
@@ -152,7 +175,19 @@ export default function KanbanPage(): JSX.Element {
   }
 
   function startCreate(defaultColumn: KanbanColumnId): void {
+    setCreateParentId(null);
     setCreateColumn(defaultColumn);
+  }
+
+  // „+ Neue Story" aus der Epic-Detailansicht (#326): Item vorbelegt mit dem Epic als Parent.
+  function startCreateStory(epicId: number, defaultColumn: KanbanColumnId): void {
+    setCreateParentId(epicId);
+    setCreateColumn(defaultColumn);
+  }
+
+  function closeCreate(): void {
+    setCreateColumn(null);
+    setCreateParentId(null);
   }
 
   async function handleSubmitDetail(title: string, body: string): Promise<void> {
@@ -161,21 +196,65 @@ export default function KanbanPage(): JSX.Element {
       await updateKanbanItem(detailItem.id, title, body);
       notify.success('Item gespeichert.');
       setDetailItem(null);
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
     }
   }
 
-  async function handleSubmitCreate(title: string, body: string): Promise<void> {
+  async function handleSubmitCreate(
+    title: string,
+    body: string,
+    type: KanbanItemType,
+    parentId: number | null,
+    shortcode: string | null,
+  ): Promise<void> {
     if (!createColumn) return;
     try {
-      await createKanbanItem(title, body, createColumn);
-      notify.success('Item angelegt.');
+      await createKanbanItem(title, body, createColumn, type, parentId, shortcode);
+      notify.success(type === 'EPIC' ? 'Epic angelegt.' : 'Item angelegt.');
       setCreateColumn(null);
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
+  }
+
+  // Epic bearbeiten (#331): Titel/Body/Kürzel über den generischen Item-Update-Pfad speichern,
+  // danach Epics + Board refreshen und im Detail bleiben.
+  async function handleSubmitEditEpic(
+    title: string,
+    body: string,
+    shortcode: string | null,
+  ): Promise<void> {
+    if (!editEpic) return;
+    try {
+      await updateKanbanItem(editEpic.id, title, body, shortcode);
+      notify.success('Epic gespeichert.');
+      setEditEpic(null);
+      await refresh();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
+  }
+
+  // Epic löschen (#331): Backend blockt mit 409, solange noch Items zugeordnet sind — dann eine
+  // verständliche Meldung zeigen und das Epic behalten. Bei Erfolg zurück zur Kachel-Liste.
+  async function confirmDeleteEpic(): Promise<void> {
+    if (!pendingDeleteEpic) return;
+    const target = pendingDeleteEpic;
+    setPendingDeleteEpic(null);
+    try {
+      await deleteKanbanEpic(target.id);
+      notify.success('Epic gelöscht.');
+      setSelectedEpicId(null);
+      await refresh();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        notify.error('Das Epic hat noch zugeordnete Items und kann nicht gelöscht werden.');
+      } else {
+        notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
+      }
     }
   }
 
@@ -186,9 +265,22 @@ export default function KanbanPage(): JSX.Element {
     try {
       await archiveKanbanItem(target.id);
       notify.success('Item archiviert.');
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Archivieren fehlgeschlagen.');
+    }
+  }
+
+  // Tastaturbedienbarer Statuswechsel über das Karten-Menü (#316): verschiebt das Item ans Ende
+  // der Zielspalte. Ergänzt das reine Maus-Drag&Drop für Tastatur- und Screenreader-Nutzung.
+  async function handleMoveToColumn(item: KanbanItem, targetColumn: KanbanColumnId): Promise<void> {
+    if (item.column === targetColumn) return;
+    const targetPosition = state.kind === 'ready' ? state.board[targetColumn].length : 0;
+    try {
+      await moveKanbanItem(item.id, targetColumn, targetPosition);
+      await refresh();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
     }
   }
 
@@ -196,7 +288,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await restoreKanbanItem(item.id);
       notify.success('Item wiederhergestellt.');
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Wiederherstellen fehlgeschlagen.');
     }
@@ -209,7 +301,7 @@ export default function KanbanPage(): JSX.Element {
     try {
       await forceDeleteKanbanItem(target.id);
       notify.success('Item endgültig gelöscht.');
-      await reload();
+      await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
     }
@@ -236,12 +328,21 @@ export default function KanbanPage(): JSX.Element {
     if (optimistic === previousBoard) return;
     setState({ kind: 'ready', board: optimistic });
 
+    const seq = ++moveSeqRef.current;
     try {
       await moveKanbanItem(itemId, targetColumn, targetPosition);
-      await reload();
+      // Nur der jüngste Move lädt neu — ein älterer, verspäteter reload würde die Anordnung
+      // eines inzwischen erfolgten neueren Moves überschreiben (#316).
+      if (seq === moveSeqRef.current) {
+        await reload();
+      }
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Verschieben fehlgeschlagen.');
-      setState({ kind: 'ready', board: previousBoard });
+      // Nur zurückrollen, wenn seither kein neuerer Move gestartet wurde — sonst würde der
+      // Rollback dessen (optimistische) Anordnung zerstören (#316).
+      if (seq === moveSeqRef.current) {
+        setState({ kind: 'ready', board: previousBoard });
+      }
     }
   }
 
@@ -249,6 +350,37 @@ export default function KanbanPage(): JSX.Element {
     state.kind === 'ready'
       ? KANBAN_COLUMNS.reduce((sum, col) => sum + state.board[col].length, 0)
       : 0;
+
+  // Rendert die fünf Board-Spalten inkl. Drag&Drop. Wird sowohl vom Hauptboard als auch vom
+  // Epic-Detail (#326) über die volle Breite genutzt — dieselbe Optik, gefilterte Items.
+  function renderColumns(
+    board: KanbanBoard,
+    onCreateInColumn: (column: KanbanColumnId) => void,
+  ): JSX.Element {
+    return (
+      <DndContext sensors={sensors} onDragEnd={(e) => void handleDragEnd(e)}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
+          {KANBAN_COLUMNS.map((col) => (
+            <KanbanColumnView
+              key={col}
+              column={col}
+              label={COLUMN_LABELS[col]}
+              items={board[col]}
+              retentionDays={retentionDays}
+              epicsById={epicsById}
+              onCreate={onCreateInColumn}
+              onOpenDetail={setDetailItem}
+              onEdit={setDetailItem}
+              onArchive={setPendingArchive}
+              onRestore={(item) => void handleRestore(item)}
+              onForceDelete={setPendingForceDelete}
+              onMove={(item, targetColumn) => void handleMoveToColumn(item, targetColumn)}
+            />
+          ))}
+        </Stack>
+      </DndContext>
+    );
+  }
 
   const boardBody =
     state.kind === 'loading' ? (
@@ -286,25 +418,80 @@ export default function KanbanPage(): JSX.Element {
         </Button>
       </Paper>
     ) : (
-      <DndContext sensors={sensors} onDragEnd={(e) => void handleDragEnd(e)}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
-          {KANBAN_COLUMNS.map((col) => (
-            <KanbanColumnView
-              key={col}
-              column={col}
-              label={COLUMN_LABELS[col]}
-              items={state.board[col]}
-              retentionDays={retentionDays}
-              onCreate={startCreate}
-              onOpenDetail={setDetailItem}
-              onEdit={setDetailItem}
-              onArchive={setPendingArchive}
-              onRestore={(item) => void handleRestore(item)}
-              onForceDelete={setPendingForceDelete}
-            />
-          ))}
+      renderColumns(state.board, startCreate)
+    );
+
+  const selectedEpic = selectedEpicId != null ? epicsById[selectedEpicId] : null;
+
+  function childrenBoardOf(epicId: number): KanbanBoard {
+    const b = emptyBoard();
+    if (state.kind === 'ready') {
+      for (const col of KANBAN_COLUMNS) {
+        b[col] = state.board[col].filter((i) => i.parentId === epicId);
+      }
+    }
+    return b;
+  }
+
+  const epicsBody =
+    selectedEpic == null ? (
+      <KanbanEpicsView epics={epics} onOpen={(epic) => setSelectedEpicId(epic.id)} />
+    ) : (
+      <Box>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ mb: 2, flexWrap: 'wrap' }}
+        >
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => setSelectedEpicId(null)}
+            aria-label="Alle Epics"
+          >
+            Alle Epics
+          </Button>
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: epicColor(selectedEpic.id),
+              flexShrink: 0,
+            }}
+          />
+          <Typography variant="caption" sx={{ fontWeight: 700, color: epicColor(selectedEpic.id) }}>
+            {epicShortcode(selectedEpic.title, selectedEpic.shortcode)}
+          </Typography>
+          <Typography variant="h6">{selectedEpic.title}</Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          <Button
+            startIcon={<EditIcon />}
+            onClick={() => setEditEpic(selectedEpic)}
+            aria-label="Epic bearbeiten"
+          >
+            Bearbeiten
+          </Button>
+          <Button
+            color="error"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={() => setPendingDeleteEpic(selectedEpic)}
+            aria-label="Epic löschen"
+          >
+            Löschen
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => startCreateStory(selectedEpic.id, 'BACKLOG')}
+          >
+            Neue Story
+          </Button>
         </Stack>
-      </DndContext>
+        {renderColumns(childrenBoardOf(selectedEpic.id), (col) =>
+          startCreateStory(selectedEpic.id, col),
+        )}
+      </Box>
     );
 
   return (
@@ -317,22 +504,6 @@ export default function KanbanPage(): JSX.Element {
       >
         <Typography variant="h4">Kanban</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
-          <ToggleButtonGroup
-            value={view}
-            exclusive
-            onChange={handleViewChange}
-            size="small"
-            aria-label="Ansicht"
-          >
-            <ToggleButton value="board" aria-label="Board">
-              <ViewColumnIcon fontSize="small" sx={{ mr: 0.5 }} />
-              Board
-            </ToggleButton>
-            <ToggleButton value="list" aria-label="Liste">
-              <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
-              Liste
-            </ToggleButton>
-          </ToggleButtonGroup>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -351,12 +522,19 @@ export default function KanbanPage(): JSX.Element {
         </Stack>
       </Stack>
 
-      {view === 'list' ? <KanbanListView retentionDays={retentionDays} /> : boardBody}
+      {view === 'list' ? (
+        <KanbanListView retentionDays={retentionDays} reloadKey={listReloadKey} />
+      ) : view === 'epics' ? (
+        epicsBody
+      ) : (
+        boardBody
+      )}
 
       <KanbanNewItemModal
         open={createColumn != null}
-        onClose={() => setCreateColumn(null)}
+        onClose={closeCreate}
         onSubmit={handleSubmitCreate}
+        defaultParentId={createParentId}
       />
 
       {detailItem != null && (
@@ -368,6 +546,33 @@ export default function KanbanPage(): JSX.Element {
           onSubmit={handleSubmitDetail}
         />
       )}
+
+      <KanbanEpicEditModal
+        open={editEpic != null}
+        epic={editEpic}
+        onClose={() => setEditEpic(null)}
+        onSubmit={handleSubmitEditEpic}
+      />
+
+      <Dialog
+        open={pendingDeleteEpic != null}
+        onClose={() => setPendingDeleteEpic(null)}
+        aria-labelledby="kanban-delete-epic-title"
+      >
+        <DialogTitle id="kanban-delete-epic-title">Epic löschen?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            „{pendingDeleteEpic?.title}” wird gelöscht. Das ist nur möglich, wenn dem Epic keine
+            Items mehr zugeordnet sind.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteEpic(null)}>Abbrechen</Button>
+          <Button color="error" variant="contained" onClick={() => void confirmDeleteEpic()}>
+            Löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <KanbanSettingsDrawer
         open={settingsOpen}

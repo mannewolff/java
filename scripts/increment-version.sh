@@ -24,7 +24,15 @@ cd "${SCRIPT_DIR}/.."
 # #229: Shared-Secret fuer den X-Version-Token-Header. Aus der Umgebung oder aus .env
 # (gleiche Quelle wie docker compose). Fehlt es, lehnen die increment-Endpunkte mit 401 ab.
 if [ -z "${APP_VERSION_INCREMENT_SECRET:-}" ] && [ -f .env ]; then
-  APP_VERSION_INCREMENT_SECRET="$(grep -E '^APP_VERSION_INCREMENT_SECRET=' .env | cut -d= -f2- || true)"
+  raw="$(grep -E '^APP_VERSION_INCREMENT_SECRET=' .env | tail -n1 | cut -d= -f2- || true)"
+  # .env-Wert robust lesen (#314): trailing CR (Windows-Zeilenende) und ein Paar umschliessende
+  # Anfuehrungszeichen entfernen — sonst landen sie im Header und der Server antwortet mit 401.
+  raw="${raw%$'\r'}"
+  case "$raw" in
+    \"*\") raw="${raw#\"}"; raw="${raw%\"}" ;;
+    \'*\') raw="${raw#\'}"; raw="${raw%\'}" ;;
+  esac
+  APP_VERSION_INCREMENT_SECRET="$raw"
 fi
 if [ -z "${APP_VERSION_INCREMENT_SECRET:-}" ]; then
   echo "::error::APP_VERSION_INCREMENT_SECRET nicht gesetzt (Env oder .env) — Increment wird 401 (#229)." >&2
@@ -48,7 +56,12 @@ if [ -n "${APP_BASE_URL:-}" ]; then
   base="${APP_BASE_URL%/}"
   target="${base}"
   health()       { curl --fail --silent --show-error --max-time 5  "${base}${HEALTH_PATH}"; }
-  do_increment() { curl --fail --silent --show-error --max-time 30 -H "${TOKEN_HEADER}" -X POST "${base}${INCREMENT_PATH}"; }
+  # Secret NICHT als -H-Argument (waere in `ps aux` sichtbar, #314), sondern ueber eine
+  # curl-Konfiguration von stdin (`-K -`) — der Header-Wert verlaesst nie die Prozess-Args.
+  do_increment() {
+    printf 'header = "%s"\n' "${TOKEN_HEADER}" \
+      | curl --fail --silent --show-error --max-time 30 -X POST -K - "${base}${INCREMENT_PATH}"
+  }
 else
   # Docker-Modus (Default, prod-tauglich): curl im Netz des api-Containers.
   cid="$(docker compose ps -q "${API_SERVICE}")"
@@ -58,7 +71,14 @@ else
   fi
   target="container:${cid:0:12} → ${INTERNAL}"
   health()       { docker run --rm --network "container:${cid}" "${CURL_IMAGE}" --fail --silent --show-error --max-time 5  "${INTERNAL}${HEALTH_PATH}"; }
-  do_increment() { docker run --rm --network "container:${cid}" "${CURL_IMAGE}" --fail --silent --show-error --max-time 30 -H "${TOKEN_HEADER}" -X POST "${INTERNAL}${INCREMENT_PATH}"; }
+  # Secret weder als -H-Argument noch als `docker run`-Arg (waere in `ps aux`/`docker inspect`
+  # sichtbar, #314): per stdin an einen mit -i gestarteten curl-Container, curl liest die
+  # Konfiguration mit `-K -`.
+  do_increment() {
+    printf 'header = "%s"\n' "${TOKEN_HEADER}" \
+      | docker run --rm -i --network "container:${cid}" "${CURL_IMAGE}" \
+          --fail --silent --show-error --max-time 30 -X POST -K - "${INTERNAL}${INCREMENT_PATH}"
+  }
 fi
 
 echo "Warte auf gesunde App (${target}, max ${MAX_WAIT_SECONDS}s) ..."

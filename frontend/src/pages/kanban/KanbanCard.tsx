@@ -14,28 +14,40 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import type { KanbanItem } from '../../api/kanban';
+import {
+  KANBAN_COLUMNS,
+  type KanbanColumn,
+  type KanbanEpic,
+  type KanbanItem,
+} from '../../api/kanban';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
+import { COLUMN_LABELS } from './columnMeta';
+import { epicColor, epicShortcode } from './epicMeta';
 import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 interface KanbanCardProps {
   item: KanbanItem;
   retentionDays: number;
+  /** Das Epic, dem dieses Item zugeordnet ist (für das Badge). {@code null} = keinem Epic. */
+  epic?: KanbanEpic | null;
   onOpenDetail: (item: KanbanItem) => void;
   onEdit: (item: KanbanItem) => void;
   onArchive: (item: KanbanItem) => void;
   onRestore: (item: KanbanItem) => void;
   onForceDelete: (item: KanbanItem) => void;
+  onMove: (item: KanbanItem, targetColumn: KanbanColumn) => void;
 }
 
 export default function KanbanCard({
   item,
   retentionDays,
+  epic = null,
   onOpenDetail,
   onEdit,
   onArchive,
   onRestore,
   onForceDelete,
+  onMove,
 }: KanbanCardProps): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -51,10 +63,15 @@ export default function KanbanCard({
     opacity: isDragging ? 0.5 : item.archived ? 0.5 : 1,
   };
 
-  const showDoneHint = item.column === 'DONE' && item.movedToDoneAt && !item.archived;
-  const daysRemaining = showDoneHint
-    ? cleanupDaysRemaining(item.movedToDoneAt!, retentionDays)
-    : 0;
+  const { movedToDoneAt } = item;
+  const showDoneHint = item.column === 'DONE' && movedToDoneAt != null && !item.archived;
+  const daysRemaining =
+    showDoneHint && movedToDoneAt != null
+      ? cleanupDaysRemaining(movedToDoneAt, retentionDays)
+      : 0;
+
+  // Epic-Badge (#325): farbiger linker Rand + Kürzel-Chip, wenn das Item einem Epic zugeordnet ist.
+  const epicHue = epic ? epicColor(epic.id) : null;
 
   return (
     <Paper
@@ -68,6 +85,7 @@ export default function KanbanCard({
         mb: 1,
         bgcolor: 'common.white',
         borderRadius: 1.5,
+        borderLeft: epicHue ? `4px solid ${epicHue}` : undefined,
         cursor: item.archived ? 'default' : 'grab',
         userSelect: 'none',
         transition: 'box-shadow 150ms',
@@ -76,6 +94,30 @@ export default function KanbanCard({
       }}
       aria-label={`Kanban-Item ${item.title}`}
     >
+      {epic && epicHue && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={0.5}
+          sx={{
+            mb: 0.5,
+            width: 'fit-content',
+            px: 0.75,
+            py: 0.25,
+            borderRadius: 1,
+            bgcolor: `${epicHue}22`,
+          }}
+          aria-label={`Epic ${epicShortcode(epic.title, epic.shortcode)}`}
+        >
+          <Box
+            sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: epicHue, flexShrink: 0 }}
+          />
+          <Typography variant="caption" sx={{ fontWeight: 700, color: epicHue, lineHeight: 1 }}>
+            {epicShortcode(epic.title, epic.shortcode)}
+          </Typography>
+        </Stack>
+      )}
+
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={0.5}>
         <Tooltip title={item.title} enterDelay={500}>
           <Typography
@@ -161,6 +203,21 @@ export default function KanbanCard({
             Archivieren
           </MenuItem>
         )}
+        {/* Tastaturbedienbarer Statuswechsel (#316): das Menü ist per Tastatur/Screenreader
+            nutzbar, anders als das reine Maus-Drag&Drop. Ein Eintrag je Zielspalte außer der
+            aktuellen. */}
+        {!item.archived &&
+          KANBAN_COLUMNS.filter((column) => column !== item.column).map((column) => (
+            <MenuItem
+              key={column}
+              onClick={() => {
+                setMenuAnchor(null);
+                onMove(item, column);
+              }}
+            >
+              Nach {COLUMN_LABELS[column]}
+            </MenuItem>
+          ))}
         {item.archived && (
           <MenuItem
             onClick={() => {

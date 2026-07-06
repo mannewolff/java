@@ -3,7 +3,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 
-import type { KanbanColumn as KanbanColumnId, KanbanItem } from '../../api/kanban';
+import type { KanbanColumn as KanbanColumnId, KanbanEpic, KanbanItem } from '../../api/kanban';
 import { COLUMN_SURFACE_BG, STATUS_COLORS } from './statusColors';
 import KanbanCard from './KanbanCard';
 
@@ -12,12 +12,15 @@ interface KanbanColumnProps {
   label: string;
   items: KanbanItem[];
   retentionDays: number;
+  /** Epics nach ID — für das Epic-Badge zugeordneter Karten (#325). */
+  epicsById: Record<number, KanbanEpic>;
   onCreate: (column: KanbanColumnId) => void;
   onOpenDetail: (item: KanbanItem) => void;
   onEdit: (item: KanbanItem) => void;
   onArchive: (item: KanbanItem) => void;
   onRestore: (item: KanbanItem) => void;
   onForceDelete: (item: KanbanItem) => void;
+  onMove: (item: KanbanItem, targetColumn: KanbanColumnId) => void;
 }
 
 export default function KanbanColumnView({
@@ -25,12 +28,14 @@ export default function KanbanColumnView({
   label,
   items,
   retentionDays,
+  epicsById,
   onCreate,
   onOpenDetail,
   onEdit,
   onArchive,
   onRestore,
   onForceDelete,
+  onMove,
 }: KanbanColumnProps): JSX.Element {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column}`,
@@ -117,11 +122,13 @@ export default function KanbanColumnView({
               key={item.id}
               item={item}
               retentionDays={retentionDays}
+              epic={item.parentId != null ? epicsById[item.parentId] ?? null : null}
               onOpenDetail={onOpenDetail}
               onEdit={onEdit}
               onArchive={onArchive}
               onRestore={onRestore}
               onForceDelete={onForceDelete}
+              onMove={onMove}
             />
           ))}
         </SortableContext>

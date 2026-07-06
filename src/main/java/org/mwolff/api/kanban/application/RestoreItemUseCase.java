@@ -23,6 +23,12 @@ public class RestoreItemUseCase {
             .findById(itemId)
             .filter(i -> i.userSub().equals(userSub))
             .orElseThrow(() -> new KanbanItemNotFoundException(itemId));
+    // Ans Ende der aktiven Zielspalte einsortieren (#309) statt die alte Position zu erzwingen —
+    // die ist längst anderweitig vergeben. Position VOR dem Reaktivieren setzen: solange
+    // archived=true ist active_position NULL, das Update kann also nicht kollidieren. Erst
+    // restoreById macht die (freie) Endposition aktiv.
+    final int endPosition = items.findByUserAndColumn(userSub, existing.column()).size();
+    items.updatePosition(itemId, endPosition);
     items.restoreById(itemId);
     return items.findById(itemId).orElse(existing);
   }

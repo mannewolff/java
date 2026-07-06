@@ -14,6 +14,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import org.mwolff.api.kanban.domain.KanbanColumn;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 
 /** JPA-Entity zur {@code kanban_item}-Tabelle. */
 @Entity
@@ -32,6 +33,17 @@ class KanbanItemEntity {
 
   @Column(nullable = false, columnDefinition = "TEXT")
   private String body;
+
+  // Feldname itemType statt type: vermeidet Kollision mit der HQL-Funktion TYPE() in Queries.
+  @Enumerated(EnumType.STRING)
+  @Column(name = "type", nullable = false, length = 20)
+  private KanbanItemType itemType;
+
+  @Column(name = "parent_id")
+  private Long parentId;
+
+  @Column(name = "shortcode", length = 16)
+  private String shortcode;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "column_name", nullable = false, length = 20)
@@ -63,12 +75,18 @@ class KanbanItemEntity {
       String userSub,
       String title,
       String body,
+      KanbanItemType itemType,
+      Long parentId,
+      String shortcode,
       KanbanColumn columnName,
       int positionInColumn,
       Instant movedToDoneAt) {
     this.userSub = userSub;
     this.title = title;
     this.body = body;
+    this.itemType = itemType;
+    this.parentId = parentId;
+    this.shortcode = shortcode;
     this.columnName = columnName;
     this.positionInColumn = positionInColumn;
     this.movedToDoneAt = movedToDoneAt;
@@ -109,6 +127,26 @@ class KanbanItemEntity {
 
   void setBody(String body) {
     this.body = body;
+  }
+
+  KanbanItemType getItemType() {
+    return itemType;
+  }
+
+  Long getParentId() {
+    return parentId;
+  }
+
+  void setParentId(Long parentId) {
+    this.parentId = parentId;
+  }
+
+  String getShortcode() {
+    return shortcode;
+  }
+
+  void setShortcode(String shortcode) {
+    this.shortcode = shortcode;
   }
 
   KanbanColumn getColumnName() {

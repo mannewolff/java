@@ -250,6 +250,41 @@ class DashboardControllerTest {
   }
 
   @Test
+  void updateLayoutShouldReturn400WhenConfigTooManyChars() throws Exception {
+    // ASCII-config über der Zeichen-Obergrenze (@Size auf WidgetDto.config) → 400 statt 500.
+    final String tooLong = "a".repeat(Widget.MAX_CONFIG_BYTES + 1);
+    mockMvc
+        .perform(
+            put("/api/dashboards/1")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .characterEncoding("UTF-8")
+                .content(
+                    "{\"widgets\":[{\"type\":\"KPI\",\"posX\":0,\"posY\":0,\"width\":1,\"height\":1,\"config\":\""
+                        + tooLong
+                        + "\"}]}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void updateLayoutShouldReturn400WhenConfigExceedsBytesButNotChars() throws Exception {
+    // "ä" = 2 Bytes: unter der Zeichen-, aber über der Byte-Obergrenze. Die Domain-Prüfung greift
+    // und der Dashboard-Handler mappt die IllegalArgumentException auf 400 (statt 500).
+    final String multiByte = "ä".repeat(Widget.MAX_CONFIG_BYTES / 2 + 1);
+    mockMvc
+        .perform(
+            put("/api/dashboards/1")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .characterEncoding("UTF-8")
+                .content(
+                    "{\"widgets\":[{\"type\":\"KPI\",\"posX\":0,\"posY\":0,\"width\":1,\"height\":1,\"config\":\""
+                        + multiByte
+                        + "\"}]}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void updateLayoutShouldReturn404WhenDashboardNotOwned() throws Exception {
     willThrow(new DashboardNotFoundException(7L))
         .given(updateLayoutUseCase)

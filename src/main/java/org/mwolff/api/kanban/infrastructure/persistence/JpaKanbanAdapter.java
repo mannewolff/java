@@ -45,8 +45,18 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   }
 
   @Override
+  public List<KanbanItem> findEpicsByUser(String userSub) {
+    return itemRepo.findEpicsByUserSub(userSub).stream().map(JpaKanbanAdapter::toDomain).toList();
+  }
+
+  @Override
   public Optional<KanbanItem> findById(long id) {
     return itemRepo.findById(id).map(JpaKanbanAdapter::toDomain);
+  }
+
+  @Override
+  public long countChildren(long epicId) {
+    return itemRepo.countByParentId(epicId);
   }
 
   @Override
@@ -58,6 +68,9 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
               item.userSub(),
               item.title(),
               item.body(),
+              item.type(),
+              item.parentId(),
+              item.shortcode(),
               item.column(),
               item.position(),
               item.movedToDoneAt());
@@ -77,6 +90,9 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
       entity.setPositionInColumn(item.position());
       entity.setMovedToDoneAt(item.movedToDoneAt());
       entity.setArchived(item.archived());
+      // type bleibt nach dem Anlegen fix; Epic-Zuordnung und Kürzel dürfen sich ändern (#321/#329).
+      entity.setParentId(item.parentId());
+      entity.setShortcode(item.shortcode());
     }
     return toDomain(itemRepo.save(entity));
   }
@@ -107,8 +123,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   }
 
   @Override
-  public int deleteDoneOlderThan(String userSub, Instant threshold) {
-    return itemRepo.deleteDoneOlderThan(userSub, threshold);
+  public int archiveDoneOlderThan(String userSub, Instant threshold) {
+    return itemRepo.archiveDoneOlderThan(userSub, threshold);
   }
 
   @Override
@@ -148,7 +164,10 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
         entity.getUpdatedAt(),
         entity.getMovedToDoneAt(),
         entity.isArchived(),
-        entity.getNumber());
+        entity.getNumber(),
+        entity.getItemType(),
+        entity.getParentId(),
+        entity.getShortcode());
   }
 
   private static KanbanSettings toDomain(KanbanSettingsEntity entity) {

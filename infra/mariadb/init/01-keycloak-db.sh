@@ -12,13 +12,25 @@ if [[ -z "${KEYCLOAK_DB_PASSWORD:-}" ]]; then
   exit 0
 fi
 
-mariadb -u root -p"${MARIADB_ROOT_PASSWORD}" <<-EOSQL
+# Root-Passwort NICHT als -p-Prozessargument (waere in `ps aux` im Container sichtbar, #314),
+# sondern ueber die vom Client gelesene Umgebungsvariable MYSQL_PWD uebergeben.
+export MYSQL_PWD="${MARIADB_ROOT_PASSWORD}"
+
+# SQL-Bruch/Injection durch Sonderzeichen im Passwort verhindern (#314): einfache
+# Anfuehrungszeichen fuers SQL-String-Literal verdoppeln. Bash setzt den Variablenwert im
+# Heredoc nur einmal ein und expandiert ihn nicht erneut, daher koennen $/Backtick im Wert
+# keinen Code ausfuehren; das ''-Escaping deckt den verbleibenden Bruch-Fall ('=Quote) ab.
+KC_DB_PW_ESCAPED="${KEYCLOAK_DB_PASSWORD//"'"/"''"}"
+
+mariadb -u root <<-EOSQL
   CREATE DATABASE IF NOT EXISTS keycloak
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
-  CREATE USER IF NOT EXISTS 'keycloak'@'%' IDENTIFIED BY '${KEYCLOAK_DB_PASSWORD}';
+  CREATE USER IF NOT EXISTS 'keycloak'@'%' IDENTIFIED BY '${KC_DB_PW_ESCAPED}';
   GRANT ALL PRIVILEGES ON keycloak.* TO 'keycloak'@'%';
   FLUSH PRIVILEGES;
 EOSQL
+
+unset MYSQL_PWD
 
 echo "[keycloak-db-init] Schema 'keycloak' und User 'keycloak'@'%' bereit."

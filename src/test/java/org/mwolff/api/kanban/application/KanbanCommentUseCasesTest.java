@@ -28,7 +28,6 @@ class KanbanCommentUseCasesTest {
   private static final String SUB_OWNER = "user-1";
   private static final String SUB_OTHER = "user-2";
   private static final String AUTHOR = "alice";
-  private static final String OTHER_AUTHOR = "bob";
   private static final long ITEM_ID = 5L;
   private static final long COMMENT_ID = 9L;
 
@@ -50,8 +49,10 @@ class KanbanCommentUseCasesTest {
         0);
   }
 
-  private static KanbanComment comment(long itemId, String author) {
-    return new KanbanComment(COMMENT_ID, itemId, author, "text", Instant.EPOCH, Instant.EPOCH);
+  /** Kommentar mit gegebenem Eigentümer-{@code sub} und Anzeigenamen. */
+  private static KanbanComment comment(long itemId, String authorSub, String author) {
+    return new KanbanComment(
+        COMMENT_ID, itemId, authorSub, author, "text", Instant.EPOCH, Instant.EPOCH);
   }
 
   // ----- add ----------------------------------------------------------------
@@ -65,6 +66,7 @@ class KanbanCommentUseCasesTest {
         new AddCommentUseCase(items, comments).execute(SUB_OWNER, AUTHOR, ITEM_ID, "Hallo");
 
     assertThat(created.itemId()).isEqualTo(ITEM_ID);
+    assertThat(created.authorSub()).isEqualTo(SUB_OWNER);
     assertThat(created.author()).isEqualTo(AUTHOR);
     assertThat(created.body()).isEqualTo("Hallo");
   }
@@ -94,7 +96,8 @@ class KanbanCommentUseCasesTest {
   @Test
   void listReturnsCommentsForOwnedItem() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findByItemNewestFirst(ITEM_ID)).willReturn(List.of(comment(ITEM_ID, AUTHOR)));
+    given(comments.findByItemNewestFirst(ITEM_ID))
+        .willReturn(List.of(comment(ITEM_ID, SUB_OWNER, AUTHOR)));
 
     final List<KanbanComment> result =
         new ListCommentsUseCase(items, comments).execute(SUB_OWNER, ITEM_ID);
@@ -116,12 +119,27 @@ class KanbanCommentUseCasesTest {
   @Test
   void updatePersistsNewBodyForOwnComment() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findById(COMMENT_ID)).willReturn(Optional.of(comment(ITEM_ID, AUTHOR)));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID, SUB_OWNER, AUTHOR)));
     given(comments.save(any())).willAnswer(inv -> inv.getArgument(0));
 
     final KanbanComment updated =
-        new UpdateCommentUseCase(items, comments)
-            .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID, "neu");
+        new UpdateCommentUseCase(items, comments).execute(SUB_OWNER, ITEM_ID, COMMENT_ID, "neu");
+
+    assertThat(updated.body()).isEqualTo("neu");
+  }
+
+  @Test
+  void updateSucceedsAfterAuthorDisplayNameChanged() {
+    // Eigentum hängt am stabilen sub, nicht am Anzeigenamen: ein umbenannter User (Anzeigename
+    // "alice-alt" im Alt-Kommentar) darf seinen Kommentar weiterhin bearbeiten.
+    given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID, SUB_OWNER, "alice-alt")));
+    given(comments.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanComment updated =
+        new UpdateCommentUseCase(items, comments).execute(SUB_OWNER, ITEM_ID, COMMENT_ID, "neu");
 
     assertThat(updated.body()).isEqualTo("neu");
   }
@@ -133,7 +151,7 @@ class KanbanCommentUseCasesTest {
     assertThatThrownBy(
             () ->
                 new UpdateCommentUseCase(items, comments)
-                    .execute(SUB_OTHER, AUTHOR, ITEM_ID, COMMENT_ID, "x"))
+                    .execute(SUB_OTHER, ITEM_ID, COMMENT_ID, "x"))
         .isInstanceOf(KanbanItemNotFoundException.class);
     verify(comments, never()).save(any());
   }
@@ -146,7 +164,7 @@ class KanbanCommentUseCasesTest {
     assertThatThrownBy(
             () ->
                 new UpdateCommentUseCase(items, comments)
-                    .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID, "x"))
+                    .execute(SUB_OWNER, ITEM_ID, COMMENT_ID, "x"))
         .isInstanceOf(KanbanCommentNotFoundException.class);
     verify(comments, never()).save(any());
   }
@@ -154,25 +172,27 @@ class KanbanCommentUseCasesTest {
   @Test
   void updateThrowsWhenCommentBelongsToDifferentItem() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findById(COMMENT_ID)).willReturn(Optional.of(comment(ITEM_ID + 1, AUTHOR)));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID + 1, SUB_OWNER, AUTHOR)));
 
     assertThatThrownBy(
             () ->
                 new UpdateCommentUseCase(items, comments)
-                    .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID, "x"))
+                    .execute(SUB_OWNER, ITEM_ID, COMMENT_ID, "x"))
         .isInstanceOf(KanbanCommentNotFoundException.class);
     verify(comments, never()).save(any());
   }
 
   @Test
-  void updateThrowsForForeignAuthor() {
+  void updateThrowsForForeignAuthorSub() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findById(COMMENT_ID)).willReturn(Optional.of(comment(ITEM_ID, OTHER_AUTHOR)));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID, SUB_OTHER, "bob")));
 
     assertThatThrownBy(
             () ->
                 new UpdateCommentUseCase(items, comments)
-                    .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID, "x"))
+                    .execute(SUB_OWNER, ITEM_ID, COMMENT_ID, "x"))
         .isInstanceOf(KanbanCommentForbiddenException.class);
     verify(comments, never()).save(any());
   }
@@ -182,9 +202,10 @@ class KanbanCommentUseCasesTest {
   @Test
   void deleteRemovesOwnComment() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findById(COMMENT_ID)).willReturn(Optional.of(comment(ITEM_ID, AUTHOR)));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID, SUB_OWNER, AUTHOR)));
 
-    new DeleteCommentUseCase(items, comments).execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID);
+    new DeleteCommentUseCase(items, comments).execute(SUB_OWNER, ITEM_ID, COMMENT_ID);
 
     verify(comments).deleteById(COMMENT_ID);
   }
@@ -194,9 +215,7 @@ class KanbanCommentUseCasesTest {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
 
     assertThatThrownBy(
-            () ->
-                new DeleteCommentUseCase(items, comments)
-                    .execute(SUB_OTHER, AUTHOR, ITEM_ID, COMMENT_ID))
+            () -> new DeleteCommentUseCase(items, comments).execute(SUB_OTHER, ITEM_ID, COMMENT_ID))
         .isInstanceOf(KanbanItemNotFoundException.class);
     verify(comments, never()).deleteById(anyLong());
   }
@@ -207,9 +226,7 @@ class KanbanCommentUseCasesTest {
     given(comments.findById(COMMENT_ID)).willReturn(Optional.empty());
 
     assertThatThrownBy(
-            () ->
-                new DeleteCommentUseCase(items, comments)
-                    .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID))
+            () -> new DeleteCommentUseCase(items, comments).execute(SUB_OWNER, ITEM_ID, COMMENT_ID))
         .isInstanceOf(KanbanCommentNotFoundException.class);
     verify(comments, never()).deleteById(anyLong());
   }
@@ -217,25 +234,23 @@ class KanbanCommentUseCasesTest {
   @Test
   void deleteThrowsWhenCommentBelongsToDifferentItem() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findById(COMMENT_ID)).willReturn(Optional.of(comment(ITEM_ID + 1, AUTHOR)));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID + 1, SUB_OWNER, AUTHOR)));
 
     assertThatThrownBy(
-            () ->
-                new DeleteCommentUseCase(items, comments)
-                    .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID))
+            () -> new DeleteCommentUseCase(items, comments).execute(SUB_OWNER, ITEM_ID, COMMENT_ID))
         .isInstanceOf(KanbanCommentNotFoundException.class);
     verify(comments, never()).deleteById(anyLong());
   }
 
   @Test
-  void deleteThrowsForForeignAuthor() {
+  void deleteThrowsForForeignAuthorSub() {
     given(items.findById(ITEM_ID)).willReturn(Optional.of(ownedItem()));
-    given(comments.findById(COMMENT_ID)).willReturn(Optional.of(comment(ITEM_ID, OTHER_AUTHOR)));
+    given(comments.findById(COMMENT_ID))
+        .willReturn(Optional.of(comment(ITEM_ID, SUB_OTHER, "bob")));
 
     assertThatThrownBy(
-            () ->
-                new DeleteCommentUseCase(items, comments)
-                    .execute(SUB_OWNER, AUTHOR, ITEM_ID, COMMENT_ID))
+            () -> new DeleteCommentUseCase(items, comments).execute(SUB_OWNER, ITEM_ID, COMMENT_ID))
         .isInstanceOf(KanbanCommentForbiddenException.class);
     verify(comments, never()).deleteById(anyLong());
   }

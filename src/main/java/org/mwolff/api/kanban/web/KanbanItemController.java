@@ -89,7 +89,13 @@ public class KanbanItemController {
       JwtAuthenticationToken auth, @Valid @RequestBody CreateKanbanItemRequest body) {
     final KanbanItem created =
         createUseCase.execute(
-            auth.getToken().getSubject(), body.title(), body.bodyOrEmpty(), body.column());
+            auth.getToken().getSubject(),
+            body.title(),
+            body.bodyOrEmpty(),
+            body.column(),
+            body.typeOrDefault(),
+            body.parentId(),
+            body.shortcode());
     return ResponseEntity.status(HttpStatus.CREATED).body(KanbanItemResponse.from(created));
   }
 
@@ -99,7 +105,8 @@ public class KanbanItemController {
       @PathVariable @Min(1) long id,
       @Valid @RequestBody UpdateKanbanItemRequest body) {
     return KanbanItemResponse.from(
-        updateContentUseCase.execute(auth.getToken().getSubject(), id, body.title(), body.body()));
+        updateContentUseCase.execute(
+            auth.getToken().getSubject(), id, body.title(), body.body(), body.shortcode()));
   }
 
   @PutMapping("/{id}/move")

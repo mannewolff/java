@@ -19,6 +19,13 @@ public interface TimeSeriesEntryPort {
   List<TimeSeriesEntry> findByTimeSeries(
       long timeSeriesId, Optional<Instant> from, Optional<Instant> to, int limit);
 
+  /**
+   * Prüft, ob mindestens ein Eintrag der Zeitreihe einen echten Nachkommaanteil hat. Wird vor einem
+   * {@code dataType}-Wechsel auf {@link TimeSeriesDataType#INTEGER} gebraucht: dezimale
+   * Bestandswerte würden die INTEGER-Invariante verletzen.
+   */
+  boolean hasFractionalValues(long timeSeriesId);
+
   TimeSeriesEntry save(TimeSeriesEntry entry);
 
   /**

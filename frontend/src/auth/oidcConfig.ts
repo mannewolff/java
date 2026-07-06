@@ -20,31 +20,28 @@ const redirectUri: string =
 export const keycloakAccountConsoleUrl = `${keycloakUrl}/realms/${keycloakRealm}/account`;
 
 /**
- * Baut die OIDC-Konfiguration. Im Mobile-Modus (#206) wird der Token persistent in
- * localStorage gehalten und `offline_access` angefragt — damit erhält das Handy einen
- * Offline-Refresh-Token und bleibt bis zu 30 Tage ohne Neuanmeldung eingeloggt.
- *
- * Desktop-Default: sessionStorage (Token verschwindet mit dem Tab, kein Cross-Tab-Leak)
- * und kein offline_access.
+ * Baut die OIDC-Konfiguration für die Web-UI (reiner Desktop-Client, #334): Token in
+ * sessionStorage (verschwindet mit dem Tab, kein Cross-Tab-Leak) und Scope ohne
+ * `offline_access` — es wird bewusst kein langlebiger Offline-Refresh-Token angefragt.
  */
-export function buildOidcConfig(mobile: boolean): AuthProviderProps {
-  const store: Storage = mobile ? window.localStorage : window.sessionStorage;
-  const scope: string = mobile
-    ? 'openid profile email offline_access'
-    : 'openid profile email';
-
+export function buildOidcConfig(): AuthProviderProps {
   return {
     authority: `${keycloakUrl}/realms/${keycloakRealm}`,
     client_id: keycloakClientId,
     redirect_uri: redirectUri,
     post_logout_redirect_uri: redirectUri,
     response_type: 'code',
-    scope,
-    userStore: new WebStorageStateStore({ store }),
+    scope: 'openid profile email',
+    userStore: new WebStorageStateStore({ store: window.sessionStorage }),
     // PKCE ist Default bei response_type=code in oidc-client-ts ab v3.
     // Token-Endpoint-Antworten via Background-Iframe sind im Dev unzuverlaessig —
     // Silent-Renew via Refresh-Token ist sauberer.
     automaticSilentRenew: true,
+    // Beim Logout Access- UND Refresh-Token serverseitig am Revocation-Endpoint invalidieren
+    // (#312). Allgemeine Sicherheits-Hygiene: ein nicht revozierter Refresh-Token bliebe bis
+    // zum Ablauf einlösbar — ein Restrisiko bei XSS oder Gerätezugriff. Bewusst auch nach dem
+    // Wegfall des Mobile-/Offline-Pfads beibehalten (#334). Default der Property ist false.
+    revokeTokensOnSignout: true,
     // Entfernt ?code=...&state=... aus der URL nach erfolgreichem Login und setzt den
     // reload-festen Re-Login-Loop-Breaker zurück (#233).
     onSigninCallback: (): void => {

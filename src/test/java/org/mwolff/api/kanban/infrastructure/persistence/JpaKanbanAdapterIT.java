@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mwolff.api.AbstractIntegrationTest;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.mwolff.api.kanban.domain.KanbanSettings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -120,7 +121,7 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
-  void deleteDoneOlderThanRemovesOnlyExpiredDoneItems() {
+  void archiveDoneOlderThanArchivesOnlyExpiredDoneItems() {
     final Instant old = Instant.parse("2026-01-01T00:00:00Z");
     final Instant fresh = Instant.parse("2026-05-27T00:00:00Z");
     // Erst alle anlegen, dann via save() in DONE setzen mit explizitem movedToDoneAt.
@@ -155,11 +156,19 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             false,
             freshDone.number()));
 
-    final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-03-01T00:00:00Z"));
+    final int archived =
+        adapter.archiveDoneOlderThan(USER_A, Instant.parse("2026-03-01T00:00:00Z"));
 
-    assertThat(deleted).isEqualTo(1);
-    assertThat(adapter.findById(oldDone.id())).isEmpty();
-    assertThat(adapter.findById(freshDone.id())).isPresent();
+    assertThat(archived).isEqualTo(1);
+    // #327: abgelaufenes DONE-Item ist archiviert (nicht gelöscht) und bleibt in DONE.
+    assertThat(adapter.findById(oldDone.id()))
+        .hasValueSatisfying(
+            i -> {
+              assertThat(i.archived()).isTrue();
+              assertThat(i.column()).isEqualTo(KanbanColumn.DONE);
+            });
+    assertThat(adapter.findById(freshDone.id()))
+        .hasValueSatisfying(i -> assertThat(i.archived()).isFalse());
     assertThat(adapter.findById(backlog.id())).isPresent();
   }
 
@@ -219,7 +228,7 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
-  void deleteDoneOlderThanSkipsArchivedItems() {
+  void archiveDoneOlderThanSkipsAlreadyArchivedItems() {
     final KanbanItem archivedDone = persist(USER_A, "OldArchived", "", KanbanColumn.DONE, 0);
     adapter.save(
         new KanbanItem(
@@ -236,9 +245,11 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
             archivedDone.number()));
     adapter.archiveById(archivedDone.id());
 
-    final int deleted = adapter.deleteDoneOlderThan(USER_A, Instant.parse("2026-06-01T00:00:00Z"));
+    final int archived =
+        adapter.archiveDoneOlderThan(USER_A, Instant.parse("2026-06-01T00:00:00Z"));
 
-    assertThat(deleted).isEqualTo(0);
+    // Bereits archivierte Items werden nicht erneut angefasst (0 Änderungen).
+    assertThat(archived).isEqualTo(0);
     assertThat(adapter.findById(archivedDone.id())).isPresent();
   }
 
@@ -270,5 +281,153 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     final KanbanItem item = persist(USER_A, "T", "", KanbanColumn.BACKLOG, 0);
     assertThat(item.createdAt()).isNotNull();
     assertThat(item.updatedAt()).isNotNull();
+  }
+
+  // ----- Epics (#321) --------------------------------------------------------
+
+  /** Legt ein Epic an (position 0 fix — Epics halten keine aktive Position). */
+  private KanbanItem persistEpic(String user, String title) {
+    final int number = adapter.getMaxNumberForUser(user).map(max -> max + 1).orElse(1);
+    return adapter.save(
+        KanbanItem.newInstance(
+                user, title, "", KanbanColumn.BACKLOG, 0, Instant.now(), KanbanItemType.EPIC, null)
+            .withNumber(number));
+  }
+
+  @Test
+  void epicRoundTripsTypeAndIsExcludedFromBoardQueries() {
+    final KanbanItem epic = persistEpic(USER_A, "Mein Epic");
+    persist(USER_A, "Normales Item", "", KanbanColumn.BACKLOG, 0);
+
+    // Direktzugriff liefert das Epic mit Typ...
+    assertThat(adapter.findById(epic.id()))
+        .hasValueSatisfying(e -> assertThat(e.type()).isEqualTo(KanbanItemType.EPIC));
+    // ...aber Board-, Spalten- und Listen-Queries sehen nur ITEMs.
+    assertThat(adapter.findAllByUser(USER_A))
+        .extracting(KanbanItem::title)
+        .containsExactly("Normales Item");
+    assertThat(adapter.findByUserAndColumn(USER_A, KanbanColumn.BACKLOG))
+        .extracting(KanbanItem::title)
+        .containsExactly("Normales Item");
+    assertThat(adapter.findAllByUserIncludingArchived(USER_A))
+        .extracting(KanbanItem::title)
+        .containsExactly("Normales Item");
+  }
+
+  @Test
+  void epicDoesNotCollideWithItemPositionZero() {
+    // Beide auf (BACKLOG, position 0): der Unique-Index uk_kanban_active_position darf nicht
+    // anschlagen, weil Epics per V22 aus dem aktiven Positions-Namespace fallen.
+    persistEpic(USER_A, "Epic auf Position 0");
+    final KanbanItem item = persist(USER_A, "Item auf Position 0", "", KanbanColumn.BACKLOG, 0);
+
+    assertThat(adapter.findById(item.id())).isPresent();
+  }
+
+  @Test
+  void findEpicsByUserReturnsOnlyOwnEpicsOrderedByNumber() {
+    // Reihenfolge: Nummer aufsteigend. Zweites Epic zuerst anlegen, damit die Sortierung nicht
+    // zufällig mit der Insert-Reihenfolge übereinstimmt.
+    final KanbanItem second = persistEpic(USER_A, "Zweites Epic");
+    final KanbanItem first = persistEpic(USER_A, "Erstes Epic");
+    persist(USER_A, "Kein Epic", "", KanbanColumn.BACKLOG, 0);
+    persistEpic(USER_B, "Fremdes Epic");
+
+    assertThat(adapter.findEpicsByUser(USER_A))
+        .extracting(KanbanItem::id)
+        .containsExactly(second.id(), first.id()); // second hat die kleinere Nummer
+    assertThat(adapter.findEpicsByUser(USER_A))
+        .allSatisfy(e -> assertThat(e.type()).isEqualTo(KanbanItemType.EPIC));
+  }
+
+  @Test
+  void shortcodeRoundTripsOnInsertAndUpdate() {
+    final int number = adapter.getMaxNumberForUser(USER_A).map(max -> max + 1).orElse(1);
+    final KanbanItem epic =
+        adapter.save(
+            KanbanItem.newInstance(
+                    USER_A,
+                    "Epic",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.now(),
+                    KanbanItemType.EPIC,
+                    null,
+                    "ITB")
+                .withNumber(number));
+
+    assertThat(epic.shortcode()).isEqualTo("ITB");
+    assertThat(adapter.findById(epic.id()))
+        .hasValueSatisfying(e -> assertThat(e.shortcode()).isEqualTo("ITB"));
+
+    // Update-Pfad ändert das Kürzel (withContent(3-arg)).
+    final KanbanItem renamed = adapter.save(epic.withContent("Epic", "", "NEU"));
+    assertThat(renamed.shortcode()).isEqualTo("NEU");
+    assertThat(adapter.findById(epic.id()))
+        .hasValueSatisfying(e -> assertThat(e.shortcode()).isEqualTo("NEU"));
+  }
+
+  @Test
+  void parentIdRoundTripsOnInsertAndUpdate() {
+    final KanbanItem epic = persistEpic(USER_A, "Parent-Epic");
+    final int number = adapter.getMaxNumberForUser(USER_A).map(max -> max + 1).orElse(1);
+    final KanbanItem story =
+        adapter.save(
+            KanbanItem.newInstance(
+                    USER_A,
+                    "Story",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.now(),
+                    KanbanItemType.ITEM,
+                    epic.id())
+                .withNumber(number));
+
+    assertThat(story.parentId()).isEqualTo(epic.id());
+    assertThat(adapter.findById(story.id()))
+        .hasValueSatisfying(s -> assertThat(s.parentId()).isEqualTo(epic.id()));
+
+    // Update-Pfad erhält die Zuordnung (withContent trägt parentId weiter).
+    final KanbanItem renamed = adapter.save(story.withContent("Story umbenannt", "b"));
+    assertThat(renamed.parentId()).isEqualTo(epic.id());
+  }
+
+  @Test
+  void countChildrenCountsAllReferencingItemsIncludingArchived() {
+    final KanbanItem epic = persistEpic(USER_A, "Epic mit Kindern");
+    final KanbanItem other = persistEpic(USER_A, "Anderes Epic");
+
+    assertThat(adapter.countChildren(epic.id())).isZero();
+
+    final KanbanItem child = persistChild(USER_A, "Kind", epic.id());
+    final KanbanItem archivedChild = persistChild(USER_A, "Archiviertes Kind", epic.id());
+    persistChild(USER_A, "Kind von anderem Epic", other.id());
+
+    adapter.archiveById(archivedChild.id());
+
+    // Archivierte Kinder halten weiterhin eine Referenz und zählen mit (#330).
+    assertThat(adapter.countChildren(epic.id())).isEqualTo(2);
+    assertThat(adapter.countChildren(other.id())).isEqualTo(1);
+
+    adapter.deleteById(child.id());
+    adapter.deleteById(archivedChild.id());
+    assertThat(adapter.countChildren(epic.id())).isZero();
+  }
+
+  private KanbanItem persistChild(String user, String title, long parentId) {
+    final int number = adapter.getMaxNumberForUser(user).map(max -> max + 1).orElse(1);
+    return adapter.save(
+        KanbanItem.newInstance(
+                user,
+                title,
+                "",
+                KanbanColumn.BACKLOG,
+                number,
+                Instant.now(),
+                KanbanItemType.ITEM,
+                parentId)
+            .withNumber(number));
   }
 }

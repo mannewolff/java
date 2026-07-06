@@ -51,9 +51,7 @@ export function moveItem(
     position: clamped,
     // movedToDoneAt im Frontend "best effort" — Backend ist Quelle der Wahrheit.
     movedToDoneAt:
-      targetColumn === 'DONE'
-        ? item.movedToDoneAt ?? new Date().toISOString()
-        : undefined,
+      targetColumn === 'DONE' ? item.movedToDoneAt ?? new Date().toISOString() : null,
   };
   const targetInserted = [
     ...targetList.slice(0, clamped),

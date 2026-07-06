@@ -157,4 +157,30 @@ class JpaTimeSeriesAdapterIT extends AbstractIntegrationTest {
     assertThat(result).hasSize(1);
     assertThat(result.get(0).value()).isEqualByComparingTo("2");
   }
+
+  @Test
+  void hasFractionalValuesDetectsDecimalEntries() {
+    final TimeSeries ts =
+        adapter.save(
+            TimeSeries.newInstance(USER_A, "mixed", null, "kg", TimeSeriesDataType.DECIMAL));
+    final Instant base = Instant.parse("2026-05-27T10:00:00Z");
+    adapter.save(TimeSeriesEntry.newInstance(ts.id(), base, new BigDecimal("2.000000")));
+
+    assertThat(adapter.hasFractionalValues(ts.id())).isFalse();
+
+    adapter.save(TimeSeriesEntry.newInstance(ts.id(), base.plusSeconds(60), new BigDecimal("2.5")));
+
+    assertThat(adapter.hasFractionalValues(ts.id())).isTrue();
+  }
+
+  @Test
+  void hasFractionalValuesHandlesNegativeIntegersAsWhole() {
+    final TimeSeries ts =
+        adapter.save(TimeSeries.newInstance(USER_A, "neg", null, "kg", TimeSeriesDataType.DECIMAL));
+    final Instant base = Instant.parse("2026-05-27T10:00:00Z");
+    adapter.save(TimeSeriesEntry.newInstance(ts.id(), base, new BigDecimal("-3.000000")));
+
+    // -3 hat keinen Nachkommaanteil, obwohl FLOOR(-3) = -3 (Vorzeichen-Robustheit der Query).
+    assertThat(adapter.hasFractionalValues(ts.id())).isFalse();
+  }
 }

@@ -13,6 +13,18 @@ interface TimeSeriesEntryJpaRepository extends JpaRepository<TimeSeriesEntryEnti
   long countByTimeSeriesId(Long timeSeriesId);
 
   /**
+   * {@code true}, wenn mindestens ein Eintrag einen Nachkommaanteil hat ({@code value !=
+   * FLOOR(value)} — vorzeichenunabhängig korrekt). Grundlage der Kompatibilitätsprüfung beim {@code
+   * dataType}-Wechsel auf INTEGER.
+   */
+  @Query(
+      "select case when count(e) > 0 then true else false end "
+          + "from TimeSeriesEntryEntity e "
+          + "where e.timeSeriesId = :timeSeriesId "
+          + "and e.value <> function('floor', e.value)")
+  boolean existsFractionalValue(@Param("timeSeriesId") Long timeSeriesId);
+
+  /**
    * Listet Eintraege im optionalen Zeitfenster — {@code from} und {@code to} sind {@code null}-bar.
    * Reihenfolge: timestamp DESC (neuester zuerst). Das {@link Pageable} liefert das Limit.
    */

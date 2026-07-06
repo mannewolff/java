@@ -6,7 +6,6 @@ import {
   type AuthProviderProps,
 } from 'react-oidc-context';
 
-import { isMobileDevice, markMobileDeviceFromUrl } from './mobileDevice';
 import { buildOidcConfig } from './oidcConfig';
 import { clearReloginGuard, shouldAttemptRelogin } from './reloginGuard';
 import {
@@ -85,13 +84,9 @@ function AuthBridge({ children }: { children: ReactNode }): JSX.Element {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
-  // Einmalig beim Mount: Pairing-Flag aus der URL auswerten und die passende
-  // Config (Mobile = localStorage + offline_access, sonst Desktop) festlegen.
-  // useState-Initializer läuft genau einmal und stabil über alle Re-Renders.
-  const [config] = useState<AuthProviderProps>(() => {
-    markMobileDeviceFromUrl();
-    return buildOidcConfig(isMobileDevice());
-  });
+  // Einmalig beim Mount die (Desktop-)OIDC-Config festlegen. Der useState-Initializer
+  // läuft genau einmal und stabil über alle Re-Renders.
+  const [config] = useState<AuthProviderProps>(() => buildOidcConfig());
 
   return (
     <OidcAuthProvider {...config}>

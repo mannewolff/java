@@ -40,7 +40,7 @@ export default function KanbanSettingsDrawer({
         <Stack spacing={2}>
           <Box>
             <Typography gutterBottom>
-              Done-Items nach <strong>{draft}</strong> Tagen löschen
+              Done-Items nach <strong>{draft}</strong> Tagen archivieren
             </Typography>
             <Slider
               value={draft}
@@ -56,7 +56,8 @@ export default function KanbanSettingsDrawer({
             <Typography variant="caption" color="text.secondary">
               Items, die länger als {draft}{' '}
               {draft === 1 ? 'Tag' : 'Tage'} in der Done-Spalte liegen, werden automatisch
-              gelöscht. Die Prüfung läuft täglich um 03:00 UTC.
+              archiviert (nicht gelöscht) und bleiben über den Archiv-Filter der Liste erreichbar.
+              Die Prüfung läuft täglich um 03:00 UTC.
             </Typography>
           </Box>
           <Divider />

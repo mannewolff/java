@@ -38,7 +38,9 @@ import {
   type KanbanItem,
 } from '../../../api/kanban';
 import { ApiError } from '../../../api/client';
+import { useNotify } from '../../../notify/NotifyProvider';
 import KanbanDetailModal from '../../kanban/KanbanDetailModal';
+import { COLUMN_LABELS } from '../../kanban/columnMeta';
 import { STATUS_COLORS } from '../../kanban/statusColors';
 import { CONFIG_DRAWER_WIDTH } from './drawerConstants';
 import { parseSurfaceConfig, widgetSurface } from './widgetSurface';
@@ -55,14 +57,6 @@ const DISPLAY_ORDER: readonly KanbanColumn[] = [
   'BACKLOG',
   'DONE',
 ];
-
-const COLUMN_LABELS: Record<KanbanColumn, string> = {
-  BACKLOG: 'Backlog',
-  READY: 'Ready',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
-};
 
 /**
  * Status-Icon je Spalte (#191). Die Akzentfarbe kommt aus {@link STATUS_COLORS} (#288),
@@ -149,6 +143,7 @@ export default function WidgetKanbanList({
 }: Props): JSX.Element {
   const config = parseConfig(widget.config);
   const surface = widgetSurface(readOnly, config);
+  const notify = useNotify();
   const [items, setItems] = useState<KanbanItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retentionDays, setRetentionDays] = useState(FALLBACK_RETENTION_DAYS);
@@ -229,9 +224,15 @@ export default function WidgetKanbanList({
 
   async function handleDetailSubmit(title: string, body: string): Promise<void> {
     if (!detailItem) return;
-    await updateKanbanItem(detailItem.id, title, body);
-    setDetailItem(null);
-    await reload();
+    // #316: Speicherfehler abfangen und melden (analog #292) — sonst läuft die Rejection
+    // ungefangen durch `void handleSave()` im Modal, ohne Meldung, und das Modal bleibt offen.
+    try {
+      await updateKanbanItem(detailItem.id, title, body);
+      setDetailItem(null);
+      await reload();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
   }
 
   return (

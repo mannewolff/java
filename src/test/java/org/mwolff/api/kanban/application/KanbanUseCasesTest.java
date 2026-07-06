@@ -3,6 +3,7 @@ package org.mwolff.api.kanban.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,10 +18,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.mwolff.api.kanban.domain.EpicHasChildrenException;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemPort;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.mwolff.api.kanban.domain.KanbanSettings;
 import org.mwolff.api.kanban.domain.KanbanSettingsPort;
 
@@ -52,6 +55,24 @@ class KanbanUseCasesTest {
 
   private static KanbanItem item(long id, String sub, KanbanColumn column, int position) {
     return item(id, sub, column, position, column == KanbanColumn.DONE ? Instant.EPOCH : null);
+  }
+
+  private static KanbanItem epic(long id, String sub, String title, String shortcode) {
+    return new KanbanItem(
+        id,
+        sub,
+        title,
+        "body-" + id,
+        KanbanColumn.BACKLOG,
+        0,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        null,
+        false,
+        0,
+        KanbanItemType.EPIC,
+        null,
+        shortcode);
   }
 
   private static KanbanItem archivedItem(long id, String sub, KanbanColumn column, int position) {
@@ -144,6 +165,33 @@ class KanbanUseCasesTest {
     verify(items).updatePosition(2L, 0);
   }
 
+  @Test
+  void moveRejectsEpics() {
+    // Epics nehmen nicht am Spalten-Workflow teil (#321): Move → 400 statt Positions-Chaos.
+    final KanbanItem epic =
+        new KanbanItem(
+            1L,
+            SUB_OWNER,
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findById(1L)).willReturn(Optional.of(epic));
+
+    assertThatThrownBy(
+            () -> new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.READY, 0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("epic");
+    verify(items, never()).save(any());
+  }
+
   // ----- create -------------------------------------------------------------
 
   @Test
@@ -195,6 +243,227 @@ class KanbanUseCasesTest {
     assertThat(created.number()).isEqualTo(6);
   }
 
+  @Test
+  void createEpicUsesPositionZeroAndSkipsColumnLookup() {
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(Optional.of(2));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem epic =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "Epic", "", null, KanbanItemType.EPIC, null);
+
+    assertThat(epic.type()).isEqualTo(KanbanItemType.EPIC);
+    assertThat(epic.position()).isZero();
+    assertThat(epic.number()).isEqualTo(3);
+    // Epics halten keine aktive Position — kein Spalten-Lookup nötig.
+    verify(items, never()).findByUserAndColumn(any(), any());
+  }
+
+  @Test
+  void createWithNullTypeDefaultsToItem() {
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", null, null, null);
+
+    assertThat(created.type()).isEqualTo(KanbanItemType.ITEM);
+  }
+
+  @Test
+  void createEpicWithShortcodeSucceeds() {
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(Optional.of(1));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem epic =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "Epic", "", null, KanbanItemType.EPIC, null, "ITB");
+
+    assertThat(epic.type()).isEqualTo(KanbanItemType.EPIC);
+    assertThat(epic.shortcode()).isEqualTo("ITB");
+  }
+
+  @Test
+  void createItemWithShortcodeIsRejected() {
+    // Nur Epics dürfen ein Kürzel tragen — die Domain lehnt ein Kürzel an einem ITEM ab (→ 400).
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, null, "X"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createEpicWithParentIsRejected() {
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Epic", "", null, KanbanItemType.EPIC, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("EPIC");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createItemAssignedToOwnEpicSucceeds() {
+    final KanbanItem parentEpic =
+        new KanbanItem(
+            9L,
+            SUB_OWNER,
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findById(9L)).willReturn(Optional.of(parentEpic));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem story =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L);
+
+    assertThat(story.parentId()).isEqualTo(9L);
+  }
+
+  @Test
+  void createItemWithUnknownParentIsRejected() {
+    given(items.findById(9L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not found");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createItemWithForeignParentIsRejected() {
+    final KanbanItem foreignEpic =
+        new KanbanItem(
+            9L,
+            SUB_OTHER,
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findById(9L)).willReturn(Optional.of(foreignEpic));
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not found");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createItemWithNonEpicParentIsRejected() {
+    final KanbanItem plainItem = item(9, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    given(items.findById(9L)).willReturn(Optional.of(plainItem));
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not an epic");
+    verify(items, never()).save(any());
+  }
+
+  // ----- epics --------------------------------------------------------------
+
+  @Test
+  void getEpicsComputesProgressFromChildren() {
+    final KanbanItem epicA =
+        new KanbanItem(
+            10L,
+            SUB_OWNER,
+            "A",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    final KanbanItem epicB =
+        new KanbanItem(
+            11L,
+            SUB_OWNER,
+            "B",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            2,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findEpicsByUser(SUB_OWNER)).willReturn(List.of(epicA, epicB));
+    given(items.findAllByUser(SUB_OWNER))
+        .willReturn(
+            List.of(
+                childOf(10L, KanbanColumn.DONE),
+                childOf(10L, KanbanColumn.BACKLOG),
+                childOf(10L, KanbanColumn.DONE),
+                childOf(11L, KanbanColumn.READY),
+                item(99, SUB_OWNER, KanbanColumn.BACKLOG, 0))); // ohne parent → zählt nirgends
+
+    final List<GetEpicsUseCase.EpicWithProgress> result =
+        new GetEpicsUseCase(items).execute(SUB_OWNER);
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(0).epic().id()).isEqualTo(10L);
+    assertThat(result.get(0).total()).isEqualTo(3);
+    assertThat(result.get(0).done()).isEqualTo(2);
+    assertThat(result.get(1).epic().id()).isEqualTo(11L);
+    assertThat(result.get(1).total()).isEqualTo(1);
+    assertThat(result.get(1).done()).isZero();
+  }
+
+  private static KanbanItem childOf(long parentId, KanbanColumn column) {
+    return new KanbanItem(
+        parentId * 100 + column.ordinal(),
+        SUB_OWNER,
+        "child",
+        "",
+        column,
+        0,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        column == KanbanColumn.DONE ? Instant.EPOCH : null,
+        false,
+        0,
+        KanbanItemType.ITEM,
+        parentId);
+  }
+
   // ----- update content -----------------------------------------------------
 
   @Test
@@ -222,6 +491,77 @@ class KanbanUseCasesTest {
   void updateContentShouldThrowWhenMissing() {
     given(items.findById(99L)).willReturn(Optional.empty());
     assertThatThrownBy(() -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 99L, "x", "y"))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+  }
+
+  @Test
+  void updateContentShouldPersistShortcodeOnEpic() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", null)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem updated =
+        new UpdateItemContentUseCase(items).execute(SUB_OWNER, 7L, "Neuer Titel", "Body", "ITB");
+
+    assertThat(updated.title()).isEqualTo("Neuer Titel");
+    assertThat(updated.shortcode()).isEqualTo("ITB");
+  }
+
+  @Test
+  void updateContentShouldRejectShortcodeOnNonEpic() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+
+    assertThatThrownBy(
+            () -> new UpdateItemContentUseCase(items).execute(SUB_OWNER, 1L, "T", "B", "X"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+    verify(items, never()).save(any());
+  }
+
+  // ----- delete epic --------------------------------------------------------
+
+  @Test
+  void deleteEpicShouldPhysicallyDeleteWhenNoChildren() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", "ITB")));
+    given(items.countChildren(7L)).willReturn(0L);
+
+    new DeleteEpicUseCase(items).execute(SUB_OWNER, 7L);
+
+    verify(items).deleteById(7L);
+  }
+
+  @Test
+  void deleteEpicShouldThrowConflictWhenChildrenExist() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", "ITB")));
+    given(items.countChildren(7L)).willReturn(3L);
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OWNER, 7L))
+        .isInstanceOf(EpicHasChildrenException.class);
+    verify(items, never()).deleteById(7L);
+  }
+
+  @Test
+  void deleteEpicShouldThrowNotFoundForForeignEpic() {
+    given(items.findById(7L)).willReturn(Optional.of(epic(7, SUB_OWNER, "Workshop", null)));
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OTHER, 7L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+    verify(items, never()).deleteById(anyLong());
+  }
+
+  @Test
+  void deleteEpicShouldThrowNotFoundWhenTargetIsNotAnEpic() {
+    given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OWNER, 1L))
+        .isInstanceOf(KanbanItemNotFoundException.class);
+    verify(items, never()).deleteById(anyLong());
+  }
+
+  @Test
+  void deleteEpicShouldThrowNotFoundWhenMissing() {
+    given(items.findById(99L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> new DeleteEpicUseCase(items).execute(SUB_OWNER, 99L))
         .isInstanceOf(KanbanItemNotFoundException.class);
   }
 
@@ -295,13 +635,12 @@ class KanbanUseCasesTest {
         new MoveItemUseCase(items, clock).execute(SUB_OWNER, 1L, KanbanColumn.BACKLOG, 2);
 
     assertThat(moved.position()).isEqualTo(2);
+    // Kollisionsfreie Reihenfolge (#309): a zuerst temporär ans freie Spaltenende (Position 4),
+    // dann rutschen die Nachbarn im Intervall (0, 2] aufsteigend um -1.
+    verify(items).updatePosition(1L, 4); // a temporär ans Ende
     verify(items).updatePosition(2L, 0); // b: 1 -> 0
     verify(items).updatePosition(3L, 1); // c: 2 -> 1
-    verify(items, never()).updatePosition(4L, 2); // d bleibt
-    // Das verschobene Item selbst (a, position 0) darf NIE reindexiert werden — killt den
-    // Grenzwert-Mutanten `position > fromPosition` -> `>=` (#203).
-    verify(items, never())
-        .updatePosition(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.anyInt());
+    verify(items, never()).updatePosition(4L, 2); // d (pos 3) außerhalb (0,2] — bleibt
   }
 
   @Test
@@ -318,12 +657,59 @@ class KanbanUseCasesTest {
 
     new MoveItemUseCase(items, clock).execute(SUB_OWNER, 4L, KanbanColumn.BACKLOG, 1);
 
-    verify(items).updatePosition(2L, 2); // b: 1 -> 2
+    // Kollisionsfreie Reihenfolge (#309): d zuerst temporär ans freie Spaltenende (Position 4),
+    // dann rutschen die Nachbarn im Intervall [1, 3) absteigend um +1.
+    verify(items).updatePosition(4L, 4); // d temporär ans Ende
     verify(items).updatePosition(3L, 3); // c: 2 -> 3
-    // Das verschobene Item selbst (d, position 3) darf NIE reindexiert werden — killt den
-    // Grenzwert-Mutanten `position < fromPosition` -> `<=` (#203).
-    verify(items, never())
-        .updatePosition(org.mockito.ArgumentMatchers.eq(4L), org.mockito.ArgumentMatchers.anyInt());
+    verify(items).updatePosition(2L, 2); // b: 1 -> 2
+    verify(items, never()).updatePosition(1L, 1); // a (pos 0) außerhalb [1,3) — bleibt
+  }
+
+  @Test
+  void moveSameColumnDownLeavesItemsBeforeSourceUntouched() {
+    // BACKLOG: a(0), b(1), c(2), d(3) → Move b nach 3. a liegt VOR der Quellposition (pos < from)
+    // und darf nicht verschoben werden — deckt den Grenzzweig `pos > from` == false ab (#309).
+    final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem c = item(3, SUB_OWNER, KanbanColumn.BACKLOG, 2);
+    final KanbanItem d = item(4, SUB_OWNER, KanbanColumn.BACKLOG, 3);
+    given(items.findById(2L)).willReturn(Optional.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
+        .willReturn(List.of(a, b, c, d));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 2L, KanbanColumn.BACKLOG, 3);
+
+    assertThat(moved.position()).isEqualTo(3);
+    verify(items).updatePosition(2L, 4); // b temporär ans Ende
+    verify(items).updatePosition(3L, 1); // c: 2 -> 1
+    verify(items).updatePosition(4L, 2); // d: 3 -> 2
+    verify(items, never()).updatePosition(1L, 0); // a (pos 0 < from 1) bleibt unberührt
+  }
+
+  @Test
+  void moveSameColumnUpLeavesItemsAfterSourceUntouched() {
+    // BACKLOG: a(0), b(1), c(2), d(3) → Move b nach 0. c und d liegen HINTER der Quellposition
+    // (pos >= from) und dürfen nicht verschoben werden — deckt den Grenzzweig `pos < from` == false
+    // ab (#309).
+    final KanbanItem a = item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = item(2, SUB_OWNER, KanbanColumn.BACKLOG, 1);
+    final KanbanItem c = item(3, SUB_OWNER, KanbanColumn.BACKLOG, 2);
+    final KanbanItem d = item(4, SUB_OWNER, KanbanColumn.BACKLOG, 3);
+    given(items.findById(2L)).willReturn(Optional.of(b));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG))
+        .willReturn(List.of(a, b, c, d));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem moved =
+        new MoveItemUseCase(items, clock).execute(SUB_OWNER, 2L, KanbanColumn.BACKLOG, 0);
+
+    assertThat(moved.position()).isEqualTo(0);
+    verify(items).updatePosition(2L, 4); // b temporär ans Ende
+    verify(items).updatePosition(1L, 1); // a: 0 -> 1
+    verify(items, never()).updatePosition(3L, 3); // c (pos 2 >= from 1) bleibt
+    verify(items, never()).updatePosition(4L, 4); // d (pos 3 >= from 1) bleibt
   }
 
   @Test
@@ -563,20 +949,22 @@ class KanbanUseCasesTest {
   // ----- cleanup ------------------------------------------------------------
 
   @Test
-  void cleanupDeletesForEachUserUsingTheirRetention() {
+  void cleanupArchivesForEachUserUsingTheirRetention() {
     given(items.distinctUsersWithDoneItems()).willReturn(List.of(SUB_OWNER, SUB_OTHER));
     given(settings.findByUser(SUB_OWNER))
         .willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 10)));
     given(settings.findByUser(SUB_OTHER)).willReturn(Optional.empty()); // Default 5
-    given(items.deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any()))
+    given(items.archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any()))
         .willReturn(2);
-    given(items.deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any()))
+    given(items.archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any()))
         .willReturn(3);
 
-    final int deleted = new CleanupExpiredDoneItemsUseCase(items, settings, clock).execute();
+    final ExpiredDoneItemsPerUserCleanup perUser =
+        new ExpiredDoneItemsPerUserCleanup(items, settings, clock);
+    final int archived = new CleanupExpiredDoneItemsUseCase(items, perUser).execute();
 
-    assertThat(deleted).isEqualTo(5);
-    verify(items, times(1)).deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any());
-    verify(items, times(1)).deleteDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any());
+    assertThat(archived).isEqualTo(5);
+    verify(items, times(1)).archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any());
+    verify(items, times(1)).archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any());
   }
 }

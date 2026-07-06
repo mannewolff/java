@@ -62,6 +62,14 @@ const CHART_TYPES: ReadonlyArray<{ value: ChartType; label: string }> = [
   { value: 'pie', label: 'Kuchen' },
 ];
 
+/*
+ * Bewusste Ausnahme von "Farben nur über das Theme" (CLAUDE-react.md), analog zu
+ * statusColors.ts: Alle Hex-Werte in dieser Datei (PIE_COLORS, DEFAULT_SERIES_COLORS,
+ * SWATCH_COLORS, OVERLAY_META, Trend-Linie) sind Diagramm-Paletten. Sie brauchen eine feste,
+ * untereinander gut unterscheidbare Serienfolge, die unabhängig vom MUI-Theme stabil bleibt —
+ * kein allgemeines UI-Token, sondern semantische Serien-/Overlay-Farben.
+ */
+
 /** Farbpalette für Pie-Slices, wenn die einzelnen Punkte keine eigene Farbe haben. */
 const PIE_COLORS: readonly string[] = [
   '#1976d2',

@@ -1,5 +1,6 @@
 package org.mwolff.api.dashboard.domain;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -23,10 +24,21 @@ public record Widget(
     Instant createdAt,
     Instant updatedAt) {
 
+  /**
+   * Maximale Bytegröße der {@code config} — entspricht der Kapazität der {@code TEXT}-Spalte
+   * (65_535 Bytes). Die Prüfung erfolgt in UTF-8-Bytes (nicht Zeichen), damit auch mehrbyteige
+   * Inhalte die Spalte nie überlaufen (sonst {@code DataIntegrityViolationException} → HTTP 500).
+   */
+  public static final int MAX_CONFIG_BYTES = 65_535;
+
   public Widget {
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(position, "position must not be null");
     Objects.requireNonNull(config, "config must not be null");
+    if (config.getBytes(StandardCharsets.UTF_8).length > MAX_CONFIG_BYTES) {
+      throw new IllegalArgumentException(
+          "config must be at most " + MAX_CONFIG_BYTES + " bytes (UTF-8)");
+    }
   }
 
   /** Erzeugt ein noch nicht persistiertes Widget (id und dashboardId optional). */

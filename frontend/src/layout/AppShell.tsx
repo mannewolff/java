@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AppBar,
   Avatar,
@@ -93,24 +93,6 @@ export default function AppShell() {
       return next;
     });
   };
-
-  // Auf der Mobile-Seite (#195) wird die Sidebar automatisch eingeklappt und der vorherige
-  // Zustand beim Verlassen wiederhergestellt. Das umgeht bewusst writeCollapsed(), damit die
-  // gespeicherte Nutzer-Präferenz unangetastet bleibt.
-  const onMobile = location.pathname.startsWith('/mobile');
-  const restoreCollapsedRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (onMobile) {
-      if (restoreCollapsedRef.current === null) {
-        restoreCollapsedRef.current = collapsed;
-        setCollapsed(true);
-      }
-    } else if (restoreCollapsedRef.current !== null) {
-      setCollapsed(restoreCollapsedRef.current);
-      restoreCollapsedRef.current = null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onMobile]);
 
   // Auf einer Dashboard-Detail-Route? `useMatch` matched genau `/dashboards/:id`
   // (nicht `/dashboards` selbst, nicht `/dashboards/default`).

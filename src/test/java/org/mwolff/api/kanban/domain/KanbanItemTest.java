@@ -184,4 +184,199 @@ class KanbanItemTest {
     assertThat(moved.archived()).isTrue();
     assertThat(moved.column()).isEqualTo(original.column());
   }
+
+  // ----- Epics (#321) --------------------------------------------------------
+
+  @Test
+  void compatConstructorDefaultsToItemWithoutParent() {
+    final KanbanItem item =
+        new KanbanItem(1L, "u", "T", "", KanbanColumn.BACKLOG, 0, null, null, null, false, 1);
+    assertThat(item.type()).isEqualTo(KanbanItemType.ITEM);
+    assertThat(item.parentId()).isNull();
+  }
+
+  @Test
+  void newInstanceDefaultsToItemWithoutParent() {
+    final KanbanItem item =
+        KanbanItem.newInstance("u", "T", "", KanbanColumn.BACKLOG, 0, Instant.EPOCH);
+    assertThat(item.type()).isEqualTo(KanbanItemType.ITEM);
+    assertThat(item.parentId()).isNull();
+  }
+
+  @Test
+  void newInstanceCreatesEpicWithoutParent() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u", "Epic", "", KanbanColumn.BACKLOG, 0, Instant.EPOCH, KanbanItemType.EPIC, null);
+    assertThat(epic.type()).isEqualTo(KanbanItemType.EPIC);
+    assertThat(epic.parentId()).isNull();
+  }
+
+  @Test
+  void newInstanceCreatesItemAssignedToEpic() {
+    final KanbanItem story =
+        KanbanItem.newInstance(
+            "u", "Story", "", KanbanColumn.BACKLOG, 0, Instant.EPOCH, KanbanItemType.ITEM, 42L);
+    assertThat(story.type()).isEqualTo(KanbanItemType.ITEM);
+    assertThat(story.parentId()).isEqualTo(42L);
+  }
+
+  @Test
+  void shouldRejectEpicWithParent() {
+    assertThatThrownBy(
+            () ->
+                KanbanItem.newInstance(
+                    "u",
+                    "Epic",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.EPOCH,
+                    KanbanItemType.EPIC,
+                    42L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("parent");
+  }
+
+  @Test
+  void shouldRejectNullType() {
+    assertThatThrownBy(
+            () ->
+                new KanbanItem(
+                    null,
+                    "u",
+                    "T",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    null,
+                    null,
+                    null,
+                    false,
+                    0,
+                    null,
+                    null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("type");
+  }
+
+  // ----- Epic-Kürzel (#329) --------------------------------------------------
+
+  @Test
+  void newInstanceCreatesEpicWithShortcode() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "ITB");
+    assertThat(epic.shortcode()).isEqualTo("ITB");
+  }
+
+  @Test
+  void blankShortcodeIsNormalizedToNull() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "   ");
+    assertThat(epic.shortcode()).isNull();
+  }
+
+  @Test
+  void shortcodeIsTrimmed() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "  IT  ");
+    assertThat(epic.shortcode()).isEqualTo("IT");
+  }
+
+  @Test
+  void shouldRejectShortcodeOnNonEpic() {
+    assertThatThrownBy(
+            () ->
+                KanbanItem.newInstance(
+                    "u",
+                    "Story",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.EPOCH,
+                    KanbanItemType.ITEM,
+                    null,
+                    "X"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+  }
+
+  @Test
+  void shouldRejectTooLongShortcode() {
+    final String tooLong = "x".repeat(17);
+    assertThatThrownBy(
+            () ->
+                KanbanItem.newInstance(
+                    "u",
+                    "Epic",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.EPOCH,
+                    KanbanItemType.EPIC,
+                    null,
+                    tooLong))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+  }
+
+  @Test
+  void withContentThreeArgUpdatesShortcode() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "b",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "OLD");
+    final KanbanItem updated = epic.withContent("Neu", "b2", "NEU");
+    assertThat(updated.title()).isEqualTo("Neu");
+    assertThat(updated.shortcode()).isEqualTo("NEU");
+  }
+
+  @Test
+  void copyMethodsPreserveTypeAndParent() {
+    final KanbanItem story =
+        KanbanItem.newInstance(
+            "u", "Story", "", KanbanColumn.BACKLOG, 0, Instant.EPOCH, KanbanItemType.ITEM, 7L);
+
+    assertThat(story.withNumber(3).parentId()).isEqualTo(7L);
+    assertThat(story.withContent("N", "b").parentId()).isEqualTo(7L);
+    assertThat(story.withPosition(2).parentId()).isEqualTo(7L);
+    final KanbanItem moved =
+        story.withColumnAndPosition(KanbanColumn.IN_PROGRESS, 0, Instant.EPOCH);
+    assertThat(moved.parentId()).isEqualTo(7L);
+    assertThat(moved.type()).isEqualTo(KanbanItemType.ITEM);
+  }
 }

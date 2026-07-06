@@ -42,4 +42,31 @@ class WidgetTest {
     final Widget w = Widget.newInstance(null, WidgetType.TEXTBOX, pos, "{}");
     assertThat(w.dashboardId()).isNull();
   }
+
+  @Test
+  void shouldAcceptConfigAtMaxBytes() {
+    final String atLimit = "a".repeat(Widget.MAX_CONFIG_BYTES); // ASCII: 1 Byte pro Zeichen
+    final Widget w = Widget.newInstance(1L, WidgetType.TEXTBOX, pos, atLimit);
+    assertThat(w.config()).hasSize(Widget.MAX_CONFIG_BYTES);
+  }
+
+  @Test
+  void shouldRejectConfigExceedingMaxBytes() {
+    final String tooLong = "a".repeat(Widget.MAX_CONFIG_BYTES + 1);
+    assertThatThrownBy(() -> Widget.newInstance(1L, WidgetType.TEXTBOX, pos, tooLong))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("bytes");
+  }
+
+  @Test
+  void shouldMeasureConfigInBytesNotChars() {
+    // "ä" ist 1 Zeichen, aber 2 Bytes in UTF-8. Eine Zeichenkette knapp unter dem Byte-Limit in
+    // Zeichen, aber darüber in Bytes, muss abgelehnt werden — sonst Truncation/500 in der DB.
+    final int chars = Widget.MAX_CONFIG_BYTES / 2 + 1; // 2 Bytes/Zeichen -> > MAX_CONFIG_BYTES
+    final String multiByte = "ä".repeat(chars);
+    assertThat(multiByte.length()).isLessThanOrEqualTo(Widget.MAX_CONFIG_BYTES);
+    assertThatThrownBy(() -> Widget.newInstance(1L, WidgetType.TEXTBOX, pos, multiByte))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("bytes");
+  }
 }

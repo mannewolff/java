@@ -76,10 +76,17 @@ Admin manuell auf `USER` promotet. Details und Admin-Workflow:
 ├── infra/                              # Infrastruktur als Code (nicht-Spring)
 │   ├── keycloak/                       # Realm-Exports (toolbox, toolbox-dev) + README
 │   └── mariadb/init/                   # Init-Scripts (Keycloak-Schema + DB-User)
-├── src/main/java/org/mwolff/api/       # Application + Domain
+├── src/main/java/org/mwolff/api/       # Application + Domain (je Modul: domain/application/web/infrastructure)
 │   ├── ApiApplication.java
+│   ├── appversion/                     # App-Version + Deploy-Hook
+│   ├── auth/                           # SecurityConfig, JWT-Rollen, MeController
+│   ├── dashboard/                      # Dashboards + Widgets
+│   ├── image/                          # Bild-Speicher (StoredImage)
+│   ├── ingest/                         # Token-Ingestion für Zeitreihen (ohne Login)
+│   ├── kanban/                         # Kanban-Board (Items, Kommentare, Cleanup-Job)
+│   ├── timeseries/                     # Zeitreihen (Ingestion + Aggregation)
 │   ├── tools/                          # Tool-Proxy auf python-tools (Resize, Crop, RemBG)
-│   └── common/                         # GlobalExceptionHandler, SpaForwardingController
+│   └── common/                         # GlobalExceptionHandler, SpaForwardingController, OpenApiConfig
 ├── src/main/resources/                 # application.yml + Flyway-Migrationen
 │   └── db/migration/                   # V1__…sql, V2__…sql, … (Flyway-Konvention)
 ├── src/test/java/org/mwolff/api/       # Tests (*Test = Unit/Slice, *IT = Testcontainers-Integration)
@@ -89,8 +96,12 @@ Admin manuell auf `USER` promotet. Details und Admin-Workflow:
     ├── index.html
     └── src/
         ├── main.tsx, App.tsx, theme.ts
+        ├── auth/                       # AuthProvider (react-oidc-context), oidcConfig, useAuth
         ├── layout/                     # AppShell, navItems
-        ├── pages/                      # DashboardPage, SettingsPage, tools/*
+        ├── components/                 # geteilte UI-Bausteine
+        ├── lib/                        # Frontend-Hilfsfunktionen
+        ├── notify/                     # NotifyProvider (Snackbars)
+        ├── pages/                      # DashboardPage, SettingsPage + kanban/, timeseries/, mobile/, settings/, tools/*
         └── api/                        # client.ts (fetch-Wrapper), <domain>.ts
 ```
 

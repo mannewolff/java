@@ -30,19 +30,25 @@ public class AppVersionController {
 
   static final String TOKEN_HEADER = "X-Version-Token";
 
+  /** Gemeinsamer Rate-Limit-Schlüssel für beide Increment-Endpunkte (globales Fenster, #311). */
+  private static final String RATE_LIMIT_KEY = "app-version-increment";
+
   private final GetAppVersionUseCase getUseCase;
   private final IncrementMinorVersionUseCase incrementMinorUseCase;
   private final IncrementMajorVersionUseCase incrementMajorUseCase;
+  private final AppVersionRateLimiter rateLimiter;
   private final String incrementSecret;
 
   public AppVersionController(
       final GetAppVersionUseCase getUseCase,
       final IncrementMinorVersionUseCase incrementMinorUseCase,
       final IncrementMajorVersionUseCase incrementMajorUseCase,
+      final AppVersionRateLimiter rateLimiter,
       @Value("${app.version.increment-secret:}") final String incrementSecret) {
     this.getUseCase = getUseCase;
     this.incrementMinorUseCase = incrementMinorUseCase;
     this.incrementMajorUseCase = incrementMajorUseCase;
+    this.rateLimiter = rateLimiter;
     this.incrementSecret = incrementSecret;
   }
 
@@ -66,6 +72,11 @@ public class AppVersionController {
   }
 
   private void requireValidToken(final String token) {
+    // Drosselung VOR der Secret-Prüfung, damit jeder Brute-Force-Versuch aufs Limit zählt (#311).
+    if (!rateLimiter.tryAcquire(RATE_LIMIT_KEY)) {
+      throw new ResponseStatusException(
+          HttpStatus.TOO_MANY_REQUESTS, "Too many version-increment attempts.");
+    }
     if (!isAuthorized(token)) {
       throw new ResponseStatusException(
           HttpStatus.UNAUTHORIZED, "Invalid or missing version token.");

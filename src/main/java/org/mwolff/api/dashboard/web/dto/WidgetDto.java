@@ -3,6 +3,7 @@ package org.mwolff.api.dashboard.web.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import org.mwolff.api.dashboard.domain.Widget;
 import org.mwolff.api.dashboard.domain.WidgetPosition;
@@ -19,7 +20,7 @@ public record WidgetDto(
     @Min(0) int posY,
     @Min(1) int width,
     @Min(1) int height,
-    @NotNull @NotBlank String config) {
+    @NotNull @NotBlank @Size(max = Widget.MAX_CONFIG_BYTES) String config) {
 
   public static WidgetDto from(Widget widget) {
     return new WidgetDto(

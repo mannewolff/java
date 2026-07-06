@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import io
+import time
 import types
 from typing import Iterator
 from unittest.mock import patch
 
+import anyio
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -66,11 +69,12 @@ def test_remove_bg_happy_path_returns_png(client: TestClient) -> None:
 
 
 def test_remove_bg_accepts_jpeg(client: TestClient) -> None:
-    # When
+    # When — echtes Mini-JPEG: der Pixel-Check (#307) öffnet das Bild, Fake-Bytes genügen nicht.
+    upload = _solid_image_bytes(4, 4, fmt="JPEG")
     with patch.object(main, "_remove_background", return_value=b"png"):
         response = client.post(
             "/remove-bg",
-            files={"file": ("input.jpg", io.BytesIO(b"\xff\xd8\xff\xe0"), "image/jpeg")},
+            files={"file": ("input.jpg", io.BytesIO(upload), "image/jpeg")},
         )
 
     # Then
@@ -78,11 +82,12 @@ def test_remove_bg_accepts_jpeg(client: TestClient) -> None:
 
 
 def test_remove_bg_accepts_webp(client: TestClient) -> None:
-    # When
+    # When — echtes Mini-WebP: der Pixel-Check (#307) öffnet das Bild, Fake-Bytes genügen nicht.
+    upload = _solid_image_bytes(4, 4, fmt="WEBP")
     with patch.object(main, "_remove_background", return_value=b"png"):
         response = client.post(
             "/remove-bg",
-            files={"file": ("input.webp", io.BytesIO(b"RIFF"), "image/webp")},
+            files={"file": ("input.webp", io.BytesIO(upload), "image/webp")},
         )
 
     # Then
@@ -1235,6 +1240,52 @@ def test_raster_to_png_returns_422_for_oversized(
     assert response.json()["detail"] == "image too large"
 
 
+def test_palette_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#307: /palette lehnt übergroße Bilder mit 422 ab, bevor ColorThief dekodiert."""
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    response = client.post(
+        "/palette",
+        files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+
+
+def test_remove_bg_returns_422_for_oversized(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#307: /remove-bg lehnt übergroße Bilder mit 422 ab, bevor rembg dekodiert."""
+    monkeypatch.setattr(main, "MAX_IMAGE_PIXELS_LIMIT", 100)
+    with patch.object(main, "_remove_background") as remove:
+        response = client.post(
+            "/remove-bg",
+            files={"file": ("big.png", io.BytesIO(_solid_image_bytes(200, 150)), "image/png")},
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "image too large"
+    # Der Pixel-Check greift vor der schweren Dekodierung — rembg wird nie aufgerufen.
+    remove.assert_not_called()
+
+
+def test_crop_keeps_global_pixel_guard_enabled(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#307-Regression: ein crop-Aufruf deaktiviert Pillows globalen Guard nicht prozessweit."""
+    from PIL import Image
+
+    guard_value = 10_000_000
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", guard_value)
+    response = client.post(
+        "/crop",
+        files={"file": ("ok.png", io.BytesIO(_solid_image_bytes(40, 30)), "image/png")},
+    )
+    assert response.status_code == 200
+    # Vor dem Fix setzte _open_image dies prozessweit auf None.
+    assert guard_value == Image.MAX_IMAGE_PIXELS
+
+
 # ---------------------------------------------------------------------------
 # Internal-Auth tests (#265)
 # ---------------------------------------------------------------------------
@@ -1361,3 +1412,185 @@ def test_md_to_pdf_requires_internal_key() -> None:
     with TestClient(main.app) as c:
         response = c.post("/md-to-pdf", data={"markdown": "# Hi"})
     assert response.status_code == 401
+
+
+def test_health_stays_responsive_while_heavy_handler_runs() -> None:
+    """Regression #306: ein blockierender Heavy-Handler friert den Event-Loop nicht ein.
+
+    `_remove_background` wird durch eine synchron blockierende Funktion ersetzt. Läuft die
+    CPU-Arbeit korrekt im Threadpool (statt direkt im async-Handler), bleibt der Event-Loop
+    frei und /health antwortet, obwohl /remove-bg noch verarbeitet. Ohne den Fix würde
+    time.sleep den einzigen Loop blockieren und /health erst nach heavy_seconds antworten.
+    """
+    heavy_seconds = 0.4
+
+    def blocking_remove(_data: bytes) -> bytes:
+        time.sleep(heavy_seconds)
+        return b"\x89PNG done"
+
+    async def scenario() -> float:
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            headers={"X-Internal-Key": TEST_INTERNAL_KEY},
+        ) as ac:
+            health_elapsed = 0.0
+
+            async def run_heavy() -> None:
+                await ac.post(
+                    "/remove-bg",
+                    files={"file": ("i.png", io.BytesIO(TINY_PNG_BYTES), "image/png")},
+                )
+
+            async def run_health() -> None:
+                nonlocal health_elapsed
+                # kurz warten, damit der Heavy-Request zuerst in der Verarbeitung ist
+                await anyio.sleep(0.05)
+                start = time.perf_counter()
+                response = await ac.get("/health")
+                health_elapsed = time.perf_counter() - start
+                assert response.status_code == 200
+
+            async with anyio.create_task_group() as task_group:
+                task_group.start_soon(run_heavy)
+                task_group.start_soon(run_health)
+
+            return health_elapsed
+
+    with patch.object(main, "_remove_background", blocking_remove):
+        health_elapsed = anyio.run(scenario)
+
+    # /health muss deutlich schneller antworten als der ~0.4s blockierende Heavy-Handler.
+    assert health_elapsed < heavy_seconds
+
+
+# ---------------------------------------------------------------------------
+# #313: kaputte/umbenannte Datei -> 422 statt 500
+# ---------------------------------------------------------------------------
+
+UNDECODABLE = b"this is definitely not an image, just plain text bytes"
+
+
+def _undecodable_png() -> dict[str, tuple[str, io.BytesIO, str]]:
+    """Datei mit erlaubtem Content-Type (image/png), aber nicht dekodierbarem Inhalt."""
+    return {"file": ("fake.png", io.BytesIO(UNDECODABLE), "image/png")}
+
+
+def test_crop_returns_422_for_undecodable_image(client: TestClient) -> None:
+    response = client.post("/crop", files=_undecodable_png())
+    assert response.status_code == 422
+    assert response.json()["detail"] == "invalid image"
+
+
+def test_resize_returns_422_for_undecodable_image(client: TestClient) -> None:
+    response = client.post(
+        "/resize", files=_undecodable_png(), data={"width": "10", "height": "10"}
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "invalid image"
+
+
+def test_raster_to_png_returns_422_for_undecodable_image(client: TestClient) -> None:
+    response = client.post("/raster-to-png", files=_undecodable_png())
+    assert response.status_code == 422
+    assert response.json()["detail"] == "invalid image"
+
+
+def test_palette_returns_422_for_undecodable_image(client: TestClient) -> None:
+    response = client.post("/palette", files=_undecodable_png())
+    assert response.status_code == 422
+    assert response.json()["detail"] == "invalid image"
+
+
+def test_remove_bg_returns_422_for_undecodable_image(client: TestClient) -> None:
+    # Der Pixel-/Format-Check greift vor rembg — rembg darf gar nicht erst laufen.
+    with patch.object(main, "_remove_background", side_effect=AssertionError("must not run")):
+        response = client.post("/remove-bg", files=_undecodable_png())
+    assert response.status_code == 422
+    assert response.json()["detail"] == "invalid image"
+
+
+# ---------------------------------------------------------------------------
+# #313: EXIF-Orientierung
+# ---------------------------------------------------------------------------
+
+
+def _portrait_jpeg_with_orientation(width: int, height: int, orientation: int) -> bytes:
+    """JPEG mit gesetztem EXIF-Orientation-Tag (0x0112)."""
+    img = Image.new("RGB", (width, height), (10, 20, 30))
+    exif = img.getexif()
+    exif[0x0112] = orientation
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", exif=exif)
+    return buf.getvalue()
+
+
+def test_raster_to_png_applies_exif_orientation(client: TestClient) -> None:
+    # Orientation 6 = 90° Drehung nötig: ein 100x200 gespeichertes Bild muss als 200x100
+    # ausgeliefert werden. Ohne exif_transpose bliebe es 100x200.
+    upload = _portrait_jpeg_with_orientation(100, 200, 6)
+    response = client.post(
+        "/raster-to-png", files={"file": ("p.jpg", io.BytesIO(upload), "image/jpeg")}
+    )
+    assert response.status_code == 200
+    out = Image.open(io.BytesIO(response.content))
+    assert out.size == (200, 100)
+
+
+# ---------------------------------------------------------------------------
+# #313: Timeout der schweren Verarbeitung -> 503
+# ---------------------------------------------------------------------------
+
+
+def test_md_to_pdf_returns_503_on_timeout(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "HEAVY_PROCESSING_TIMEOUT_SECONDS", 0.05)
+
+    def slow_pdf(_text: str) -> bytes:
+        time.sleep(0.5)
+        return b"%PDF-never"
+
+    with patch.object(main, "_md_to_pdf", slow_pdf):
+        response = client.post("/md-to-pdf", data={"markdown": "# Hi"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "processing timed out"
+
+
+def test_read_validated_size_fallback_when_content_length_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Kein Content-Length (file.size is None) → der len()-Fallback nach dem Lesen greift (#313).
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(main, "MAX_BYTES", 10)
+
+    class FakeUpload:
+        content_type = "image/png"
+        size = None
+
+        async def read(self) -> bytes:
+            return b"x" * 100
+
+    with pytest.raises(HTTPException) as excinfo:
+        anyio.run(main._read_validated, FakeUpload(), main.ALLOWED_CONTENT_TYPES)
+    assert excinfo.value.status_code == 413
+
+
+def test_remove_bg_returns_503_on_timeout(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "HEAVY_PROCESSING_TIMEOUT_SECONDS", 0.05)
+    upload = _solid_image_bytes(8, 8, fmt="PNG")
+
+    def slow_remove(_data: bytes) -> bytes:
+        time.sleep(0.5)
+        return b"\x89PNG never"
+
+    with patch.object(main, "_remove_background", slow_remove):
+        response = client.post(
+            "/remove-bg", files={"file": ("i.png", io.BytesIO(upload), "image/png")}
+        )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "processing timed out"

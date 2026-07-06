@@ -85,15 +85,20 @@ export default function TimeSeriesDetailPage(): JSX.Element {
 
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  async function reload(): Promise<void> {
+  // isCurrent verhindert (#316), dass eine verspätete Antwort einer inzwischen verlassenen
+  // Detailseite (/timeseries/1 → /2) den State mit der falschen Zeitreihe überschreibt oder nach
+  // Unmount setzt. Interaktive Aufrufer (Speichern/Hinzufügen) lassen den Default (immer aktuell).
+  async function reload(isCurrent: () => boolean = () => true): Promise<void> {
     try {
       const [summary, entries] = await Promise.all([
         getTimeSeries(id),
         listEntries(id, { limit: 1000 }),
       ]);
+      if (!isCurrent()) return;
       setState({ kind: 'ready', summary, entries });
       setNameDraft(summary.name);
     } catch (e) {
+      if (!isCurrent()) return;
       setState({
         kind: 'error',
         message: e instanceof ApiError ? e.message : 'Unbekannter Fehler',
@@ -106,7 +111,11 @@ export default function TimeSeriesDetailPage(): JSX.Element {
       setState({ kind: 'error', message: 'Ungültige Zeitreihen-ID' });
       return;
     }
-    void reload();
+    let cancelled = false;
+    void reload(() => !cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 

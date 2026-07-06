@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WebStorageStateStore } from 'oidc-client-ts';
 
 import { buildOidcConfig, keycloakAccountConsoleUrl } from './oidcConfig';
@@ -9,36 +9,53 @@ interface OidcSettings {
   scope: string;
   response_type: string;
   automaticSilentRenew: boolean;
+  revokeTokensOnSignout: boolean;
   userStore: WebStorageStateStore;
 }
-const settings = (mobile: boolean): OidcSettings =>
-  buildOidcConfig(mobile) as unknown as OidcSettings;
+const settings = (): OidcSettings => buildOidcConfig() as unknown as OidcSettings;
+
+// Node v26/jsdom liefert window.sessionStorage nicht zuverlässig — In-Memory-Stub, damit der
+// userStore-Probe-Schreibzugriff beobachtbar ist.
+function memoryStorage(): Storage {
+  const store = new Map<string, string>();
+  return {
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => void store.set(k, String(v)),
+    removeItem: (k) => void store.delete(k),
+    clear: () => store.clear(),
+    key: (i) => [...store.keys()][i] ?? null,
+    get length() {
+      return store.size;
+    },
+  } as Storage;
+}
 
 describe('buildOidcConfig', () => {
-  it('fragt im Desktop-Modus keinen offline_access an und schreibt in sessionStorage', async () => {
-    window.sessionStorage.clear();
-    window.localStorage.clear();
-    const cfg = settings(false);
-    expect(cfg.scope).toBe('openid profile email');
-    await cfg.userStore.set('probe', 'v');
-    expect(Object.keys(window.sessionStorage).some((k) => k.includes('probe'))).toBe(true);
-    expect(Object.keys(window.localStorage).some((k) => k.includes('probe'))).toBe(false);
+  beforeEach(() => {
+    vi.stubGlobal('sessionStorage', memoryStorage());
+    vi.stubGlobal('localStorage', memoryStorage());
   });
+  afterEach(() => vi.unstubAllGlobals());
 
-  it('fragt im Mobile-Modus offline_access an und schreibt in localStorage', async () => {
-    window.sessionStorage.clear();
-    window.localStorage.clear();
-    const cfg = settings(true);
-    expect(cfg.scope).toBe('openid profile email offline_access');
+  it('fragt keinen offline_access an und schreibt in sessionStorage (Desktop-only, #334)', async () => {
+    const cfg = settings();
+    expect(cfg.scope).toBe('openid profile email');
+    expect(cfg.scope).not.toContain('offline_access');
+
+    // WebStorageStateStore legt unter dem Präfix "oidc." ab.
     await cfg.userStore.set('probe', 'v');
-    expect(Object.keys(window.localStorage).some((k) => k.includes('probe'))).toBe(true);
-    expect(Object.keys(window.sessionStorage).some((k) => k.includes('probe'))).toBe(false);
+    expect(window.sessionStorage.getItem('oidc.probe')).toBe('v');
+    expect(window.localStorage.getItem('oidc.probe')).toBeNull();
   });
 
   it('setzt PKCE-typische Felder (code-Flow, silent renew)', () => {
-    const cfg = settings(true);
+    const cfg = settings();
     expect(cfg.response_type).toBe('code');
     expect(cfg.automaticSilentRenew).toBe(true);
+  });
+
+  it('revoziert Tokens beim Logout serverseitig (#312, bleibt nach #334 aktiv)', () => {
+    expect(settings().revokeTokensOnSignout).toBe(true);
   });
 
   it('baut die Keycloak-Account-Console-URL', () => {

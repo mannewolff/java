@@ -54,6 +54,13 @@ function badgeFor(item: KanbanItem): { label: string; colors: StatusColorSet } {
 
 interface Props {
   retentionDays: number;
+  /**
+   * Vom Parent kontrollierter Reload-Trigger (#308): jede Wertänderung erzwingt ein
+   * Neuladen der Liste. Nötig, weil mutierende Aktionen (Neues Item, Archivieren,
+   * Wiederherstellen) im Parent {@link KanbanPage} passieren, dessen Board-State die
+   * Liste nicht teilt. Default 0 hält die Ansicht ohne Parent-Trigger funktionsfähig.
+   */
+  reloadKey?: number;
 }
 
 /**
@@ -62,7 +69,7 @@ interface Props {
  * Excerpt-Spalte. Selbstständig — lädt eigene Daten und besitzt eine eigene
  * {@link KanbanDetailModal}-Instanz; nur eine Ansicht (Board oder Liste) ist gleichzeitig sichtbar.
  */
-export default function KanbanListView({ retentionDays }: Props): JSX.Element {
+export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props): JSX.Element {
   const notify = useNotify();
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(
     () => new Set<FilterKey>(KANBAN_COLUMNS),
@@ -79,6 +86,10 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
   const viewRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
   const draggingRef = useRef(false);
+  // Entfernt die document-Listener eines gerade laufenden Resize-Drags bei Unmount (#316).
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => resizeCleanupRef.current?.(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +108,7 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [archiveActive, reloadNonce]);
+  }, [archiveActive, reloadNonce, reloadKey]);
 
   function toggleFilter(key: FilterKey): void {
     setActiveFilters((prev) => {
@@ -116,9 +127,13 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
       const rect = el.getBoundingClientRect();
       setExcerptWidth(clampExcerptWidth(((rect.right - e.clientX) / rect.width) * 100));
     };
-    const onUp = (): void => {
+    const detach = (): void => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      resizeCleanupRef.current = null;
+    };
+    const onUp = (): void => {
+      detach();
       setExcerptWidth((w) => {
         storeExcerptWidth(w);
         return w;
@@ -130,6 +145,8 @@ export default function KanbanListView({ retentionDays }: Props): JSX.Element {
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    // Cleanup-Handle fuer den Unmount-Fall (Drag laeuft noch, mouseup kommt nie) — #316.
+    resizeCleanupRef.current = detach;
   }, []);
 
   async function handleDetailSubmit(title: string, body: string): Promise<void> {

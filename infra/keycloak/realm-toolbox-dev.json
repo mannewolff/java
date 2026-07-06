@@ -4,7 +4,7 @@
   "displayName" : "Mannes Toolbox (Dev)",
   "notBefore" : 0,
   "defaultSignatureAlgorithm" : "RS256",
-  "revokeRefreshToken" : false,
+  "revokeRefreshToken" : true,
   "refreshTokenMaxReuse" : 0,
   "accessTokenLifespan" : 300,
   "accessTokenLifespanForImplicitFlow" : 900,
@@ -13,8 +13,8 @@
   "ssoSessionIdleTimeoutRememberMe" : 0,
   "ssoSessionMaxLifespanRememberMe" : 0,
   "offlineSessionIdleTimeout" : 2592000,
-  "offlineSessionMaxLifespanEnabled" : true,
-  "offlineSessionMaxLifespan" : 2592000,
+  "offlineSessionMaxLifespanEnabled" : false,
+  "offlineSessionMaxLifespan" : 5184000,
   "clientSessionIdleTimeout" : 0,
   "clientSessionMaxLifespan" : 0,
   "clientOfflineSessionIdleTimeout" : 0,
@@ -89,10 +89,7 @@
       "id" : "61dcc71e-0a18-41cd-88f6-b90033db4e8a",
       "name" : "USER",
       "description" : "Standard-Anwender mit Zugriff auf Tools und Dashboards.",
-      "composite" : true,
-      "composites" : {
-        "realm" : [ "offline_access" ]
-      },
+      "composite" : false,
       "clientRole" : false,
       "containerId" : "3d382734-1508-464d-b251-0dd91cfef93c",
       "attributes" : { }
@@ -267,7 +264,6 @@
         "containerId" : "915397dc-1593-4c5a-b888-060c87851293",
         "attributes" : { }
       } ],
-      "toolbox-ios" : [ ],
       "security-admin-console" : [ ],
       "admin-cli" : [ ],
       "account-console" : [ ],
@@ -669,94 +665,6 @@
     "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
     "optionalClientScopes" : [ "address", "phone", "offline_access", "organization", "microprofile-jwt" ]
   }, {
-    "id" : "df569c50-2096-4079-b8cc-8ca0d4552648",
-    "clientId" : "toolbox-ios",
-    "name" : "Toolbox iOS (Native App)",
-    "description" : "Native SwiftUI-App, Authorization Code Flow + PKCE via ASWebAuthenticationSession.",
-    "surrogateAuthRequired" : false,
-    "enabled" : true,
-    "alwaysDisplayInConsole" : false,
-    "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "org.mwolff.toolboxkanban://callback" ],
-    "webOrigins" : [ ],
-    "notBefore" : 0,
-    "bearerOnly" : false,
-    "consentRequired" : false,
-    "standardFlowEnabled" : true,
-    "implicitFlowEnabled" : false,
-    "directAccessGrantsEnabled" : false,
-    "serviceAccountsEnabled" : false,
-    "publicClient" : true,
-    "frontchannelLogout" : false,
-    "protocol" : "openid-connect",
-    "attributes" : {
-      "realm_client" : "false",
-      "post.logout.redirect.uris" : "org.mwolff.toolboxkanban://callback",
-      "pkce.code.challenge.method" : "S256"
-    },
-    "authenticationFlowBindingOverrides" : { },
-    "fullScopeAllowed" : true,
-    "nodeReRegistrationTimeout" : -1,
-    "protocolMappers" : [ {
-      "id" : "4f77b12a-462e-4cc8-be38-2d8354fbd6c5",
-      "name" : "toolbox-api-audience",
-      "protocol" : "openid-connect",
-      "protocolMapper" : "oidc-audience-mapper",
-      "consentRequired" : false,
-      "config" : {
-        "included.client.audience" : "toolbox-api",
-        "id.token.claim" : "false",
-        "access.token.claim" : "true",
-        "userinfo.token.claim" : "false"
-      }
-    } ],
-    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
-    "optionalClientScopes" : [ "offline_access" ]
-  }, {
-    "id" : "55738818-21eb-4078-8954-86bec64c70fd",
-    "clientId" : "toolbox-cli",
-    "name" : "Toolbox CLI (tbx)",
-    "description" : "Kommandozeilen-Client fuer den Board-Adapter (Device Authorization Grant, RFC 8628) — kein Redirect, kein Secret.",
-    "surrogateAuthRequired" : false,
-    "enabled" : true,
-    "alwaysDisplayInConsole" : false,
-    "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ ],
-    "webOrigins" : [ ],
-    "notBefore" : 0,
-    "bearerOnly" : false,
-    "consentRequired" : false,
-    "standardFlowEnabled" : false,
-    "implicitFlowEnabled" : false,
-    "directAccessGrantsEnabled" : false,
-    "serviceAccountsEnabled" : false,
-    "publicClient" : true,
-    "frontchannelLogout" : false,
-    "protocol" : "openid-connect",
-    "attributes" : {
-      "realm_client" : "false",
-      "oauth2.device.authorization.grant.enabled" : "true",
-      "oauth2.device.polling.interval" : "5"
-    },
-    "authenticationFlowBindingOverrides" : { },
-    "fullScopeAllowed" : true,
-    "nodeReRegistrationTimeout" : -1,
-    "protocolMappers" : [ {
-      "id" : "fec2b8ce-ad74-4f2a-85d3-3267f81bc23c",
-      "name" : "toolbox-api-audience",
-      "protocol" : "openid-connect",
-      "protocolMapper" : "oidc-audience-mapper",
-      "consentRequired" : false,
-      "config" : {
-        "included.client.audience" : "toolbox-api",
-        "id.token.claim" : "false",
-        "access.token.claim" : "true",
-        "userinfo.token.claim" : "false"
-      }
-    } ],
-    "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
-    "optionalClientScopes" : [ "offline_access" ]
-  }, {
     "id" : "491706ca-4ae1-45c0-b5e0-9c731dc0df4d",
     "clientId" : "toolbox-web",
     "name" : "Toolbox Web (SPA)",
@@ -815,7 +723,7 @@
       }
     } ],
     "defaultClientScopes" : [ "web-origins", "acr", "profile", "roles", "basic", "email" ],
-    "optionalClientScopes" : [ "offline_access" ]
+    "optionalClientScopes" : [ ]
   } ],
   "clientScopes" : [ {
     "id" : "e80a8a3e-5552-4339-ab97-9ffee3fa7882",

@@ -14,8 +14,11 @@ function makeItem(id: number, title: string): KanbanItem {
     position: 0,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
+    movedToDoneAt: null,
     archived: false,
     number: id,
+    type: 'ITEM' as const,
+    parentId: null,
   };
 }
 
@@ -31,12 +34,14 @@ function renderColumn(
         label={label}
         items={items}
         retentionDays={5}
+        epicsById={{}}
         onCreate={vi.fn()}
         onOpenDetail={vi.fn()}
         onEdit={vi.fn()}
         onArchive={vi.fn()}
         onRestore={vi.fn()}
         onForceDelete={vi.fn()}
+        onMove={vi.fn()}
       />
     </DndContext>,
   );

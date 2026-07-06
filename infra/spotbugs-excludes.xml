@@ -33,6 +33,7 @@
       <Class name="~.*Service"/>
       <Class name="~.*Controller"/>
       <Class name="~.*Job"/>
+      <Class name="~.*Cleanup"/>
     </Or>
   </Match>
 

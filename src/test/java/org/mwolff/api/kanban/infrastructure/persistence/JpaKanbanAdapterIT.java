@@ -1,11 +1,15 @@
 package org.mwolff.api.kanban.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.AbstractIntegrationTest;
+import org.mwolff.api.kanban.application.ArchiveItemUseCase;
+import org.mwolff.api.kanban.application.ForceDeleteItemUseCase;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemType;
@@ -36,6 +40,34 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     return adapter.save(
         KanbanItem.newInstance(user, title, body, column, position, Instant.now())
             .withNumber(number));
+  }
+
+  /**
+   * Regressionstest #341: Ein archiviertes Item liegt außerhalb des aktiven Positions-Namespace
+   * (active_position = NULL), seine {@code position_in_column} überlappt mit aktiven Items. Der
+   * {@link ForceDeleteItemUseCase} darf beim Löschen eines archivierten Items daher NICHT
+   * reindizieren — sonst schiebt er aktive Items übereinander und verletzt gegen die echte MariaDB
+   * den Unique-Constraint uk_kanban_active_position (früher: 409 „endgültig löschen geht nicht").
+   */
+  @Test
+  void forceDeletingArchivedItemDoesNotViolateActivePositionConstraint() {
+    persist(USER_A, "A", "", KanbanColumn.BACKLOG, 0);
+    final KanbanItem b = persist(USER_A, "B", "", KanbanColumn.BACKLOG, 1);
+    persist(USER_A, "C", "", KanbanColumn.BACKLOG, 2);
+    persist(USER_A, "D", "", KanbanColumn.BACKLOG, 3);
+
+    // Archivieren rückt C/D auf; das archivierte B behält seine Position (überlappt jetzt mit C).
+    new ArchiveItemUseCase(adapter).execute(USER_A, b.id());
+
+    assertThatCode(() -> new ForceDeleteItemUseCase(adapter).execute(USER_A, b.id()))
+        .doesNotThrowAnyException();
+
+    final List<Integer> activePositions =
+        adapter.findByUserAndColumn(USER_A, KanbanColumn.BACKLOG).stream()
+            .filter(i -> !i.archived())
+            .map(KanbanItem::position)
+            .toList();
+    assertThat(activePositions).containsExactlyInAnyOrder(0, 1, 2);
   }
 
   // ----- Items --------------------------------------------------------------

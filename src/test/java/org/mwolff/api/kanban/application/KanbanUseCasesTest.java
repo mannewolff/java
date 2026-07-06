@@ -987,6 +987,24 @@ class KanbanUseCasesTest {
   }
 
   @Test
+  void forceDeleteArchivedItemDoesNotReindexActivePositions() {
+    // Ein archiviertes Item liegt außerhalb des aktiven Positions-Namespace (active_position =
+    // NULL). Seine `position` überlappt mit aktiven Items — ein Reindex würde diese
+    // übereinanderschieben und uk_kanban_active_position verletzen (409, #341). Also: löschen ohne
+    // Reindex.
+    given(items.findById(2L))
+        .willReturn(Optional.of(archivedItem(2, SUB_OWNER, KanbanColumn.DONE, 1)));
+
+    new ForceDeleteItemUseCase(items).execute(SUB_OWNER, 2L);
+
+    verify(items).deleteById(2L);
+    verify(items, never()).findByUserAndColumn(SUB_OWNER, KanbanColumn.DONE);
+    verify(items, never())
+        .updatePosition(
+            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+  }
+
+  @Test
   void forceDeleteThrowsForForeignItem() {
     given(items.findById(1L)).willReturn(Optional.of(item(1, SUB_OWNER, KanbanColumn.BACKLOG, 0)));
     assertThatThrownBy(() -> new ForceDeleteItemUseCase(items).execute(SUB_OTHER, 1L))

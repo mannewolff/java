@@ -45,6 +45,11 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   }
 
   @Override
+  public List<KanbanItem> findEpicsByUser(String userSub) {
+    return itemRepo.findEpicsByUserSub(userSub).stream().map(JpaKanbanAdapter::toDomain).toList();
+  }
+
+  @Override
   public Optional<KanbanItem> findById(long id) {
     return itemRepo.findById(id).map(JpaKanbanAdapter::toDomain);
   }

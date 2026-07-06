@@ -19,6 +19,12 @@ public interface KanbanItemPort {
   /** Alle Items einer Spalte für einen User, aufsteigend nach position. */
   List<KanbanItem> findByUserAndColumn(String userSub, KanbanColumn column);
 
+  /**
+   * Alle Epics eines Users (Typ {@link KanbanItemType#EPIC}), aufsteigend nach Anzeige-Nummer.
+   * Epics erscheinen nicht auf dem Board; diese Methode speist die Epic-Ansicht (#322).
+   */
+  List<KanbanItem> findEpicsByUser(String userSub);
+
   Optional<KanbanItem> findById(long id);
 
   /**

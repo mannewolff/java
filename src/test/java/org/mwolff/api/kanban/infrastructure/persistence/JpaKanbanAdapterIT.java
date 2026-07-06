@@ -315,6 +315,22 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
+  void findEpicsByUserReturnsOnlyOwnEpicsOrderedByNumber() {
+    // Reihenfolge: Nummer aufsteigend. Zweites Epic zuerst anlegen, damit die Sortierung nicht
+    // zufällig mit der Insert-Reihenfolge übereinstimmt.
+    final KanbanItem second = persistEpic(USER_A, "Zweites Epic");
+    final KanbanItem first = persistEpic(USER_A, "Erstes Epic");
+    persist(USER_A, "Kein Epic", "", KanbanColumn.BACKLOG, 0);
+    persistEpic(USER_B, "Fremdes Epic");
+
+    assertThat(adapter.findEpicsByUser(USER_A))
+        .extracting(KanbanItem::id)
+        .containsExactly(second.id(), first.id()); // second hat die kleinere Nummer
+    assertThat(adapter.findEpicsByUser(USER_A))
+        .allSatisfy(e -> assertThat(e.type()).isEqualTo(KanbanItemType.EPIC));
+  }
+
+  @Test
   void parentIdRoundTripsOnInsertAndUpdate() {
     final KanbanItem epic = persistEpic(USER_A, "Parent-Epic");
     final int number = adapter.getMaxNumberForUser(USER_A).map(max -> max + 1).orElse(1);

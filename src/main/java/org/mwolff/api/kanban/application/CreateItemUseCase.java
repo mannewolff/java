@@ -6,12 +6,17 @@ import java.time.Instant;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemPort;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Legt ein neues Item am Ende der gewählten Spalte an. {@code position} = aktuelle Anzahl Items in
  * dieser Spalte. Default-Spalte ist {@link KanbanColumn#BACKLOG}.
+ *
+ * <p>Epics (#322): Ein {@link KanbanItemType#EPIC} nimmt nicht am Spalten-Workflow teil (Position
+ * 0, wird ohnehin ignoriert) und darf keinem Epic zugeordnet sein. Ein Item mit {@code parentId}
+ * muss auf ein existierendes, eigenes Epic zeigen — sonst 400.
  */
 @Component
 public class CreateItemUseCase {
@@ -24,14 +29,58 @@ public class CreateItemUseCase {
     this.clock = clock;
   }
 
+  /** Legt ein normales Item ohne Epic-Zuordnung an. */
   @Transactional
   public KanbanItem execute(String userSub, String title, String body, KanbanColumn column) {
+    return execute(userSub, title, body, column, KanbanItemType.ITEM, null);
+  }
+
+  @Transactional
+  public KanbanItem execute(
+      String userSub,
+      String title,
+      String body,
+      KanbanColumn column,
+      KanbanItemType type,
+      Long parentId) {
+    final KanbanItemType itemType = type == null ? KanbanItemType.ITEM : type;
+    validateParent(userSub, itemType, parentId);
+
     final KanbanColumn target = column == null ? KanbanColumn.BACKLOG : column;
-    final int nextPosition = items.findByUserAndColumn(userSub, target).size();
+    // Epics halten keine aktive Position (V22) — Position 0 genügt und wird ignoriert.
+    final int nextPosition =
+        itemType == KanbanItemType.EPIC ? 0 : items.findByUserAndColumn(userSub, target).size();
     // Fortlaufende Anzeige-Nummer pro User (#187): erstes Item = 1, sonst höchste + 1.
     final int nextNumber = items.getMaxNumberForUser(userSub).map(max -> max + 1).orElse(1);
     return items.save(
-        KanbanItem.newInstance(userSub, title, body, target, nextPosition, Instant.now(clock))
+        KanbanItem.newInstance(
+                userSub, title, body, target, nextPosition, Instant.now(clock), itemType, parentId)
             .withNumber(nextNumber));
+  }
+
+  /**
+   * Prüft die Epic-Zuordnung: Ein Epic darf keinen Parent haben; ein Item mit {@code parentId} muss
+   * auf ein existierendes, eigenes Epic verweisen. Verstöße → {@link IllegalArgumentException} (vom
+   * {@code KanbanExceptionHandler} auf 400 gemappt).
+   */
+  private void validateParent(String userSub, KanbanItemType type, Long parentId) {
+    if (type == KanbanItemType.EPIC) {
+      if (parentId != null) {
+        throw new IllegalArgumentException("an EPIC must not be assigned to a parent");
+      }
+      return;
+    }
+    if (parentId == null) {
+      return;
+    }
+    final KanbanItem parent =
+        items
+            .findById(parentId)
+            .filter(p -> p.userSub().equals(userSub))
+            .orElseThrow(
+                () -> new IllegalArgumentException("parent epic " + parentId + " not found"));
+    if (parent.type() != KanbanItemType.EPIC) {
+      throw new IllegalArgumentException("parent " + parentId + " is not an epic");
+    }
   }
 }

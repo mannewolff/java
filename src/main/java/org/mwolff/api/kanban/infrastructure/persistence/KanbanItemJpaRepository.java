@@ -34,6 +34,14 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
           + "order by i.columnName asc, i.positionInColumn asc")
   List<KanbanItemEntity> findAllByUserSubIncludingArchived(@Param("userSub") String userSub);
 
+  // Epics eines Users (#322), aufsteigend nach Anzeige-Nummer. Epics sind nie archiviert
+  // (kein Archivierungs-Pfad), daher kein archived-Filter nötig.
+  @Query(
+      "select i from KanbanItemEntity i where i.userSub = :userSub "
+          + "and i.itemType = org.mwolff.api.kanban.domain.KanbanItemType.EPIC "
+          + "order by i.number asc")
+  List<KanbanItemEntity> findEpicsByUserSub(@Param("userSub") String userSub);
+
   // Max über ALLE Items des Users (auch archivierte), damit neue Nummern nie kollidieren (#187).
   @Query("select max(i.number) from KanbanItemEntity i where i.userSub = :userSub")
   Optional<Integer> findMaxNumberByUserSub(@Param("userSub") String userSub);

@@ -89,7 +89,12 @@ public class KanbanItemController {
       JwtAuthenticationToken auth, @Valid @RequestBody CreateKanbanItemRequest body) {
     final KanbanItem created =
         createUseCase.execute(
-            auth.getToken().getSubject(), body.title(), body.bodyOrEmpty(), body.column());
+            auth.getToken().getSubject(),
+            body.title(),
+            body.bodyOrEmpty(),
+            body.column(),
+            body.typeOrDefault(),
+            body.parentId());
     return ResponseEntity.status(HttpStatus.CREATED).body(KanbanItemResponse.from(created));
   }
 

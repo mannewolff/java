@@ -3,6 +3,7 @@ package org.mwolff.api.kanban.web;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -31,6 +32,7 @@ import org.mwolff.api.kanban.application.UpdateItemContentUseCase;
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
+import org.mwolff.api.kanban.domain.KanbanItemType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -159,7 +161,14 @@ class KanbanItemControllerTest {
 
   @Test
   void createShouldReturn201() throws Exception {
-    given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.BACKLOG)))
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Neu"),
+                eq("b"),
+                eq(KanbanColumn.BACKLOG),
+                eq(KanbanItemType.ITEM),
+                isNull()))
         .willReturn(item(7L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -177,7 +186,14 @@ class KanbanItemControllerTest {
   void createShouldReturn409OnConcurrentConstraintViolation() throws Exception {
     // Paralleler Create kollidiert am Unique-Constraint (#309) — der Handler mappt das auf 409
     // Conflict statt eines intransparenten 500.
-    given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.BACKLOG)))
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Neu"),
+                eq("b"),
+                eq(KanbanColumn.BACKLOG),
+                eq(KanbanItemType.ITEM),
+                isNull()))
         .willThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
 
     mockMvc
@@ -191,7 +207,14 @@ class KanbanItemControllerTest {
 
   @Test
   void createShouldAcceptReadyColumn() throws Exception {
-    given(createUseCase.execute(eq(SUB), eq("Neu"), eq("b"), eq(KanbanColumn.READY)))
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Neu"),
+                eq("b"),
+                eq(KanbanColumn.READY),
+                eq(KanbanItemType.ITEM),
+                isNull()))
         .willReturn(item(11L, KanbanColumn.READY, 0));
 
     mockMvc
@@ -206,7 +229,14 @@ class KanbanItemControllerTest {
 
   @Test
   void createShouldDefaultEmptyBodyAndBacklogColumn() throws Exception {
-    given(createUseCase.execute(eq(SUB), eq("Title only"), eq(""), eq((KanbanColumn) null)))
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Title only"),
+                eq(""),
+                eq((KanbanColumn) null),
+                eq(KanbanItemType.ITEM),
+                isNull()))
         .willReturn(item(8L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -217,6 +247,43 @@ class KanbanItemControllerTest {
                 .content("{\"title\":\"Title only\"}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(8));
+  }
+
+  @Test
+  void createShouldPassTypeAndParentId() throws Exception {
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Story"),
+                eq(""),
+                eq((KanbanColumn) null),
+                eq(KanbanItemType.ITEM),
+                eq(42L)))
+        .willReturn(item(12L, KanbanColumn.BACKLOG, 0));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Story\",\"type\":\"ITEM\",\"parentId\":42}"))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
+  void createShouldReturn400WhenParentInvalid() throws Exception {
+    // Use-Case lehnt eine ungültige Epic-Zuordnung ab → 400 (KanbanExceptionHandler, #321/#322).
+    willThrow(new IllegalArgumentException("parent 42 is not an epic"))
+        .given(createUseCase)
+        .execute(eq(SUB), any(), any(), any(), eq(KanbanItemType.ITEM), eq(42L));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Story\",\"parentId\":42}"))
+        .andExpect(status().isBadRequest());
   }
 
   @Test

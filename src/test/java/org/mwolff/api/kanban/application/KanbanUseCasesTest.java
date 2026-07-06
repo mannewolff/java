@@ -223,6 +223,200 @@ class KanbanUseCasesTest {
     assertThat(created.number()).isEqualTo(6);
   }
 
+  @Test
+  void createEpicUsesPositionZeroAndSkipsColumnLookup() {
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(Optional.of(2));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem epic =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "Epic", "", null, KanbanItemType.EPIC, null);
+
+    assertThat(epic.type()).isEqualTo(KanbanItemType.EPIC);
+    assertThat(epic.position()).isZero();
+    assertThat(epic.number()).isEqualTo(3);
+    // Epics halten keine aktive Position — kein Spalten-Lookup nötig.
+    verify(items, never()).findByUserAndColumn(any(), any());
+  }
+
+  @Test
+  void createWithNullTypeDefaultsToItem() {
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock).execute(SUB_OWNER, "Neu", "", null, null, null);
+
+    assertThat(created.type()).isEqualTo(KanbanItemType.ITEM);
+  }
+
+  @Test
+  void createEpicWithParentIsRejected() {
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Epic", "", null, KanbanItemType.EPIC, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("EPIC");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createItemAssignedToOwnEpicSucceeds() {
+    final KanbanItem parentEpic =
+        new KanbanItem(
+            9L,
+            SUB_OWNER,
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findById(9L)).willReturn(Optional.of(parentEpic));
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem story =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L);
+
+    assertThat(story.parentId()).isEqualTo(9L);
+  }
+
+  @Test
+  void createItemWithUnknownParentIsRejected() {
+    given(items.findById(9L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not found");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createItemWithForeignParentIsRejected() {
+    final KanbanItem foreignEpic =
+        new KanbanItem(
+            9L,
+            SUB_OTHER,
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findById(9L)).willReturn(Optional.of(foreignEpic));
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not found");
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void createItemWithNonEpicParentIsRejected() {
+    final KanbanItem plainItem = item(9, SUB_OWNER, KanbanColumn.BACKLOG, 0);
+    given(items.findById(9L)).willReturn(Optional.of(plainItem));
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, 9L))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not an epic");
+    verify(items, never()).save(any());
+  }
+
+  // ----- epics --------------------------------------------------------------
+
+  @Test
+  void getEpicsComputesProgressFromChildren() {
+    final KanbanItem epicA =
+        new KanbanItem(
+            10L,
+            SUB_OWNER,
+            "A",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            1,
+            KanbanItemType.EPIC,
+            null);
+    final KanbanItem epicB =
+        new KanbanItem(
+            11L,
+            SUB_OWNER,
+            "B",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            Instant.EPOCH,
+            null,
+            false,
+            2,
+            KanbanItemType.EPIC,
+            null);
+    given(items.findEpicsByUser(SUB_OWNER)).willReturn(List.of(epicA, epicB));
+    given(items.findAllByUser(SUB_OWNER))
+        .willReturn(
+            List.of(
+                childOf(10L, KanbanColumn.DONE),
+                childOf(10L, KanbanColumn.BACKLOG),
+                childOf(10L, KanbanColumn.DONE),
+                childOf(11L, KanbanColumn.READY),
+                item(99, SUB_OWNER, KanbanColumn.BACKLOG, 0))); // ohne parent → zählt nirgends
+
+    final List<GetEpicsUseCase.EpicWithProgress> result =
+        new GetEpicsUseCase(items).execute(SUB_OWNER);
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(0).epic().id()).isEqualTo(10L);
+    assertThat(result.get(0).total()).isEqualTo(3);
+    assertThat(result.get(0).done()).isEqualTo(2);
+    assertThat(result.get(1).epic().id()).isEqualTo(11L);
+    assertThat(result.get(1).total()).isEqualTo(1);
+    assertThat(result.get(1).done()).isZero();
+  }
+
+  private static KanbanItem childOf(long parentId, KanbanColumn column) {
+    return new KanbanItem(
+        parentId * 100 + column.ordinal(),
+        SUB_OWNER,
+        "child",
+        "",
+        column,
+        0,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        column == KanbanColumn.DONE ? Instant.EPOCH : null,
+        false,
+        0,
+        KanbanItemType.ITEM,
+        parentId);
+  }
+
   // ----- update content -----------------------------------------------------
 
   @Test

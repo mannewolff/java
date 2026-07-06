@@ -19,6 +19,7 @@ vi.mock('../../api/kanban', () => ({
   getKanbanSettings: vi.fn(),
   updateKanbanSettings: vi.fn(),
   getKanbanEpics: vi.fn(),
+  deleteKanbanEpic: vi.fn(),
   listKanbanComments: vi.fn(),
   addKanbanComment: vi.fn(),
   updateKanbanComment: vi.fn(),
@@ -64,6 +65,7 @@ function installMemoryLocalStorage(): void {
 import {
   archiveKanbanItem,
   createKanbanItem,
+  deleteKanbanEpic,
   getKanbanEpics,
   getKanbanSettings,
   listKanbanComments,
@@ -71,11 +73,13 @@ import {
   updateKanbanItem,
   updateKanbanSettings,
 } from '../../api/kanban';
+import { ApiError } from '../../api/client';
 
 const list = listKanbanItems as ReturnType<typeof vi.fn>;
 const getEpics = getKanbanEpics as ReturnType<typeof vi.fn>;
 const create = createKanbanItem as ReturnType<typeof vi.fn>;
 const update = updateKanbanItem as ReturnType<typeof vi.fn>;
+const deleteEpic = deleteKanbanEpic as ReturnType<typeof vi.fn>;
 const archive = archiveKanbanItem as ReturnType<typeof vi.fn>;
 const getSettings = getKanbanSettings as ReturnType<typeof vi.fn>;
 const putSettings = updateKanbanSettings as ReturnType<typeof vi.fn>;
@@ -441,5 +445,93 @@ describe('KanbanPage', () => {
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith('Neue Story', expect.any(String), 'BACKLOG', 'ITEM', 7, null),
     );
+  });
+
+  function emptyBoard() {
+    return { BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
+  }
+
+  function epicFixture(overrides = {}) {
+    return {
+      id: 7,
+      number: 3,
+      title: 'Workshop A',
+      body: 'Alte Beschreibung',
+      type: 'EPIC' as const,
+      shortcode: null,
+      progress: { done: 0, total: 0 },
+      ...overrides,
+    };
+  }
+
+  async function openEpicDetail(user: ReturnType<typeof userEvent.setup>) {
+    expect(await screen.findByText('Workshop A')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Epic öffnen: Workshop A' }));
+    expect(await screen.findByRole('button', { name: 'Alle Epics' })).toBeInTheDocument();
+  }
+
+  it('bearbeitet ein Epic über das Edit-Modal und ruft updateKanbanItem mit Kürzel (#331)', async () => {
+    list.mockResolvedValue(emptyBoard());
+    getEpics.mockResolvedValue([epicFixture()]);
+    update.mockResolvedValueOnce(makeItem({ id: 7 }));
+
+    renderPage('epics');
+    const user = userEvent.setup();
+    await openEpicDetail(user);
+
+    await user.click(screen.getByRole('button', { name: 'Epic bearbeiten' }));
+    // Felder sind vorbefüllt.
+    expect(await screen.findByLabelText('Titel')).toHaveValue('Workshop A');
+    expect(screen.getByLabelText('Kürzel')).toHaveValue('');
+
+    await user.clear(screen.getByLabelText('Titel'));
+    await user.type(screen.getByLabelText('Titel'), 'Workshop B');
+    await user.type(screen.getByLabelText('Kürzel'), 'WSB');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith(7, 'Workshop B', 'Alte Beschreibung', 'WSB'),
+    );
+  });
+
+  it('löscht ein leeres Epic nach Bestätigung und kehrt zur Kachel-Liste zurück (#331)', async () => {
+    list.mockResolvedValue(emptyBoard());
+    getEpics.mockResolvedValue([epicFixture()]);
+    deleteEpic.mockResolvedValueOnce(undefined);
+
+    renderPage('epics');
+    const user = userEvent.setup();
+    await openEpicDetail(user);
+
+    await user.click(screen.getByRole('button', { name: 'Epic löschen' }));
+    await user.click(screen.getByRole('button', { name: 'Löschen' }));
+
+    await waitFor(() => expect(deleteEpic).toHaveBeenCalledWith(7));
+    // Zurück zur Kachel-Liste: der Detail-Zurück-Button verschwindet.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Alle Epics' })).not.toBeInTheDocument(),
+    );
+  });
+
+  it('zeigt bei 409 eine verständliche Meldung und behält das Epic (#331)', async () => {
+    list.mockResolvedValue(emptyBoard());
+    getEpics.mockResolvedValue([epicFixture()]);
+    deleteEpic.mockRejectedValueOnce(new ApiError(409, 'Conflict', null));
+
+    renderPage('epics');
+    const user = userEvent.setup();
+    await openEpicDetail(user);
+
+    await user.click(screen.getByRole('button', { name: 'Epic löschen' }));
+    await user.click(screen.getByRole('button', { name: 'Löschen' }));
+
+    expect(
+      await screen.findByText(
+        'Das Epic hat noch zugeordnete Items und kann nicht gelöscht werden.',
+      ),
+    ).toBeInTheDocument();
+    // Epic bleibt im Detail sichtbar (findBy: der Bestätigungsdialog blendet den Hintergrund
+    // während seiner Schließ-Transition kurz per aria-hidden aus).
+    expect(await screen.findByRole('button', { name: 'Alle Epics' })).toBeInTheDocument();
   });
 });

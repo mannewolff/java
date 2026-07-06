@@ -19,6 +19,8 @@ import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import {
   DndContext,
   PointerSensor,
@@ -31,6 +33,7 @@ import {
   KANBAN_COLUMNS,
   archiveKanbanItem,
   createKanbanItem,
+  deleteKanbanEpic,
   forceDeleteKanbanItem,
   getKanbanEpics,
   getKanbanSettings,
@@ -51,6 +54,7 @@ import { COLUMN_LABELS } from './columnMeta';
 import { epicColor, epicShortcode } from './epicMeta';
 import KanbanColumnView from './KanbanColumn';
 import KanbanDetailModal from './KanbanDetailModal';
+import KanbanEpicEditModal from './KanbanEpicEditModal';
 import KanbanEpicsView from './KanbanEpicsView';
 import KanbanListView from './KanbanListView';
 import KanbanNewItemModal from './KanbanNewItemModal';
@@ -95,6 +99,8 @@ export default function KanbanPage(): JSX.Element {
   );
   // Ausgewähltes Epic in der Epics-Ansicht (#326): null = Kachel-Liste, sonst Epic-Detail.
   const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
+  const [editEpic, setEditEpic] = useState<KanbanEpic | null>(null);
+  const [pendingDeleteEpic, setPendingDeleteEpic] = useState<KanbanEpic | null>(null);
   // Vorbelegtes Epic beim Anlegen einer Story aus der Epic-Detailansicht (#326).
   const [createParentId, setCreateParentId] = useState<number | null>(null);
 
@@ -211,6 +217,44 @@ export default function KanbanPage(): JSX.Element {
       await refresh();
     } catch (e) {
       notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
+  }
+
+  // Epic bearbeiten (#331): Titel/Body/Kürzel über den generischen Item-Update-Pfad speichern,
+  // danach Epics + Board refreshen und im Detail bleiben.
+  async function handleSubmitEditEpic(
+    title: string,
+    body: string,
+    shortcode: string | null,
+  ): Promise<void> {
+    if (!editEpic) return;
+    try {
+      await updateKanbanItem(editEpic.id, title, body, shortcode);
+      notify.success('Epic gespeichert.');
+      setEditEpic(null);
+      await refresh();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+    }
+  }
+
+  // Epic löschen (#331): Backend blockt mit 409, solange noch Items zugeordnet sind — dann eine
+  // verständliche Meldung zeigen und das Epic behalten. Bei Erfolg zurück zur Kachel-Liste.
+  async function confirmDeleteEpic(): Promise<void> {
+    if (!pendingDeleteEpic) return;
+    const target = pendingDeleteEpic;
+    setPendingDeleteEpic(null);
+    try {
+      await deleteKanbanEpic(target.id);
+      notify.success('Epic gelöscht.');
+      setSelectedEpicId(null);
+      await refresh();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        notify.error('Das Epic hat noch zugeordnete Items und kann nicht gelöscht werden.');
+      } else {
+        notify.error(e instanceof ApiError ? e.message : 'Löschen fehlgeschlagen.');
+      }
     }
   }
 
@@ -422,6 +466,21 @@ export default function KanbanPage(): JSX.Element {
           <Typography variant="h6">{selectedEpic.title}</Typography>
           <Box sx={{ flexGrow: 1 }} />
           <Button
+            startIcon={<EditIcon />}
+            onClick={() => setEditEpic(selectedEpic)}
+            aria-label="Epic bearbeiten"
+          >
+            Bearbeiten
+          </Button>
+          <Button
+            color="error"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={() => setPendingDeleteEpic(selectedEpic)}
+            aria-label="Epic löschen"
+          >
+            Löschen
+          </Button>
+          <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => startCreateStory(selectedEpic.id, 'BACKLOG')}
@@ -487,6 +546,33 @@ export default function KanbanPage(): JSX.Element {
           onSubmit={handleSubmitDetail}
         />
       )}
+
+      <KanbanEpicEditModal
+        open={editEpic != null}
+        epic={editEpic}
+        onClose={() => setEditEpic(null)}
+        onSubmit={handleSubmitEditEpic}
+      />
+
+      <Dialog
+        open={pendingDeleteEpic != null}
+        onClose={() => setPendingDeleteEpic(null)}
+        aria-labelledby="kanban-delete-epic-title"
+      >
+        <DialogTitle id="kanban-delete-epic-title">Epic löschen?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            „{pendingDeleteEpic?.title}” wird gelöscht. Das ist nur möglich, wenn dem Epic keine
+            Items mehr zugeordnet sind.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteEpic(null)}>Abbrechen</Button>
+          <Button color="error" variant="contained" onClick={() => void confirmDeleteEpic()}>
+            Löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <KanbanSettingsDrawer
         open={settingsOpen}

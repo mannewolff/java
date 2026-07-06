@@ -41,12 +41,11 @@ Das Frontend ist ein PKCE-Public-Client (`toolbox-web`) ohne Backend-BFF (Backen
 - Keine Service Workers (kein Worker-basierter XSS-Eskalationsvektor)
 - Keycloak-Tokens sind kurzlebig (Standard-Expiry 5 min Keycloak-Default + Refresh-Token-Rotation)
 
-**Mobile-Modus (`?pair=1`) — `localStorage` + Offline-Token:** Im Mobile-Pairing (#206) werden Tokens in `localStorage` gehalten und `offline_access` angefragt, damit das Handy bis zu 30 Tage (`offlineSessionIdleTimeout: 2592000`) ohne Neuanmeldung eingeloggt bleibt. Das ist bewusst — persistente Speicherung ist der Zweck. Das dadurch erhöhte Restrisiko (XSS, Backup-/Time-Machine-Snapshot, physischer Gerätezugriff → bis zu 30 Tage gültiger, den Logout überlebender Token) wird durch folgende Gegenmaßnahmen kontrolliert (#312):
-- **Token-Revocation beim Logout:** `revokeTokensOnSignout: true` invalidiert Access- und Refresh-/Offline-Token beim `signoutRedirect` serverseitig am Revocation-Endpoint — ein Logout beendet den Offline-Zugang sofort, nicht erst nach 30 Tagen.
-- **Refresh-Token-Rotation:** `revokeRefreshToken: true` + `refreshTokenMaxReuse: 0` in beiden Realms — jeder Refresh gibt einen neuen Token aus und invalidiert den alten. Ein geleakter Token wird beim nächsten legitimen Refresh unbrauchbar (Reuse-Detection); das Angriffsfenster schrumpft von 30 Tagen auf einen Refresh-Zyklus.
-- **Offline-Idle-Timeout (30 Tage):** bewusst beibehalten — der Mobile-Zweck (#206) verlangt langlebige Sessions. Mit Rotation + Revocation ist das Restfenster eines unbemerkt geleakten, nie erneuerten Tokens auf den Idle-Timeout begrenzt; der Nutzer kann Sessions jederzeit über die Keycloak-Account-Console widerrufen. Bei Bedarf (mehr Sicherheit vor Komfort) hier reduzieren.
+**Token-Hygiene (reiner Web-/Desktop-Client):** Die Web-UI ist ausschließlich Desktop-Client (`sessionStorage`, Scope `openid profile email`, **kein** `offline_access`; der frühere Mobile-Pairing-Pfad wurde in #334/#335 entfernt). Zusätzlich zu `sessionStorage` sind folgende Maßnahmen aktiv (#312):
+- **Token-Revocation beim Logout:** `revokeTokensOnSignout: true` invalidiert Access- und Refresh-Token beim `signoutRedirect` serverseitig am Revocation-Endpoint — ein Logout beendet den Zugang sofort. Bewusst auch nach dem Wegfall des Offline-Pfads beibehalten (allgemeine Hygiene).
+- **Refresh-Token-Rotation:** `revokeRefreshToken: true` + `refreshTokenMaxReuse: 0` in beiden Realms — jeder Refresh gibt einen neuen Token aus und invalidiert den alten. Ein geleakter Token wird beim nächsten legitimen Refresh unbrauchbar (Reuse-Detection); das Angriffsfenster schrumpft auf einen Refresh-Zyklus.
 
-**Zukünftige Migration:** Wenn ein BFF eingeführt wird, ist auf HttpOnly-Cookie umzustellen. Bis dahin ist `sessionStorage` (Desktop) bzw. das abgesicherte `localStorage` (Mobile) die bewusst gewählte, akzeptierte Lösung.
+**Zukünftige Migration:** Wenn ein BFF eingeführt wird, ist auf HttpOnly-Cookie umzustellen. Bis dahin ist `sessionStorage` die bewusst gewählte, akzeptierte Lösung.
 
 ### Bearer-Token-Copy-to-Clipboard in Settings
 

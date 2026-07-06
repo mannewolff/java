@@ -1,4 +1,5 @@
-import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -11,17 +12,12 @@ import {
   Paper,
   Skeleton,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   DndContext,
@@ -62,25 +58,12 @@ import KanbanSettingsDrawer from './KanbanSettingsDrawer';
 import { emptyBoard, moveItem } from './boardOps';
 
 const DEFAULT_RETENTION_DAYS = 5;
-const VIEW_KEY = 'kanban.view';
 
 type KanbanView = 'board' | 'list' | 'epics';
 
-function loadView(): KanbanView {
-  try {
-    const stored = localStorage.getItem(VIEW_KEY);
-    return stored === 'list' || stored === 'epics' ? stored : 'board';
-  } catch {
-    return 'board';
-  }
-}
-
-function saveView(value: KanbanView): void {
-  try {
-    localStorage.setItem(VIEW_KEY, value);
-  } catch {
-    // localStorage nicht verfügbar
-  }
+/** Normalisiert den Routen-Param auf eine gültige Ansicht; unbekannt → Board. */
+function toView(param: string | undefined): KanbanView {
+  return param === 'list' || param === 'epics' ? param : 'board';
 }
 
 type LoadState =
@@ -97,7 +80,9 @@ export default function KanbanPage(): JSX.Element {
   const [pendingForceDelete, setPendingForceDelete] = useState<KanbanItem | null>(null);
   const [retentionDays, setRetentionDays] = useState(DEFAULT_RETENTION_DAYS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [view, setView] = useState<KanbanView>(loadView);
+  // Die aktive Ansicht kommt aus der Route (/kanban/board|list|epics) — die linke Navigation
+  // steuert sie (#328); kein lokaler Toggle-/localStorage-State mehr.
+  const view = toView(useParams().view);
   // Reload-Trigger für die Listenansicht (#308): die Liste besitzt eigenen Daten-State,
   // den reload() (Board) nicht erreicht. Jede Mutation inkrementiert diesen Key.
   const [listReloadKey, setListReloadKey] = useState(0);
@@ -167,13 +152,10 @@ export default function KanbanPage(): JSX.Element {
     if (view === 'board' || view === 'epics') void reload();
   }, [reload, view]);
 
-  function handleViewChange(_event: MouseEvent<HTMLElement>, next: KanbanView | null): void {
-    if (next != null) {
-      setView(next);
-      saveView(next);
-      setSelectedEpicId(null);
-    }
-  }
+  // Verlässt man die Epics-Ansicht (Navigation zu Board/Liste), das offene Epic-Detail zurücksetzen.
+  useEffect(() => {
+    if (view !== 'epics') setSelectedEpicId(null);
+  }, [view]);
 
   async function handleSettingsSubmit(doneRetentionDays: number): Promise<void> {
     try {
@@ -462,26 +444,6 @@ export default function KanbanPage(): JSX.Element {
       >
         <Typography variant="h4">Kanban</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
-          <ToggleButtonGroup
-            value={view}
-            exclusive
-            onChange={handleViewChange}
-            size="small"
-            aria-label="Ansicht"
-          >
-            <ToggleButton value="board" aria-label="Board">
-              <ViewColumnIcon fontSize="small" sx={{ mr: 0.5 }} />
-              Board
-            </ToggleButton>
-            <ToggleButton value="list" aria-label="Liste">
-              <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
-              Liste
-            </ToggleButton>
-            <ToggleButton value="epics" aria-label="Epics">
-              <AccountTreeIcon fontSize="small" sx={{ mr: 0.5 }} />
-              Epics
-            </ToggleButton>
-          </ToggleButtonGroup>
           <Button
             variant="contained"
             startIcon={<AddIcon />}

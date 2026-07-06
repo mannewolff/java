@@ -161,8 +161,9 @@ export default function App() {
             </Suspense>
           }
         />
+        <Route path="/kanban" element={<Navigate to="/kanban/board" replace />} />
         <Route
-          path="/kanban"
+          path="/kanban/:view"
           element={
             <Suspense fallback={<PageLoader />}>
               <KanbanPage />

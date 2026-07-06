@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+
 import KanbanPage from './KanbanPage';
 import { NotifyProvider } from '../../notify/NotifyProvider';
 
@@ -79,11 +81,15 @@ const getSettings = getKanbanSettings as ReturnType<typeof vi.fn>;
 const putSettings = updateKanbanSettings as ReturnType<typeof vi.fn>;
 const listComments = listKanbanComments as ReturnType<typeof vi.fn>;
 
-function renderPage() {
+function renderPage(view: 'board' | 'list' | 'epics' = 'board') {
   return render(
-    <NotifyProvider>
-      <KanbanPage />
-    </NotifyProvider>,
+    <MemoryRouter initialEntries={[`/kanban/${view}`]}>
+      <NotifyProvider>
+        <Routes>
+          <Route path="/kanban/:view" element={<KanbanPage />} />
+        </Routes>
+      </NotifyProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -360,35 +366,20 @@ describe('KanbanPage', () => {
     expect(putSettings).toHaveBeenCalledWith(5);
   });
 
-  it('wechselt über den View-Toggle zur Listenansicht und persistiert die Wahl', async () => {
+  it('zeigt die Listenansicht unter der Route /kanban/list (#328)', async () => {
     list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
 
-    renderPage();
-    await waitFor(() => expect(screen.getByText('Noch keine Kanban-Items')).toBeInTheDocument());
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Liste' }));
-
-    expect(screen.getByTestId('list-view-stub')).toBeInTheDocument();
-    expect(screen.queryByText('Noch keine Kanban-Items')).not.toBeInTheDocument();
-    expect(localStorage.getItem('kanban.view')).toBe('list');
-  });
-
-  it('startet in der Listenansicht, wenn localStorage "list" gespeichert hat', async () => {
-    localStorage.setItem('kanban.view', 'list');
-    list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
-
-    renderPage();
+    renderPage('list');
 
     expect(await screen.findByTestId('list-view-stub')).toBeInTheDocument();
+    expect(screen.queryByText('Noch keine Kanban-Items')).not.toBeInTheDocument();
   });
 
   it('erhöht den reloadKey der Liste nach dem Anlegen im Listen-Modus (#308)', async () => {
-    localStorage.setItem('kanban.view', 'list');
     list.mockResolvedValue({ BACKLOG: [], READY: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
     create.mockResolvedValueOnce(makeItem({ id: 7, title: 'Neu' }));
 
-    renderPage();
+    renderPage('list');
 
     const stub = await screen.findByTestId('list-view-stub');
     expect(stub).toHaveTextContent('reloadKey=0');
@@ -429,11 +420,10 @@ describe('KanbanPage', () => {
     ]);
     create.mockResolvedValueOnce(makeItem({ id: 60, title: 'Neue Story', parentId: 7 }));
 
-    renderPage();
+    renderPage('epics');
     const user = userEvent.setup();
 
-    // In die Epics-Ansicht wechseln → Kachel mit Fortschritt.
-    await user.click(await screen.findByRole('button', { name: 'Epics' }));
+    // Epics-Ansicht (Route /kanban/epics) → Kachel mit Fortschritt.
     expect(await screen.findByText('Workshop A')).toBeInTheDocument();
     expect(screen.getByText('1/2 Stories fertig')).toBeInTheDocument();
 

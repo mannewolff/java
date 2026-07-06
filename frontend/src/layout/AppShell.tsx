@@ -14,6 +14,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   Toolbar,
   Tooltip,
   Typography,
@@ -126,6 +128,18 @@ export default function AppShell() {
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(initiallyOpenGroups);
 
+  // Flyout-Menü für eingeklappte Nav-Gruppen (#340): Klick aufs Gruppen-Icon öffnet ein rechts
+  // angedocktes Menü mit den Unterpunkten. Nur eine Gruppe kann gleichzeitig geöffnet sein.
+  const [flyout, setFlyout] = useState<{ label: string; anchor: HTMLElement } | null>(null);
+
+  const openFlyout = (label: string, anchor: HTMLElement): void => {
+    setFlyout({ label, anchor });
+  };
+
+  const closeFlyout = (): void => {
+    setFlyout(null);
+  };
+
   const toggleGroup = (label: string) => {
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -185,20 +199,55 @@ export default function AppShell() {
     const hasActiveChild = groupContainsPath(group, location.pathname);
 
     if (collapsed) {
-      // Im collapsed Modus: nur Gruppen-Icon mit Tooltip, keine Kinder
+      // Im collapsed Modus: Gruppen-Icon öffnet ein Flyout-Menü mit den Unterpunkten (#340), damit
+      // die Kinder auch bei eingeklappter Leiste erreichbar bleiben.
+      const flyoutOpen = flyout?.label === group.label;
       return (
-        <Tooltip key={group.label} title={group.label} placement="right">
-          <ListItem disablePadding>
-            <ListItemButton
-              aria-label={group.label}
-              sx={{ justifyContent: 'center', px: 1 }}
-            >
-              <ListItemIcon sx={{ minWidth: 0 }}>
-                <GroupIcon color={hasActiveChild ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-            </ListItemButton>
-          </ListItem>
-        </Tooltip>
+        <Box key={group.label}>
+          <Tooltip title={group.label} placement="right">
+            <ListItem disablePadding>
+              <ListItemButton
+                aria-label={group.label}
+                aria-haspopup="menu"
+                aria-expanded={flyoutOpen}
+                onClick={(e) => openFlyout(group.label, e.currentTarget)}
+                sx={{ justifyContent: 'center', px: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 0 }}>
+                  <GroupIcon color={hasActiveChild ? 'primary' : 'inherit'} />
+                </ListItemIcon>
+              </ListItemButton>
+            </ListItem>
+          </Tooltip>
+          <Menu
+            anchorEl={flyout?.anchor ?? null}
+            open={flyoutOpen}
+            onClose={closeFlyout}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            MenuListProps={{ 'aria-label': group.label }}
+          >
+            {group.children.map((child) => {
+              const ChildIcon = child.icon;
+              const childSelected = location.pathname.startsWith(child.path);
+              return (
+                <MenuItem
+                  key={child.path}
+                  selected={childSelected}
+                  onClick={() => {
+                    navigate(child.path);
+                    closeFlyout();
+                  }}
+                >
+                  <ListItemIcon>
+                    <ChildIcon fontSize="small" color={childSelected ? 'primary' : 'inherit'} />
+                  </ListItemIcon>
+                  <ListItemText>{child.label}</ListItemText>
+                </MenuItem>
+              );
+            })}
+          </Menu>
+        </Box>
       );
     }
 

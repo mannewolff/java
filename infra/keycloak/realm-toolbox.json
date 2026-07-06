@@ -19,8 +19,8 @@
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
   "offlineSessionIdleTimeout": 2592000,
-  "offlineSessionMaxLifespanEnabled": true,
-  "offlineSessionMaxLifespan": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
+  "offlineSessionMaxLifespan": 5184000,
   "passwordPolicy": "length(12) and specialChars(1) and notUsername",
   "defaultRole": {
     "name": "PENDING",
@@ -28,14 +28,19 @@
     "composite": false,
     "clientRole": false
   },
-  "requiredCredentials": ["password"],
+  "requiredCredentials": [
+    "password"
+  ],
   "otpPolicyType": "totp",
   "otpPolicyAlgorithm": "HmacSHA1",
   "otpPolicyDigits": 6,
   "otpPolicyPeriod": 30,
   "otpPolicyInitialCounter": 0,
   "otpPolicyLookAheadWindow": 1,
-  "otpSupportedApplications": ["totpAppGoogleName", "totpAppFreeOTPName"],
+  "otpSupportedApplications": [
+    "totpAppGoogleName",
+    "totpAppFreeOTPName"
+  ],
   "roles": {
     "realm": [
       {
@@ -47,10 +52,7 @@
       {
         "name": "USER",
         "description": "Standard-Anwender mit Zugriff auf Tools und Dashboards.",
-        "composite": true,
-        "composites": {
-          "realm": ["offline_access"]
-        },
+        "composite": false,
         "clientRole": false
       },
       {
@@ -83,8 +85,15 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "https://toolbox.mwolff.org/##https://toolbox.mwolff.org"
       },
-      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
-      "optionalClientScopes": ["offline_access"],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [],
       "protocolMappers": [
         {
           "name": "toolbox-api-audience",
@@ -110,74 +119,6 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false
-    },
-    {
-      "clientId": "toolbox-ios",
-      "name": "Toolbox iOS (Native App)",
-      "description": "Native SwiftUI-App, Authorization Code Flow + PKCE via ASWebAuthenticationSession.",
-      "enabled": true,
-      "publicClient": true,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
-      "redirectUris": [
-        "org.mwolff.toolboxkanban://callback"
-      ],
-      "attributes": {
-        "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "org.mwolff.toolboxkanban://callback"
-      },
-      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
-      "optionalClientScopes": [
-        "offline_access"
-      ],
-      "protocolMappers": [
-        {
-          "name": "toolbox-api-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "consentRequired": false,
-          "config": {
-            "included.client.audience": "toolbox-api",
-            "id.token.claim": "false",
-            "access.token.claim": "true"
-          }
-        }
-      ]
-    },
-    {
-      "clientId": "toolbox-cli",
-      "name": "Toolbox CLI (tbx)",
-      "description": "Kommandozeilen-Client fuer den Board-Adapter (Device Authorization Grant, RFC 8628) — kein Redirect, kein Secret.",
-      "enabled": true,
-      "publicClient": true,
-      "standardFlowEnabled": false,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
-      "redirectUris": [],
-      "attributes": {
-        "oauth2.device.authorization.grant.enabled": "true",
-        "oauth2.device.polling.interval": "5"
-      },
-      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
-      "optionalClientScopes": [
-        "offline_access"
-      ],
-      "protocolMappers": [
-        {
-          "name": "toolbox-api-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "consentRequired": false,
-          "config": {
-            "included.client.audience": "toolbox-api",
-            "id.token.claim": "false",
-            "access.token.claim": "true"
-          }
-        }
-      ]
     }
   ]
 }

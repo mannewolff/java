@@ -5,7 +5,8 @@ import { DndContext } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
 
 import KanbanCard from './KanbanCard';
-import type { KanbanItem } from '../../api/kanban';
+import type { KanbanEpic, KanbanItem } from '../../api/kanban';
+import { epicShortcode } from './epicMeta';
 import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
@@ -26,20 +27,25 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
   };
 }
 
-function renderCard(item: KanbanItem, handlers: {
-  onOpenDetail?: (i: KanbanItem) => void;
-  onEdit?: (i: KanbanItem) => void;
-  onArchive?: (i: KanbanItem) => void;
-  onRestore?: (i: KanbanItem) => void;
-  onForceDelete?: (i: KanbanItem) => void;
-  onMove?: (i: KanbanItem, c: KanbanItem['column']) => void;
-} = {}) {
+function renderCard(
+  item: KanbanItem,
+  handlers: {
+    onOpenDetail?: (i: KanbanItem) => void;
+    onEdit?: (i: KanbanItem) => void;
+    onArchive?: (i: KanbanItem) => void;
+    onRestore?: (i: KanbanItem) => void;
+    onForceDelete?: (i: KanbanItem) => void;
+    onMove?: (i: KanbanItem, c: KanbanItem['column']) => void;
+  } = {},
+  epic: KanbanEpic | null = null,
+) {
   return render(
     <DndContext>
       <SortableContext items={[item.id]}>
         <KanbanCard
           item={item}
           retentionDays={5}
+          epic={epic}
           onOpenDetail={handlers.onOpenDetail ?? vi.fn()}
           onEdit={handlers.onEdit ?? vi.fn()}
           onArchive={handlers.onArchive ?? vi.fn()}
@@ -50,6 +56,18 @@ function renderCard(item: KanbanItem, handlers: {
       </SortableContext>
     </DndContext>,
   );
+}
+
+function makeEpic(overrides: Partial<KanbanEpic> = {}): KanbanEpic {
+  return {
+    id: 7,
+    number: 3,
+    title: '10-Tage Workshop',
+    body: '',
+    type: 'EPIC',
+    progress: { done: 0, total: 0 },
+    ...overrides,
+  };
 }
 
 describe('KanbanCard', () => {
@@ -181,5 +199,20 @@ describe('KanbanCard Kit-Look (#281)', () => {
     renderCard(makeItem({ column: 'DONE', movedToDoneAt: moved }));
 
     expect(screen.getByText(/wird in 3 Tagen gelöscht/)).toBeInTheDocument();
+  });
+
+  it('zeigt ein Epic-Badge mit Kürzel, wenn das Item einem Epic zugeordnet ist (#325)', () => {
+    const epic = makeEpic({ id: 7, title: '10-Tage Workshop IT-Bildungshaus' });
+    renderCard(makeItem({ parentId: 7 }), {}, epic);
+
+    const badge = screen.getByLabelText(`Epic ${epicShortcode(epic.title)}`);
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent('1WI');
+  });
+
+  it('zeigt kein Epic-Badge, wenn das Item keinem Epic zugeordnet ist (#325)', () => {
+    renderCard(makeItem({ parentId: null }), {}, null);
+
+    expect(screen.queryByLabelText(/^Epic /)).not.toBeInTheDocument();
   });
 });

@@ -14,14 +14,22 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { KANBAN_COLUMNS, type KanbanColumn, type KanbanItem } from '../../api/kanban';
+import {
+  KANBAN_COLUMNS,
+  type KanbanColumn,
+  type KanbanEpic,
+  type KanbanItem,
+} from '../../api/kanban';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
 import { COLUMN_LABELS } from './columnMeta';
+import { epicColor, epicShortcode } from './epicMeta';
 import { ARCHIVED_STATUS_COLOR } from './statusColors';
 
 interface KanbanCardProps {
   item: KanbanItem;
   retentionDays: number;
+  /** Das Epic, dem dieses Item zugeordnet ist (für das Badge). {@code null} = keinem Epic. */
+  epic?: KanbanEpic | null;
   onOpenDetail: (item: KanbanItem) => void;
   onEdit: (item: KanbanItem) => void;
   onArchive: (item: KanbanItem) => void;
@@ -33,6 +41,7 @@ interface KanbanCardProps {
 export default function KanbanCard({
   item,
   retentionDays,
+  epic = null,
   onOpenDetail,
   onEdit,
   onArchive,
@@ -61,6 +70,9 @@ export default function KanbanCard({
       ? cleanupDaysRemaining(movedToDoneAt, retentionDays)
       : 0;
 
+  // Epic-Badge (#325): farbiger linker Rand + Kürzel-Chip, wenn das Item einem Epic zugeordnet ist.
+  const epicHue = epic ? epicColor(epic.id) : null;
+
   return (
     <Paper
       ref={setNodeRef}
@@ -73,6 +85,7 @@ export default function KanbanCard({
         mb: 1,
         bgcolor: 'common.white',
         borderRadius: 1.5,
+        borderLeft: epicHue ? `4px solid ${epicHue}` : undefined,
         cursor: item.archived ? 'default' : 'grab',
         userSelect: 'none',
         transition: 'box-shadow 150ms',
@@ -81,6 +94,30 @@ export default function KanbanCard({
       }}
       aria-label={`Kanban-Item ${item.title}`}
     >
+      {epic && epicHue && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={0.5}
+          sx={{
+            mb: 0.5,
+            width: 'fit-content',
+            px: 0.75,
+            py: 0.25,
+            borderRadius: 1,
+            bgcolor: `${epicHue}22`,
+          }}
+          aria-label={`Epic ${epicShortcode(epic.title)}`}
+        >
+          <Box
+            sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: epicHue, flexShrink: 0 }}
+          />
+          <Typography variant="caption" sx={{ fontWeight: 700, color: epicHue, lineHeight: 1 }}>
+            {epicShortcode(epic.title)}
+          </Typography>
+        </Stack>
+      )}
+
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={0.5}>
         <Tooltip title={item.title} enterDelay={500}>
           <Typography

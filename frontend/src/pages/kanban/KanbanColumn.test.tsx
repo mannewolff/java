@@ -34,6 +34,7 @@ function renderColumn(
         label={label}
         items={items}
         retentionDays={5}
+        epicsById={{}}
         onCreate={vi.fn()}
         onOpenDetail={vi.fn()}
         onEdit={vi.fn()}

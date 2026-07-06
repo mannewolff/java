@@ -34,6 +34,7 @@ import {
   archiveKanbanItem,
   createKanbanItem,
   forceDeleteKanbanItem,
+  getKanbanEpics,
   getKanbanSettings,
   listKanbanItems,
   moveKanbanItem,
@@ -42,6 +43,7 @@ import {
   updateKanbanSettings,
   type KanbanBoard,
   type KanbanColumn as KanbanColumnId,
+  type KanbanEpic,
   type KanbanItem,
   type KanbanItemType,
 } from '../../api/kanban';
@@ -94,6 +96,9 @@ export default function KanbanPage(): JSX.Element {
   // Reload-Trigger für die Listenansicht (#308): die Liste besitzt eigenen Daten-State,
   // den reload() (Board) nicht erreicht. Jede Mutation inkrementiert diesen Key.
   const [listReloadKey, setListReloadKey] = useState(0);
+  // Epics nach ID für die Board-Karten-Badges (#325). Best-effort: schlägt das Laden fehl,
+  // bleiben die Karten ohne Badge (das Board selbst funktioniert weiter).
+  const [epicsById, setEpicsById] = useState<Record<number, KanbanEpic>>({});
 
   // Laufende Nummer je Drag (#316): nur der zuletzt gestartete Move darf reloaden bzw. bei Fehler
   // zurückrollen. So lässt ein verspäteter reload eines älteren Moves die Items nicht zurückspringen
@@ -118,6 +123,13 @@ export default function KanbanPage(): JSX.Element {
         kind: 'error',
         message: e instanceof ApiError ? e.message : 'Kanban-Items konnten nicht geladen werden.',
       });
+    }
+    // Epics best-effort für die Badges — Fehler dürfen das Board nicht stören.
+    try {
+      const epics = await getKanbanEpics();
+      setEpicsById(Object.fromEntries(epics.map((e) => [e.id, e])));
+    } catch {
+      setEpicsById({});
     }
   }, []);
 
@@ -331,6 +343,7 @@ export default function KanbanPage(): JSX.Element {
               label={COLUMN_LABELS[col]}
               items={state.board[col]}
               retentionDays={retentionDays}
+              epicsById={epicsById}
               onCreate={startCreate}
               onOpenDetail={setDetailItem}
               onEdit={setDetailItem}

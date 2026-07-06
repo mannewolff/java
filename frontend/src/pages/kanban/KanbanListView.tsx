@@ -5,8 +5,10 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 import {
   KANBAN_COLUMNS,
+  forceDeleteKanbanItem,
   listKanbanItems,
   moveKanbanItem,
+  restoreKanbanItem,
   updateKanbanItem,
   type KanbanColumn,
   type KanbanItem,
@@ -149,15 +151,43 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
     resizeCleanupRef.current = detach;
   }, []);
 
-  async function handleDetailSubmit(title: string, body: string): Promise<void> {
+  async function handleDetailSubmit(
+    title: string,
+    body: string,
+    parentId: number | null,
+  ): Promise<void> {
     if (!detailItem) return;
     try {
-      await updateKanbanItem(detailItem.id, title, body);
+      await updateKanbanItem(detailItem.id, title, body, null, parentId);
       notify.success('Item gespeichert.');
       setDetailItem(null);
       setReloadNonce((n) => n + 1);
     } catch (err) {
       notify.error(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+    }
+  }
+
+  async function handleDetailRestore(): Promise<void> {
+    if (!detailItem) return;
+    try {
+      await restoreKanbanItem(detailItem.id);
+      notify.success('Item wiederhergestellt.');
+      setDetailItem(null);
+      setReloadNonce((n) => n + 1);
+    } catch (err) {
+      notify.error(err instanceof ApiError ? err.message : 'Wiederherstellen fehlgeschlagen.');
+    }
+  }
+
+  async function handleDetailForceDelete(): Promise<void> {
+    if (!detailItem) return;
+    try {
+      await forceDeleteKanbanItem(detailItem.id);
+      notify.success('Item endgültig gelöscht.');
+      setDetailItem(null);
+      setReloadNonce((n) => n + 1);
+    } catch (err) {
+      notify.error(err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.');
     }
   }
 
@@ -369,6 +399,8 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
           retentionDays={retentionDays}
           onClose={() => setDetailItem(null)}
           onSubmit={handleDetailSubmit}
+          onRestore={handleDetailRestore}
+          onForceDelete={handleDetailForceDelete}
         />
       )}
     </Box>

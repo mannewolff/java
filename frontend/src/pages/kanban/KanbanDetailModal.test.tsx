@@ -252,6 +252,87 @@ describe('KanbanDetailModal', () => {
     expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', null);
   });
 
+  it('bietet Wiederherstellen/Endgültig-Löschen nur bei archivierten Items (#341)', async () => {
+    const { rerender } = render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: false })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={vi.fn()}
+      />,
+    );
+    await screen.findByText('Noch keine Kommentare.');
+    expect(screen.queryByRole('button', { name: 'Wiederherstellen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument();
+
+    rerender(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Wiederherstellen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Endgültig löschen' })).toBeInTheDocument();
+  });
+
+  it('Wiederherstellen ruft onRestore (#341)', async () => {
+    const onRestore = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={onRestore}
+        onForceDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
+
+    expect(onRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it('Endgültig löschen ruft onForceDelete erst nach Bestätigung (#341)', async () => {
+    const onForceDelete = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true, title: 'Weg damit' })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={onForceDelete}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Endgültig löschen' }));
+
+    // Bestätigungsdialog erscheint; ohne Bestätigung kein Aufruf.
+    expect(await screen.findByText(/wird unwiderruflich entfernt/)).toBeInTheDocument();
+    expect(onForceDelete).not.toHaveBeenCalled();
+
+    // Der bestätigende Button im Dialog (zweiter „Endgültig löschen").
+    const confirmButtons = screen.getAllByRole('button', { name: 'Endgültig löschen' });
+    await user.click(confirmButtons[confirmButtons.length - 1]);
+
+    expect(onForceDelete).toHaveBeenCalledTimes(1);
+  });
+
   it('zeigt keine Epic-Auswahl, wenn das Item selbst ein Epic ist (#339)', async () => {
     render(
       <KanbanDetailModal

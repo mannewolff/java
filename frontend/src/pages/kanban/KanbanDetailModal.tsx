@@ -38,6 +38,10 @@ interface KanbanDetailModalProps {
   retentionDays: number;
   onClose: () => void;
   onSubmit: (title: string, body: string, parentId: number | null) => Promise<void> | void;
+  /** Stellt ein archiviertes Item wieder her (#341). Nur relevant, wenn {@code item.archived}. */
+  onRestore?: () => Promise<void> | void;
+  /** Löscht ein archiviertes Item endgültig (#341), nach Bestätigung im Modal. */
+  onForceDelete?: () => Promise<void> | void;
 }
 
 /**
@@ -56,6 +60,8 @@ export default function KanbanDetailModal({
   retentionDays,
   onClose,
   onSubmit,
+  onRestore,
+  onForceDelete,
 }: KanbanDetailModalProps): JSX.Element {
   const { username } = useAuth();
   const [editing, setEditing] = useState(false);
@@ -64,6 +70,7 @@ export default function KanbanDetailModal({
   const [parentId, setParentId] = useState<number | null>(item.parentId);
   const [epics, setEpics] = useState<KanbanEpic[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Nur normale Items lassen sich einem Epic zuordnen; ein Epic selbst bekommt keinen Parent (#339).
   const canAssignEpic = item.type !== 'EPIC';
@@ -81,6 +88,7 @@ export default function KanbanDetailModal({
       setTitle(item.title);
       setBody(item.body);
       setParentId(item.parentId);
+      setConfirmingDelete(false);
     }
   }, [open, item.title, item.body, item.parentId]);
 
@@ -334,9 +342,44 @@ export default function KanbanDetailModal({
             </Button>
           </>
         ) : (
-          <Button onClick={onClose}>Schließen</Button>
+          <>
+            {item.archived && onRestore && (
+              <Button onClick={() => void onRestore()}>Wiederherstellen</Button>
+            )}
+            {item.archived && onForceDelete && (
+              <Button color="error" onClick={() => setConfirmingDelete(true)}>
+                Endgültig löschen
+              </Button>
+            )}
+            <Box sx={{ flexGrow: 1 }} />
+            <Button onClick={onClose}>Schließen</Button>
+          </>
         )}
       </DialogActions>
+
+      <Dialog
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        aria-labelledby="kanban-force-delete-title"
+      >
+        <DialogTitle id="kanban-force-delete-title">Endgültig löschen?</DialogTitle>
+        <DialogContent>
+          <Typography>„{item.title}” wird unwiderruflich entfernt.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmingDelete(false)}>Abbrechen</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmingDelete(false);
+              void onForceDelete?.();
+            }}
+          >
+            Endgültig löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

@@ -45,6 +45,8 @@ export interface KanbanEpic {
   title: string;
   body: string;
   type: 'EPIC';
+  /** Frei wählbares Kürzel (#329) oder {@code null} — dann wird eins aus dem Titel abgeleitet. */
+  shortcode: string | null;
   progress: { done: number; total: number };
 }
 
@@ -75,8 +77,16 @@ export function createKanbanItem(
   column?: KanbanColumn,
   type: KanbanItemType = 'ITEM',
   parentId: number | null = null,
+  shortcode: string | null = null,
 ): Promise<KanbanItem> {
-  return api.post<KanbanItem>(`${PATH}/items`, { title, body, column, type, parentId });
+  return api.post<KanbanItem>(`${PATH}/items`, {
+    title,
+    body,
+    column,
+    type,
+    parentId,
+    shortcode,
+  });
 }
 
 /** Liefert die eigenen Epics inkl. Fortschritt (#322). */

@@ -17,7 +17,8 @@ public record CreateKanbanItemRequest(
     @Size(max = KanbanItem.MAX_BODY_LENGTH) String body,
     KanbanColumn column,
     KanbanItemType type,
-    Long parentId) {
+    Long parentId,
+    @Size(max = KanbanItem.MAX_SHORTCODE_LENGTH) String shortcode) {
 
   /** Liefert den Body oder den Leerstring, falls null/missing — Domain erwartet non-null. */
   public String bodyOrEmpty() {

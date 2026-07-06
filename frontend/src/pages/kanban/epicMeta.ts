@@ -33,10 +33,16 @@ export function epicColor(id: number): string {
 }
 
 /**
- * Kürzel eines Epics: Initialen der (max. drei ersten) Titelwörter in Großbuchstaben, z. B.
- * „10-Tage Workshop IT-Bildungshaus" → „1WI". Leerer/whitespace-Titel → „EPIC".
+ * Kürzel eines Epics (#329): ein explizit gesetztes Kürzel hat Vorrang; sonst werden die Initialen
+ * der (max. drei ersten) Titelwörter in Großbuchstaben abgeleitet, z. B. „10-Tage Workshop
+ * IT-Bildungshaus" → „1WI". Leerer/whitespace-Titel ohne Kürzel → „EPIC".
+ *
+ * @param title Epic-Titel (Basis der Ableitung)
+ * @param explicit optionales, frei gesetztes Kürzel; überschreibt die Ableitung
  */
-export function epicShortcode(title: string): string {
+export function epicShortcode(title: string, explicit?: string | null): string {
+  const trimmed = explicit?.trim();
+  if (trimmed) return trimmed;
   const words = title.split(/\s+/).filter(Boolean);
   const initials = words
     .map((w) => w[0])

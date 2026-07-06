@@ -32,7 +32,19 @@ public class CreateItemUseCase {
   /** Legt ein normales Item ohne Epic-Zuordnung an. */
   @Transactional
   public KanbanItem execute(String userSub, String title, String body, KanbanColumn column) {
-    return execute(userSub, title, body, column, KanbanItemType.ITEM, null);
+    return execute(userSub, title, body, column, KanbanItemType.ITEM, null, null);
+  }
+
+  /** Legt ein Item mit Typ/Epic-Zuordnung ohne Kürzel an (Alt-Signatur, #322). */
+  @Transactional
+  public KanbanItem execute(
+      String userSub,
+      String title,
+      String body,
+      KanbanColumn column,
+      KanbanItemType type,
+      Long parentId) {
+    return execute(userSub, title, body, column, type, parentId, null);
   }
 
   @Transactional
@@ -42,7 +54,8 @@ public class CreateItemUseCase {
       String body,
       KanbanColumn column,
       KanbanItemType type,
-      Long parentId) {
+      Long parentId,
+      String shortcode) {
     final KanbanItemType itemType = type == null ? KanbanItemType.ITEM : type;
     validateParent(userSub, itemType, parentId);
 
@@ -52,9 +65,19 @@ public class CreateItemUseCase {
         itemType == KanbanItemType.EPIC ? 0 : items.findByUserAndColumn(userSub, target).size();
     // Fortlaufende Anzeige-Nummer pro User (#187): erstes Item = 1, sonst höchste + 1.
     final int nextNumber = items.getMaxNumberForUser(userSub).map(max -> max + 1).orElse(1);
+    // Die „Kürzel nur an Epics"-Invariante prüft die Domain (KanbanItem) — ein Kürzel an einem
+    // ITEM → IllegalArgumentException → 400 (#329).
     return items.save(
         KanbanItem.newInstance(
-                userSub, title, body, target, nextPosition, Instant.now(clock), itemType, parentId)
+                userSub,
+                title,
+                body,
+                target,
+                nextPosition,
+                Instant.now(clock),
+                itemType,
+                parentId,
+                shortcode)
             .withNumber(nextNumber));
   }
 

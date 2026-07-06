@@ -20,6 +20,7 @@ function epic(overrides: Partial<KanbanEpic> = {}): KanbanEpic {
     title: '10-Tage Workshop',
     body: '',
     type: 'EPIC',
+    shortcode: null,
     progress: { done: 0, total: 0 },
     ...overrides,
   };
@@ -53,7 +54,7 @@ describe('KanbanNewItemModal', () => {
     await user.type(screen.getByLabelText('Titel'), '  Neues Item  ');
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Neues Item', TEMPLATE, 'ITEM', null);
+    expect(onSubmit).toHaveBeenCalledWith('Neues Item', TEMPLATE, 'ITEM', null, null);
   });
 
   it('blendet bei Typ=Epic die Epic-Auswahl aus und legt ein Epic ohne Parent an', async () => {
@@ -69,7 +70,20 @@ describe('KanbanNewItemModal', () => {
     await user.type(screen.getByLabelText('Titel'), 'Mein Epic');
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Mein Epic', TEMPLATE, 'EPIC', null);
+    expect(onSubmit).toHaveBeenCalledWith('Mein Epic', TEMPLATE, 'EPIC', null, null);
+  });
+
+  it('sendet ein eingegebenes Kürzel beim Anlegen eines Epics (#329)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<KanbanNewItemModal open onClose={vi.fn()} onSubmit={onSubmit} />);
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText('Typ'), 'EPIC');
+    await user.type(screen.getByLabelText('Titel'), 'Workshop');
+    await user.type(screen.getByLabelText('Kürzel'), 'ITB');
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('Workshop', TEMPLATE, 'EPIC', null, 'ITB');
   });
 
   it('sendet parentId, wenn ein Epic ausgewählt wurde', async () => {
@@ -86,7 +100,7 @@ describe('KanbanNewItemModal', () => {
     await user.type(screen.getByLabelText('Titel'), 'Story');
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Story', TEMPLATE, 'ITEM', 7);
+    expect(onSubmit).toHaveBeenCalledWith('Story', TEMPLATE, 'ITEM', 7, null);
   });
 
   it('übernimmt ein vorbelegtes Epic (defaultParentId)', async () => {
@@ -99,7 +113,7 @@ describe('KanbanNewItemModal', () => {
     await user.type(screen.getByLabelText('Titel'), 'Story');
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Story', TEMPLATE, 'ITEM', 7);
+    expect(onSubmit).toHaveBeenCalledWith('Story', TEMPLATE, 'ITEM', 7, null);
   });
 
   it('Abbrechen ruft onClose, ohne zu speichern', async () => {

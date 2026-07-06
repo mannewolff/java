@@ -251,6 +251,33 @@ class KanbanUseCasesTest {
   }
 
   @Test
+  void createEpicWithShortcodeSucceeds() {
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(Optional.of(1));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem epic =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "Epic", "", null, KanbanItemType.EPIC, null, "ITB");
+
+    assertThat(epic.type()).isEqualTo(KanbanItemType.EPIC);
+    assertThat(epic.shortcode()).isEqualTo("ITB");
+  }
+
+  @Test
+  void createItemWithShortcodeIsRejected() {
+    // Nur Epics dürfen ein Kürzel tragen — die Domain lehnt ein Kürzel an einem ITEM ab (→ 400).
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(SUB_OWNER, "Story", "", null, KanbanItemType.ITEM, null, "X"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+    verify(items, never()).save(any());
+  }
+
+  @Test
   void createEpicWithParentIsRejected() {
     assertThatThrownBy(
             () ->

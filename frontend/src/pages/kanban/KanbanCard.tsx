@@ -107,13 +107,13 @@ export default function KanbanCard({
             borderRadius: 1,
             bgcolor: `${epicHue}22`,
           }}
-          aria-label={`Epic ${epicShortcode(epic.title)}`}
+          aria-label={`Epic ${epicShortcode(epic.title, epic.shortcode)}`}
         >
           <Box
             sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: epicHue, flexShrink: 0 }}
           />
           <Typography variant="caption" sx={{ fontWeight: 700, color: epicHue, lineHeight: 1 }}>
-            {epicShortcode(epic.title)}
+            {epicShortcode(epic.title, epic.shortcode)}
           </Typography>
         </Stack>
       )}

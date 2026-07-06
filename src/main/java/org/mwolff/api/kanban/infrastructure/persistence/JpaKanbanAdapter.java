@@ -65,6 +65,7 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
               item.body(),
               item.type(),
               item.parentId(),
+              item.shortcode(),
               item.column(),
               item.position(),
               item.movedToDoneAt());
@@ -84,8 +85,9 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
       entity.setPositionInColumn(item.position());
       entity.setMovedToDoneAt(item.movedToDoneAt());
       entity.setArchived(item.archived());
-      // type bleibt nach dem Anlegen fix; die Epic-Zuordnung darf sich ändern (#321).
+      // type bleibt nach dem Anlegen fix; Epic-Zuordnung und Kürzel dürfen sich ändern (#321/#329).
       entity.setParentId(item.parentId());
+      entity.setShortcode(item.shortcode());
     }
     return toDomain(itemRepo.save(entity));
   }
@@ -159,7 +161,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
         entity.isArchived(),
         entity.getNumber(),
         entity.getItemType(),
-        entity.getParentId());
+        entity.getParentId(),
+        entity.getShortcode());
   }
 
   private static KanbanSettings toDomain(KanbanSettingsEntity entity) {

@@ -15,6 +15,17 @@ describe('epicShortcode', () => {
     expect(epicShortcode('   ')).toBe('EPIC');
     expect(epicShortcode('')).toBe('EPIC');
   });
+
+  it('bevorzugt ein explizit gesetztes Kürzel vor der Ableitung (#329)', () => {
+    expect(epicShortcode('10-Tage Workshop', 'ITB-Workshop')).toBe('ITB-Workshop');
+    // Getrimmt.
+    expect(epicShortcode('10-Tage Workshop', '  ITB  ')).toBe('ITB');
+  });
+
+  it('ignoriert ein leeres explizites Kürzel und leitet ab (#329)', () => {
+    expect(epicShortcode('Alpha Beta', '   ')).toBe('AB');
+    expect(epicShortcode('Alpha Beta', null)).toBe('AB');
+  });
 });
 
 describe('epicColor', () => {

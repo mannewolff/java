@@ -25,6 +25,7 @@ interface KanbanNewItemModalProps {
     body: string,
     type: KanbanItemType,
     parentId: number | null,
+    shortcode: string | null,
   ) => Promise<void> | void;
   /** Vorbelegtes Epic (z. B. „+ Neue Story" aus der Epic-Detailansicht, #326). */
   defaultParentId?: number | null;
@@ -46,6 +47,7 @@ export default function KanbanNewItemModal({
   const [body, setBody] = useState(BODY_TEMPLATE);
   const [type, setType] = useState<KanbanItemType>('ITEM');
   const [parentId, setParentId] = useState<number | null>(defaultParentId);
+  const [shortcode, setShortcode] = useState('');
   const [epics, setEpics] = useState<KanbanEpic[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -56,6 +58,7 @@ export default function KanbanNewItemModal({
     setBody(BODY_TEMPLATE);
     setType('ITEM');
     setParentId(defaultParentId);
+    setShortcode('');
     let cancelled = false;
     getKanbanEpics()
       .then((loaded) => {
@@ -76,8 +79,10 @@ export default function KanbanNewItemModal({
     setSaving(true);
     // Ein Epic hat keinen Parent; sonst die gewaehlte Zuordnung (oder keine).
     const effectiveParent = type === 'EPIC' ? null : parentId;
+    // Kürzel gibt es nur an Epics; leeres Feld → kein Kürzel (Ableitung greift).
+    const effectiveShortcode = type === 'EPIC' && shortcode.trim() ? shortcode.trim() : null;
     try {
-      await onSubmit(title.trim(), body, type, effectiveParent);
+      await onSubmit(title.trim(), body, type, effectiveParent, effectiveShortcode);
     } finally {
       setSaving(false);
     }
@@ -120,10 +125,21 @@ export default function KanbanNewItemModal({
               <option value="">(kein Epic)</option>
               {epics.map((epic) => (
                 <option key={epic.id} value={epic.id}>
-                  {epicShortcode(epic.title)} – {epic.title}
+                  {epicShortcode(epic.title, epic.shortcode)} – {epic.title}
                 </option>
               ))}
             </TextField>
+          )}
+          {type === 'EPIC' && (
+            <TextField
+              label="Kürzel (optional)"
+              value={shortcode}
+              onChange={(e) => setShortcode(e.target.value)}
+              placeholder={epicShortcode(title)}
+              inputProps={{ maxLength: 16, 'aria-label': 'Kürzel' }}
+              helperText="Leer lassen, um es aus dem Titel abzuleiten."
+              fullWidth
+            />
           )}
           <TextField
             label="Titel"

@@ -201,10 +201,11 @@ export default function KanbanPage(): JSX.Element {
     body: string,
     type: KanbanItemType,
     parentId: number | null,
+    shortcode: string | null,
   ): Promise<void> {
     if (!createColumn) return;
     try {
-      await createKanbanItem(title, body, createColumn, type, parentId);
+      await createKanbanItem(title, body, createColumn, type, parentId, shortcode);
       notify.success(type === 'EPIC' ? 'Epic angelegt.' : 'Item angelegt.');
       setCreateColumn(null);
       await refresh();
@@ -416,7 +417,7 @@ export default function KanbanPage(): JSX.Element {
             }}
           />
           <Typography variant="caption" sx={{ fontWeight: 700, color: epicColor(selectedEpic.id) }}>
-            {epicShortcode(selectedEpic.title)}
+            {epicShortcode(selectedEpic.title, selectedEpic.shortcode)}
           </Typography>
           <Typography variant="h6">{selectedEpic.title}</Typography>
           <Box sx={{ flexGrow: 1 }} />

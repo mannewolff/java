@@ -8,7 +8,13 @@ import org.mwolff.api.kanban.domain.KanbanItemType;
  * zählen die (nicht-archivierten) Kind-Items bzw. die davon in DONE.
  */
 public record KanbanEpicResponse(
-    long id, int number, String title, String body, KanbanItemType type, Progress progress) {
+    long id,
+    int number,
+    String title,
+    String body,
+    KanbanItemType type,
+    String shortcode,
+    Progress progress) {
 
   /** Aggregierter Fortschritt eines Epics. */
   public record Progress(int done, int total) {}
@@ -20,6 +26,7 @@ public record KanbanEpicResponse(
         ep.epic().title(),
         ep.epic().body(),
         ep.epic().type(),
+        ep.epic().shortcode(),
         new Progress(ep.done(), ep.total()));
   }
 }

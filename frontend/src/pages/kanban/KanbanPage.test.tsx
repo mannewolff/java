@@ -203,6 +203,7 @@ describe('KanbanPage', () => {
         'BACKLOG',
         'ITEM',
         null,
+        null,
       ),
     );
     await waitFor(() => expect(screen.getByText('Neu')).toBeInTheDocument());
@@ -392,7 +393,7 @@ describe('KanbanPage', () => {
 
     // Body-Template ist hier nebensächlich — der Test prüft den Reload-Trigger.
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith('Neu', expect.any(String), 'BACKLOG', 'ITEM', null),
+      expect(create).toHaveBeenCalledWith('Neu', expect.any(String), 'BACKLOG', 'ITEM', null, null),
     );
     // Der an die Liste durchgereichte reloadKey ist gestiegen — die Liste lädt neu.
     await waitFor(() =>
@@ -438,7 +439,7 @@ describe('KanbanPage', () => {
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith('Neue Story', expect.any(String), 'BACKLOG', 'ITEM', 7),
+      expect(create).toHaveBeenCalledWith('Neue Story', expect.any(String), 'BACKLOG', 'ITEM', 7, null),
     );
   });
 });

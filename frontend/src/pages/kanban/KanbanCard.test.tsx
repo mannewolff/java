@@ -65,6 +65,7 @@ function makeEpic(overrides: Partial<KanbanEpic> = {}): KanbanEpic {
     title: '10-Tage Workshop',
     body: '',
     type: 'EPIC',
+    shortcode: null,
     progress: { done: 0, total: 0 },
     ...overrides,
   };
@@ -208,6 +209,13 @@ describe('KanbanCard Kit-Look (#281)', () => {
     const badge = screen.getByLabelText(`Epic ${epicShortcode(epic.title)}`);
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveTextContent('1WI');
+  });
+
+  it('zeigt das explizit gesetzte Epic-Kürzel statt der Ableitung (#329)', () => {
+    const epic = makeEpic({ id: 7, title: '10-Tage Workshop', shortcode: 'ITB' });
+    renderCard(makeItem({ parentId: 7 }), {}, epic);
+
+    expect(screen.getByLabelText('Epic ITB')).toHaveTextContent('ITB');
   });
 
   it('zeigt kein Epic-Badge, wenn das Item keinem Epic zugeordnet ist (#325)', () => {

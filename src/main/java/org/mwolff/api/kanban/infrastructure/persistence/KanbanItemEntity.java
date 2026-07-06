@@ -42,6 +42,9 @@ class KanbanItemEntity {
   @Column(name = "parent_id")
   private Long parentId;
 
+  @Column(name = "shortcode", length = 16)
+  private String shortcode;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "column_name", nullable = false, length = 20)
   private KanbanColumn columnName;
@@ -74,6 +77,7 @@ class KanbanItemEntity {
       String body,
       KanbanItemType itemType,
       Long parentId,
+      String shortcode,
       KanbanColumn columnName,
       int positionInColumn,
       Instant movedToDoneAt) {
@@ -82,6 +86,7 @@ class KanbanItemEntity {
     this.body = body;
     this.itemType = itemType;
     this.parentId = parentId;
+    this.shortcode = shortcode;
     this.columnName = columnName;
     this.positionInColumn = positionInColumn;
     this.movedToDoneAt = movedToDoneAt;
@@ -134,6 +139,14 @@ class KanbanItemEntity {
 
   void setParentId(Long parentId) {
     this.parentId = parentId;
+  }
+
+  String getShortcode() {
+    return shortcode;
+  }
+
+  void setShortcode(String shortcode) {
+    this.shortcode = shortcode;
   }
 
   KanbanColumn getColumnName() {

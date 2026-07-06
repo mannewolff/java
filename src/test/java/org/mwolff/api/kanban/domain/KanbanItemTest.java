@@ -260,6 +260,111 @@ class KanbanItemTest {
         .hasMessageContaining("type");
   }
 
+  // ----- Epic-Kürzel (#329) --------------------------------------------------
+
+  @Test
+  void newInstanceCreatesEpicWithShortcode() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "ITB");
+    assertThat(epic.shortcode()).isEqualTo("ITB");
+  }
+
+  @Test
+  void blankShortcodeIsNormalizedToNull() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "   ");
+    assertThat(epic.shortcode()).isNull();
+  }
+
+  @Test
+  void shortcodeIsTrimmed() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "  IT  ");
+    assertThat(epic.shortcode()).isEqualTo("IT");
+  }
+
+  @Test
+  void shouldRejectShortcodeOnNonEpic() {
+    assertThatThrownBy(
+            () ->
+                KanbanItem.newInstance(
+                    "u",
+                    "Story",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.EPOCH,
+                    KanbanItemType.ITEM,
+                    null,
+                    "X"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+  }
+
+  @Test
+  void shouldRejectTooLongShortcode() {
+    final String tooLong = "x".repeat(17);
+    assertThatThrownBy(
+            () ->
+                KanbanItem.newInstance(
+                    "u",
+                    "Epic",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.EPOCH,
+                    KanbanItemType.EPIC,
+                    null,
+                    tooLong))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("shortcode");
+  }
+
+  @Test
+  void withContentThreeArgUpdatesShortcode() {
+    final KanbanItem epic =
+        KanbanItem.newInstance(
+            "u",
+            "Epic",
+            "b",
+            KanbanColumn.BACKLOG,
+            0,
+            Instant.EPOCH,
+            KanbanItemType.EPIC,
+            null,
+            "OLD");
+    final KanbanItem updated = epic.withContent("Neu", "b2", "NEU");
+    assertThat(updated.title()).isEqualTo("Neu");
+    assertThat(updated.shortcode()).isEqualTo("NEU");
+  }
+
   @Test
   void copyMethodsPreserveTypeAndParent() {
     final KanbanItem story =

@@ -341,6 +341,34 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
+  void shortcodeRoundTripsOnInsertAndUpdate() {
+    final int number = adapter.getMaxNumberForUser(USER_A).map(max -> max + 1).orElse(1);
+    final KanbanItem epic =
+        adapter.save(
+            KanbanItem.newInstance(
+                    USER_A,
+                    "Epic",
+                    "",
+                    KanbanColumn.BACKLOG,
+                    0,
+                    Instant.now(),
+                    KanbanItemType.EPIC,
+                    null,
+                    "ITB")
+                .withNumber(number));
+
+    assertThat(epic.shortcode()).isEqualTo("ITB");
+    assertThat(adapter.findById(epic.id()))
+        .hasValueSatisfying(e -> assertThat(e.shortcode()).isEqualTo("ITB"));
+
+    // Update-Pfad ändert das Kürzel (withContent(3-arg)).
+    final KanbanItem renamed = adapter.save(epic.withContent("Epic", "", "NEU"));
+    assertThat(renamed.shortcode()).isEqualTo("NEU");
+    assertThat(adapter.findById(epic.id()))
+        .hasValueSatisfying(e -> assertThat(e.shortcode()).isEqualTo("NEU"));
+  }
+
+  @Test
   void parentIdRoundTripsOnInsertAndUpdate() {
     final KanbanItem epic = persistEpic(USER_A, "Parent-Epic");
     final int number = adapter.getMaxNumberForUser(USER_A).map(max -> max + 1).orElse(1);

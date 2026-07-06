@@ -58,7 +58,7 @@ export default function KanbanEpicsView({ epics, onOpen }: KanbanEpicsViewProps)
             <Stack direction="row" alignItems="center" spacing={1}>
               <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: hue, flexShrink: 0 }} />
               <Typography variant="caption" sx={{ fontWeight: 700, color: hue }}>
-                {epicShortcode(epic.title)}
+                {epicShortcode(epic.title, epic.shortcode)}
               </Typography>
               <Typography sx={{ fontWeight: 600 }}>{epic.title}</Typography>
             </Stack>

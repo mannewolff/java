@@ -12,6 +12,7 @@ function epic(overrides: Partial<KanbanEpic> = {}): KanbanEpic {
     title: '10-Tage Workshop',
     body: '## Kontext\nBeschreibung',
     type: 'EPIC',
+    shortcode: null,
     progress: { done: 1, total: 4 },
     ...overrides,
   };

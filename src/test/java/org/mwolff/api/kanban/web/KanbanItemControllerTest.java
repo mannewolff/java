@@ -168,6 +168,7 @@ class KanbanItemControllerTest {
                 eq("b"),
                 eq(KanbanColumn.BACKLOG),
                 eq(KanbanItemType.ITEM),
+                isNull(),
                 isNull()))
         .willReturn(item(7L, KanbanColumn.BACKLOG, 0));
 
@@ -193,6 +194,7 @@ class KanbanItemControllerTest {
                 eq("b"),
                 eq(KanbanColumn.BACKLOG),
                 eq(KanbanItemType.ITEM),
+                isNull(),
                 isNull()))
         .willThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
 
@@ -214,6 +216,7 @@ class KanbanItemControllerTest {
                 eq("b"),
                 eq(KanbanColumn.READY),
                 eq(KanbanItemType.ITEM),
+                isNull(),
                 isNull()))
         .willReturn(item(11L, KanbanColumn.READY, 0));
 
@@ -236,6 +239,7 @@ class KanbanItemControllerTest {
                 eq(""),
                 eq((KanbanColumn) null),
                 eq(KanbanItemType.ITEM),
+                isNull(),
                 isNull()))
         .willReturn(item(8L, KanbanColumn.BACKLOG, 0));
 
@@ -258,7 +262,8 @@ class KanbanItemControllerTest {
                 eq(""),
                 eq((KanbanColumn) null),
                 eq(KanbanItemType.ITEM),
-                eq(42L)))
+                eq(42L),
+                isNull()))
         .willReturn(item(12L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -271,11 +276,33 @@ class KanbanItemControllerTest {
   }
 
   @Test
+  void createEpicShouldPassShortcode() throws Exception {
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Workshop"),
+                eq(""),
+                eq((KanbanColumn) null),
+                eq(KanbanItemType.EPIC),
+                isNull(),
+                eq("ITB")))
+        .willReturn(item(13L, KanbanColumn.BACKLOG, 0));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Workshop\",\"type\":\"EPIC\",\"shortcode\":\"ITB\"}"))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
   void createShouldReturn400WhenParentInvalid() throws Exception {
     // Use-Case lehnt eine ungültige Epic-Zuordnung ab → 400 (KanbanExceptionHandler, #321/#322).
     willThrow(new IllegalArgumentException("parent 42 is not an epic"))
         .given(createUseCase)
-        .execute(eq(SUB), any(), any(), any(), eq(KanbanItemType.ITEM), eq(42L));
+        .execute(eq(SUB), any(), any(), any(), eq(KanbanItemType.ITEM), eq(42L), isNull());
 
     mockMvc
         .perform(

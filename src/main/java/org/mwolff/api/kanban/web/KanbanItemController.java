@@ -94,7 +94,8 @@ public class KanbanItemController {
             body.bodyOrEmpty(),
             body.column(),
             body.typeOrDefault(),
-            body.parentId());
+            body.parentId(),
+            body.shortcode());
     return ResponseEntity.status(HttpStatus.CREATED).body(KanbanItemResponse.from(created));
   }
 

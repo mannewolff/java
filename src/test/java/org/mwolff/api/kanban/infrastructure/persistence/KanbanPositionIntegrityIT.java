@@ -133,7 +133,7 @@ class KanbanPositionIntegrityIT extends AbstractIntegrationTest {
 
     final KanbanItemEntity duplicate =
         new KanbanItemEntity(
-            USER, "dup", "", KanbanItemType.ITEM, null, KanbanColumn.BACKLOG, 0, null);
+            USER, "dup", "", KanbanItemType.ITEM, null, null, KanbanColumn.BACKLOG, 0, null);
     duplicate.setNumber(999);
 
     assertThatThrownBy(() -> repo.saveAndFlush(duplicate))

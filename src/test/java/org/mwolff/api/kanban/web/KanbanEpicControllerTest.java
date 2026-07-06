@@ -40,7 +40,7 @@ class KanbanEpicControllerTest {
   @MockitoBean private GetEpicsUseCase getEpicsUseCase;
   @MockitoBean private JwtDecoder jwtDecoder;
 
-  private static KanbanItem epic(long id, int number, String title) {
+  private static KanbanItem epic(long id, int number, String title, String shortcode) {
     return new KanbanItem(
         id,
         SUB,
@@ -54,13 +54,14 @@ class KanbanEpicControllerTest {
         false,
         number,
         KanbanItemType.EPIC,
-        null);
+        null,
+        shortcode);
   }
 
   @Test
-  void listReturnsEpicsWithProgress() throws Exception {
+  void listReturnsEpicsWithProgressAndShortcode() throws Exception {
     given(getEpicsUseCase.execute(SUB))
-        .willReturn(List.of(new EpicWithProgress(epic(5L, 3, "Workshop"), 1, 4)));
+        .willReturn(List.of(new EpicWithProgress(epic(5L, 3, "Workshop", "ITB"), 1, 4)));
 
     mockMvc
         .perform(get("/api/kanban/epics").with(userJwt()))
@@ -68,6 +69,7 @@ class KanbanEpicControllerTest {
         .andExpect(jsonPath("$[0].number").value(3))
         .andExpect(jsonPath("$[0].title").value("Workshop"))
         .andExpect(jsonPath("$[0].type").value("EPIC"))
+        .andExpect(jsonPath("$[0].shortcode").value("ITB"))
         .andExpect(jsonPath("$[0].progress.done").value(1))
         .andExpect(jsonPath("$[0].progress.total").value(4));
   }

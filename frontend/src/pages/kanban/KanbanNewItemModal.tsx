@@ -27,7 +27,7 @@ interface KanbanNewItemModalProps {
     parentId: number | null,
     shortcode: string | null,
   ) => Promise<void> | void;
-  /** Vorbelegtes Epic (z. B. „+ Neue Story" aus der Epic-Detailansicht, #326). */
+  /** Vorbelegtes Epic (z. B. „+ Neues Item" aus der Epic-Detailansicht, #326). */
   defaultParentId?: number | null;
 }
 

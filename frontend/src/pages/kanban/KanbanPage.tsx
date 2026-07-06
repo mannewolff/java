@@ -101,7 +101,7 @@ export default function KanbanPage(): JSX.Element {
   const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
   const [editEpic, setEditEpic] = useState<KanbanEpic | null>(null);
   const [pendingDeleteEpic, setPendingDeleteEpic] = useState<KanbanEpic | null>(null);
-  // Vorbelegtes Epic beim Anlegen einer Story aus der Epic-Detailansicht (#326).
+  // Vorbelegtes Epic beim Anlegen eines Items aus der Epic-Detailansicht (#326).
   const [createParentId, setCreateParentId] = useState<number | null>(null);
 
   // Laufende Nummer je Drag (#316): nur der zuletzt gestartete Move darf reloaden bzw. bei Fehler
@@ -179,8 +179,8 @@ export default function KanbanPage(): JSX.Element {
     setCreateColumn(defaultColumn);
   }
 
-  // „+ Neue Story" aus der Epic-Detailansicht (#326): Item vorbelegt mit dem Epic als Parent.
-  function startCreateStory(epicId: number, defaultColumn: KanbanColumnId): void {
+  // „+ Neues Item" aus der Epic-Detailansicht (#326): Item vorbelegt mit dem Epic als Parent.
+  function startCreateItemInEpic(epicId: number, defaultColumn: KanbanColumnId): void {
     setCreateParentId(epicId);
     setCreateColumn(defaultColumn);
   }
@@ -484,16 +484,9 @@ export default function KanbanPage(): JSX.Element {
           >
             Löschen
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => startCreateStory(selectedEpic.id, 'BACKLOG')}
-          >
-            Neue Story
-          </Button>
         </Stack>
         {renderColumns(childrenBoardOf(selectedEpic.id), (col) =>
-          startCreateStory(selectedEpic.id, col),
+          startCreateItemInEpic(selectedEpic.id, col),
         )}
       </Box>
     );

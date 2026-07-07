@@ -104,6 +104,7 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
     number: 1,
     type: 'ITEM',
     parentId: null,
+    dependencies: [],
     ...overrides,
   };
 }

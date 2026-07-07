@@ -1032,8 +1032,25 @@ class KanbanUseCasesTest {
   @Test
   void updateSettingsSavesNewValue() {
     given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
-    final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10);
+    final KanbanSettings result =
+        new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, List.of("BACKLOG"));
     assertThat(result.doneRetentionDays()).isEqualTo(10);
+  }
+
+  @Test
+  void updateSettingsSanitizesFilters() {
+    given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
+    final KanbanSettings result =
+        new UpdateSettingsUseCase(settings)
+            .execute(SUB_OWNER, 10, List.of("BACKLOG", "bogus", "archived"));
+    assertThat(result.activeFilters()).containsExactlyInAnyOrder("BACKLOG", "archived");
+  }
+
+  @Test
+  void updateSettingsWithNullFiltersFallsBackToDefault() {
+    given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
+    final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, null);
+    assertThat(result.activeFilters()).isEqualTo(KanbanSettings.DEFAULT_FILTERS);
   }
 
   // ----- cleanup ------------------------------------------------------------

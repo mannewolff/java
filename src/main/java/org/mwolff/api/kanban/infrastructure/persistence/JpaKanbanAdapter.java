@@ -147,6 +147,7 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
             .orElseGet(
                 () -> new KanbanSettingsEntity(settings.userSub(), settings.doneRetentionDays()));
     entity.setDoneRetentionDays(settings.doneRetentionDays());
+    entity.setListFilters(KanbanSettings.serializeFilters(settings.activeFilters()));
     return toDomain(settingsRepo.save(entity));
   }
 
@@ -171,6 +172,9 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   }
 
   private static KanbanSettings toDomain(KanbanSettingsEntity entity) {
-    return new KanbanSettings(entity.getUserSub(), entity.getDoneRetentionDays());
+    return new KanbanSettings(
+        entity.getUserSub(),
+        entity.getDoneRetentionDays(),
+        KanbanSettings.parseFilters(entity.getListFilters()));
   }
 }

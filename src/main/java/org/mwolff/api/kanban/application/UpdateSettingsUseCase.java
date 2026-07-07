@@ -1,5 +1,7 @@
 package org.mwolff.api.kanban.application;
 
+import java.util.Collection;
+
 import org.mwolff.api.kanban.domain.KanbanSettings;
 import org.mwolff.api.kanban.domain.KanbanSettingsPort;
 import org.springframework.stereotype.Component;
@@ -16,7 +18,10 @@ public class UpdateSettingsUseCase {
   }
 
   @Transactional
-  public KanbanSettings execute(String userSub, int doneRetentionDays) {
-    return settings.save(new KanbanSettings(userSub, doneRetentionDays));
+  public KanbanSettings execute(
+      String userSub, int doneRetentionDays, Collection<String> activeFilters) {
+    return settings.save(
+        new KanbanSettings(
+            userSub, doneRetentionDays, KanbanSettings.sanitizeFilters(activeFilters)));
   }
 }

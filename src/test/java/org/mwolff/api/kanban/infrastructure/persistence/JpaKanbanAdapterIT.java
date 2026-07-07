@@ -309,6 +309,29 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
   }
 
   @Test
+  void settingsPersistAndReloadActiveFilters() {
+    adapter.save(new KanbanSettings(USER_A, 5, java.util.Set.of("BACKLOG", "archived")));
+    assertThat(adapter.findByUser(USER_A))
+        .hasValueSatisfying(
+            s -> assertThat(s.activeFilters()).containsExactlyInAnyOrder("BACKLOG", "archived"));
+  }
+
+  @Test
+  void settingsPersistEmptyFilterSet() {
+    adapter.save(new KanbanSettings(USER_A, 5, java.util.Set.of()));
+    assertThat(adapter.findByUser(USER_A))
+        .hasValueSatisfying(s -> assertThat(s.activeFilters()).isEmpty());
+  }
+
+  @Test
+  void settingsSavedViaConvenienceCtorReloadWithDefaultFilters() {
+    adapter.save(new KanbanSettings(USER_A, 5));
+    assertThat(adapter.findByUser(USER_A))
+        .hasValueSatisfying(
+            s -> assertThat(s.activeFilters()).isEqualTo(KanbanSettings.DEFAULT_FILTERS));
+  }
+
+  @Test
   void createdAndUpdatedAtAreSet() {
     final KanbanItem item = persist(USER_A, "T", "", KanbanColumn.BACKLOG, 0);
     assertThat(item.createdAt()).isNotNull();

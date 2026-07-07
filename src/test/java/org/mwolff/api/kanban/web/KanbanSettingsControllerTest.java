@@ -94,6 +94,31 @@ class KanbanSettingsControllerTest {
   }
 
   @Test
+  void putRejectsOutOfRangeWithFiltersPresent() throws Exception {
+    // Sichert @Min gegen einen PIT-Mutanten ab: auch mit gesetzten activeFilters
+    // muss ein ungueltiges doneRetentionDays (0) zu 400 fuehren.
+    mockMvc
+        .perform(
+            put("/api/kanban/settings")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"doneRetentionDays\":0,\"activeFilters\":[\"READY\"]}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void putRejectsAboveMaxWithFiltersPresent() throws Exception {
+    // Analog fuer @Max: 31 ueberschreitet die Obergrenze.
+    mockMvc
+        .perform(
+            put("/api/kanban/settings")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"doneRetentionDays\":31,\"activeFilters\":[\"READY\"]}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void getWithoutJwtIs401() throws Exception {
     mockMvc.perform(get("/api/kanban/settings")).andExpect(status().isUnauthorized());
   }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import KanbanListView from './KanbanListView';
@@ -88,6 +88,17 @@ function installMemoryLocalStorage(): void {
     },
   };
   vi.stubGlobal('localStorage', mock);
+}
+
+/**
+ * Spült die Promise-Microtasks der Initial-Loads (Board, Epics, Settings) durch, ohne die
+ * gefakten Timer zu bewegen. Unter `vi.useFakeTimers()` hängt RTLs `findByText`-Polling, weil es
+ * echte Timer erwartet — deshalb warten wir die Effekte hier explizit ab.
+ */
+async function flushEffects(): Promise<void> {
+  await act(async () => {
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
+  });
 }
 
 function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
@@ -454,23 +465,156 @@ describe('KanbanListView', () => {
   });
 
   it('persistiert eine Filter-Änderung entprellt via updateKanbanSettings (#346)', async () => {
+    vi.useFakeTimers();
+    try {
+      listItems.mockResolvedValue(
+        boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+      );
+      render(<NotifyProvider><KanbanListView retentionDays={7} /></NotifyProvider>);
+      await flushEffects();
+
+      // Zwei schnelle Klicks (Done aus, dann wieder an) -> nur EIN PUT durch die Entprellung.
+      fireEvent.click(screen.getByRole('button', { name: 'Filter Done' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Filter Done' }));
+
+      // Vor Ablauf des Debounce-Fensters ist noch nichts gespeichert.
+      expect(putSettings).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      // PUT-Promise settlen lassen, sonst act-Warnung.
+      await flushEffects();
+
+      expect(putSettings).toHaveBeenCalledTimes(1);
+      const [days, filters] = putSettings.mock.calls[0];
+      expect(days).toBe(7);
+      // Nach dem zweiten Klick ist Done wieder aktiv -> alle fünf Spalten gespeichert.
+      expect(filters).toEqual(expect.arrayContaining(ALL_COLUMNS));
+      expect(filters).not.toContain('archived');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('User-Auswahl gewinnt gegen einen spät eintreffenden Settings-Load (Race, #347)', async () => {
+    // getKanbanSettings kommt bewusst erst NACH der User-Interaktion zurück.
+    let resolveSettings!: (s: { doneRetentionDays: number; activeFilters: string[] }) => void;
+    getSettings.mockReturnValue(
+      new Promise((r) => {
+        resolveSettings = r;
+      }),
+    );
     listItems.mockResolvedValue(
       boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
     );
-    render(<NotifyProvider><KanbanListView retentionDays={7} /></NotifyProvider>);
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
     await screen.findByText('Backlog-Item');
 
     const user = userEvent.setup();
-    // Zwei schnelle Klicks (Done aus, dann wieder an) -> nur EIN PUT durch die Entprellung.
-    await user.click(screen.getByRole('button', { name: 'Filter Done' }));
-    await user.click(screen.getByRole('button', { name: 'Filter Done' }));
+    // User schaltet Ready aus, bevor der Load ankommt.
+    await user.click(screen.getByRole('button', { name: 'Filter Ready' }));
+    expect(screen.getByRole('button', { name: 'Filter Ready' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
 
-    await waitFor(() => expect(putSettings).toHaveBeenCalledTimes(1));
-    const [days, filters] = putSettings.mock.calls[0];
-    expect(days).toBe(7);
-    // Nach dem zweiten Klick ist Done wieder aktiv -> alle fünf Spalten gespeichert.
-    expect(filters).toEqual(expect.arrayContaining(ALL_COLUMNS));
-    expect(filters).not.toContain('archived');
+    // Spät eintreffender Load will alle fünf Spalten aktivieren — darf die Auswahl NICHT überschreiben.
+    resolveSettings({ doneRetentionDays: 5, activeFilters: ALL_COLUMNS });
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+
+    expect(screen.getByRole('button', { name: 'Filter Ready' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('ignoriert eine Antwort ohne activeFilters-Array ohne Crash und ohne Warnung (#347)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    getSettings.mockResolvedValue({ doneRetentionDays: 5 });
+    listItems.mockResolvedValue(
+      boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    await screen.findByText('Backlog-Item');
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+    // Default: alle fünf Spalten-Chips aktiv, Archiv aus.
+    for (const label of ['Backlog', 'Ready', 'In Progress', 'In Review', 'Done']) {
+      expect(screen.getByRole('button', { name: `Filter ${label}` })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+    }
+    expect(screen.getByRole('button', { name: 'Filter Archiv' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('wendet eine gespeicherte Auswahl mit Archiv an und lädt archivierte Items (#347)', async () => {
+    getSettings.mockResolvedValue({
+      doneRetentionDays: 5,
+      activeFilters: ['BACKLOG', 'archived'],
+    });
+    listItems.mockResolvedValue(
+      boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    await screen.findByText('Backlog-Item');
+    await waitFor(() => expect(listItems).toHaveBeenLastCalledWith(true));
+    expect(screen.getByRole('button', { name: 'Filter Archiv' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('persistiert den Archiv-Filter (#347)', async () => {
+    vi.useFakeTimers();
+    try {
+      listItems.mockResolvedValue(
+        boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+      );
+      render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+      await flushEffects();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Filter Archiv' }));
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      // Reload (listItems(true)) und PUT-Promise settlen lassen, sonst act-Warnung.
+      await flushEffects();
+
+      expect(putSettings).toHaveBeenCalledTimes(1);
+      expect(putSettings.mock.calls[0][1]).toContain('archived');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('räumt den Debounce-Timer bei Unmount ab (kein PUT, keine Warnung, #347)', async () => {
+    vi.useFakeTimers();
+    try {
+      listItems.mockResolvedValue(
+        boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+      );
+      const { unmount } = render(
+        <NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>,
+      );
+      await flushEffects();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Filter Done' }));
+      unmount();
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(putSettings).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('fängt einen Persistenz-Fehler still ab (kein Störer) (#346)', async () => {

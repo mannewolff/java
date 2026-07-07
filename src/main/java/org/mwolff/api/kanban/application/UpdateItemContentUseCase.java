@@ -1,5 +1,7 @@
 package org.mwolff.api.kanban.application;
 
+import java.util.List;
+
 import org.mwolff.api.kanban.domain.KanbanItem;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemPort;
@@ -44,6 +46,28 @@ public class UpdateItemContentUseCase {
     final KanbanItem existing = load(userSub, itemId);
     EpicAssignment.validateParent(items, userSub, existing.type(), parentId);
     return items.save(existing.withContent(title, body, shortcode, parentId));
+  }
+
+  /**
+   * Wie oben, zusätzlich mit Abhängigkeiten (#352). Jede referenzierte Anzeige-Nummer muss zu einem
+   * eigenen Item gehören und darf nicht das Item selbst sein — sonst {@link
+   * IllegalArgumentException} → 400.
+   */
+  @Transactional
+  public KanbanItem execute(
+      String userSub,
+      long itemId,
+      String title,
+      String body,
+      String shortcode,
+      Long parentId,
+      List<Integer> dependencies) {
+    final KanbanItem existing = load(userSub, itemId);
+    EpicAssignment.validateParent(items, userSub, existing.type(), parentId);
+    final KanbanItem updated =
+        existing.withContent(title, body, shortcode, parentId).withDependencies(dependencies);
+    DependencyValidation.validate(items, userSub, updated.number(), updated.dependencies());
+    return items.save(updated);
   }
 
   private KanbanItem load(String userSub, long itemId) {

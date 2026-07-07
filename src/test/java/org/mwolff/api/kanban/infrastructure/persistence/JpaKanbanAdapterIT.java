@@ -338,6 +338,36 @@ class JpaKanbanAdapterIT extends AbstractIntegrationTest {
     assertThat(item.updatedAt()).isNotNull();
   }
 
+  // ----- Dependencies (#352) -------------------------------------------------
+
+  @Test
+  void dependenciesRoundTripAsCsvNormalized() {
+    final KanbanItem item = persist(USER_A, "T", "", KanbanColumn.BACKLOG, 0);
+    adapter.save(item.withDependencies(java.util.List.of(34, 12, 12)));
+
+    assertThat(adapter.findById(item.id()))
+        .hasValueSatisfying(i -> assertThat(i.dependencies()).containsExactly(12, 34));
+  }
+
+  @Test
+  void emptyDependenciesReloadAsEmpty() {
+    final KanbanItem item = persist(USER_A, "T", "", KanbanColumn.BACKLOG, 0);
+    adapter.save(item.withDependencies(java.util.List.of()));
+
+    assertThat(adapter.findById(item.id()))
+        .hasValueSatisfying(i -> assertThat(i.dependencies()).isEmpty());
+  }
+
+  @Test
+  void findByUserAndNumberResolvesOwnNumberAndIsUserIsolated() {
+    final KanbanItem mine = persist(USER_A, "Mine", "", KanbanColumn.BACKLOG, 0);
+
+    assertThat(adapter.findByUserAndNumber(USER_A, mine.number()))
+        .hasValueSatisfying(i -> assertThat(i.id()).isEqualTo(mine.id()));
+    // Dieselbe Nummer bei einem anderen User existiert nicht → empty (Owner-Isolation).
+    assertThat(adapter.findByUserAndNumber(USER_B, mine.number())).isEmpty();
+  }
+
   // ----- Epics (#321) --------------------------------------------------------
 
   /** Legt ein Epic an (position 0 fix — Epics halten keine aktive Position). */

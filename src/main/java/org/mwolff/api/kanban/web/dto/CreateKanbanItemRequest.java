@@ -1,5 +1,7 @@
 package org.mwolff.api.kanban.web.dto;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -18,11 +20,17 @@ public record CreateKanbanItemRequest(
     KanbanColumn column,
     KanbanItemType type,
     Long parentId,
-    @Size(max = KanbanItem.MAX_SHORTCODE_LENGTH) String shortcode) {
+    @Size(max = KanbanItem.MAX_SHORTCODE_LENGTH) String shortcode,
+    List<Integer> dependencies) {
 
   /** Liefert den Body oder den Leerstring, falls null/missing — Domain erwartet non-null. */
   public String bodyOrEmpty() {
     return body == null ? "" : body;
+  }
+
+  /** Abhängigkeiten oder leere Liste, falls null/missing. */
+  public List<Integer> dependenciesOrEmpty() {
+    return dependencies == null ? List.of() : dependencies;
   }
 
   /** Liefert den Typ oder {@link KanbanItemType#ITEM}, falls null/missing. */

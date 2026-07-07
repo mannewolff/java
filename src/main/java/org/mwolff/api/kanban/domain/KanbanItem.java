@@ -1,7 +1,10 @@
 package org.mwolff.api.kanban.domain;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Ein Kanban-Item gehört genau einem User und liegt zu jedem Zeitpunkt in genau einer Spalte. Die
@@ -35,6 +38,9 @@ import java.util.Objects;
  * @param type {@link KanbanItemType#ITEM} (Board-Karte) oder {@link KanbanItemType#EPIC}
  * @param parentId ID des zugeordneten Epics ({@code null} = keinem Epic zugeordnet)
  * @param shortcode optionales Epic-Kürzel ({@code null} = keins; nur an Epics erlaubt)
+ * @param dependencies Anzeige-Nummern der Einträge, von denen dieser abhängt (#352). Normalisiert:
+ *     dedupliziert, aufsteigend sortiert, ohne Werte ≤ 0; nie {@code null}. Existenz- und
+ *     Selbstreferenz-Prüfung liegt im Use-Case.
  */
 public record KanbanItem(
     Long id,
@@ -50,7 +56,8 @@ public record KanbanItem(
     int number,
     KanbanItemType type,
     Long parentId,
-    String shortcode) {
+    String shortcode,
+    List<Integer> dependencies) {
 
   /** Maximale Länge des Titels — entspricht dem Schema. */
   public static final int MAX_TITLE_LENGTH = 200;
@@ -102,6 +109,51 @@ public record KanbanItem(
             "shortcode must be at most " + MAX_SHORTCODE_LENGTH + " chars");
       }
     }
+    // Abhängigkeiten normalisieren: null → leer, ≤0 verwerfen, dedupliziert, aufsteigend.
+    // List.copyOf
+    // liefert eine von SpotBugs als unveränderlich erkannte Liste (kein EI_EXPOSE_REP am Accessor).
+    dependencies =
+        dependencies == null
+            ? List.of()
+            : List.copyOf(
+                dependencies.stream().filter(n -> n != null && n > 0).distinct().sorted().toList());
+  }
+
+  /**
+   * Convenience-Konstruktor mit Kürzel, aber ohne Abhängigkeiten (#329) — hält alle Aufrufstellen
+   * vor #352 stabil (Abhängigkeiten default leer).
+   */
+  public KanbanItem(
+      Long id,
+      String userSub,
+      String title,
+      String body,
+      KanbanColumn column,
+      int position,
+      Instant createdAt,
+      Instant updatedAt,
+      Instant movedToDoneAt,
+      boolean archived,
+      int number,
+      KanbanItemType type,
+      Long parentId,
+      String shortcode) {
+    this(
+        id,
+        userSub,
+        title,
+        body,
+        column,
+        position,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived,
+        number,
+        type,
+        parentId,
+        shortcode,
+        List.of());
   }
 
   /**
@@ -136,7 +188,8 @@ public record KanbanItem(
         number,
         type,
         parentId,
-        null);
+        null,
+        List.of());
   }
 
   /**
@@ -247,7 +300,8 @@ public record KanbanItem(
         newNumber,
         type,
         parentId,
-        shortcode);
+        shortcode,
+        dependencies);
   }
 
   /** Kopie mit neuem Titel und neuem Body. Alle anderen Felder bleiben unverändert. */
@@ -266,7 +320,8 @@ public record KanbanItem(
         number,
         type,
         parentId,
-        shortcode);
+        shortcode,
+        dependencies);
   }
 
   /**
@@ -288,7 +343,8 @@ public record KanbanItem(
         number,
         type,
         parentId,
-        newShortcode);
+        newShortcode,
+        dependencies);
   }
 
   /**
@@ -313,7 +369,8 @@ public record KanbanItem(
         number,
         type,
         newParentId,
-        newShortcode);
+        newShortcode,
+        dependencies);
   }
 
   /**
@@ -338,7 +395,8 @@ public record KanbanItem(
         number,
         type,
         parentId,
-        shortcode);
+        shortcode,
+        dependencies);
   }
 
   /** Kopie mit neuer Position (gleiche Spalte). */
@@ -357,6 +415,53 @@ public record KanbanItem(
         number,
         type,
         parentId,
-        shortcode);
+        shortcode,
+        dependencies);
+  }
+
+  /** Kopie mit neuen Abhängigkeiten (#352). Alle anderen Felder bleiben unverändert. */
+  public KanbanItem withDependencies(List<Integer> newDependencies) {
+    return new KanbanItem(
+        id,
+        userSub,
+        title,
+        body,
+        column,
+        position,
+        createdAt,
+        updatedAt,
+        movedToDoneAt,
+        archived,
+        number,
+        type,
+        parentId,
+        shortcode,
+        newDependencies);
+  }
+
+  /**
+   * Serialisiert die Abhängigkeiten als CSV der Nummern (für die Persistenz), z. B. {@code
+   * "12,34"}.
+   */
+  public static String dependenciesToCsv(List<Integer> dependencies) {
+    return dependencies.stream().map(String::valueOf).collect(Collectors.joining(","));
+  }
+
+  /**
+   * Parst die persistierte CSV zurück in eine normalisierte Nummern-Liste. {@code null}/leer →
+   * leer.
+   */
+  public static List<Integer> dependenciesFromCsv(String csv) {
+    if (csv == null || csv.isBlank()) {
+      return List.of();
+    }
+    return Arrays.stream(csv.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .map(Integer::valueOf)
+        .filter(n -> n > 0)
+        .distinct()
+        .sorted()
+        .toList();
   }
 }

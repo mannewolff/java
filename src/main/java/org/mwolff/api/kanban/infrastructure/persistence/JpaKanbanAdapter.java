@@ -76,6 +76,7 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
               item.movedToDoneAt());
       // Anzeige-Nummer (#187) wird vom Use-Case berechnet und nur beim Neuanlegen geschrieben.
       entity.setNumber(item.number());
+      entity.setDependencies(serializeDependencies(item));
     } else {
       entity =
           itemRepo
@@ -93,8 +94,14 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
       // type bleibt nach dem Anlegen fix; Epic-Zuordnung und Kürzel dürfen sich ändern (#321/#329).
       entity.setParentId(item.parentId());
       entity.setShortcode(item.shortcode());
+      entity.setDependencies(serializeDependencies(item));
     }
     return toDomain(itemRepo.save(entity));
+  }
+
+  private static String serializeDependencies(KanbanItem item) {
+    // Leere Liste als NULL speichern (kein "" in der Spalte).
+    return item.dependencies().isEmpty() ? null : KanbanItem.dependenciesToCsv(item.dependencies());
   }
 
   @Override
@@ -130,6 +137,11 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
   @Override
   public List<String> distinctUsersWithDoneItems() {
     return itemRepo.distinctUsersWithDoneItems();
+  }
+
+  @Override
+  public Optional<KanbanItem> findByUserAndNumber(String userSub, int number) {
+    return itemRepo.findByUserSubAndNumber(userSub, number).map(JpaKanbanAdapter::toDomain);
   }
 
   // ----- KanbanSettingsPort ------------------------------------------------
@@ -168,7 +180,8 @@ class JpaKanbanAdapter implements KanbanItemPort, KanbanSettingsPort {
         entity.getNumber(),
         entity.getItemType(),
         entity.getParentId(),
-        entity.getShortcode());
+        entity.getShortcode(),
+        KanbanItem.dependenciesFromCsv(entity.getDependencies()));
   }
 
   private static KanbanSettings toDomain(KanbanSettingsEntity entity) {

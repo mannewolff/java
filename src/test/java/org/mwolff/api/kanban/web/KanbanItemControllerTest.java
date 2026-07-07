@@ -169,7 +169,8 @@ class KanbanItemControllerTest {
                 eq(KanbanColumn.BACKLOG),
                 eq(KanbanItemType.ITEM),
                 isNull(),
-                isNull()))
+                isNull(),
+                eq(java.util.List.of())))
         .willReturn(item(7L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -195,7 +196,8 @@ class KanbanItemControllerTest {
                 eq(KanbanColumn.BACKLOG),
                 eq(KanbanItemType.ITEM),
                 isNull(),
-                isNull()))
+                isNull(),
+                eq(java.util.List.of())))
         .willThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
 
     mockMvc
@@ -217,7 +219,8 @@ class KanbanItemControllerTest {
                 eq(KanbanColumn.READY),
                 eq(KanbanItemType.ITEM),
                 isNull(),
-                isNull()))
+                isNull(),
+                eq(java.util.List.of())))
         .willReturn(item(11L, KanbanColumn.READY, 0));
 
     mockMvc
@@ -240,7 +243,8 @@ class KanbanItemControllerTest {
                 eq((KanbanColumn) null),
                 eq(KanbanItemType.ITEM),
                 isNull(),
-                isNull()))
+                isNull(),
+                eq(java.util.List.of())))
         .willReturn(item(8L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -263,7 +267,8 @@ class KanbanItemControllerTest {
                 eq((KanbanColumn) null),
                 eq(KanbanItemType.ITEM),
                 eq(42L),
-                isNull()))
+                isNull(),
+                eq(java.util.List.of())))
         .willReturn(item(12L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -285,7 +290,8 @@ class KanbanItemControllerTest {
                 eq((KanbanColumn) null),
                 eq(KanbanItemType.EPIC),
                 isNull(),
-                eq("ITB")))
+                eq("ITB"),
+                eq(java.util.List.of())))
         .willReturn(item(13L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -302,7 +308,7 @@ class KanbanItemControllerTest {
     // Use-Case lehnt eine ungültige Epic-Zuordnung ab → 400 (KanbanExceptionHandler, #321/#322).
     willThrow(new IllegalArgumentException("parent 42 is not an epic"))
         .given(createUseCase)
-        .execute(eq(SUB), any(), any(), any(), eq(KanbanItemType.ITEM), eq(42L), isNull());
+        .execute(eq(SUB), any(), any(), any(), eq(KanbanItemType.ITEM), eq(42L), isNull(), any());
 
     mockMvc
         .perform(
@@ -326,7 +332,7 @@ class KanbanItemControllerTest {
 
   @Test
   void updateShouldReturnUpdated() throws Exception {
-    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, null))
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, null, java.util.List.of()))
         .willReturn(item(5L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -341,7 +347,7 @@ class KanbanItemControllerTest {
 
   @Test
   void updateShouldPassShortcodeThrough() throws Exception {
-    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", "ITB", null))
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", "ITB", null, java.util.List.of()))
         .willReturn(item(5L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -355,7 +361,7 @@ class KanbanItemControllerTest {
 
   @Test
   void updateShouldPassParentIdThrough() throws Exception {
-    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, 42L))
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, 42L, java.util.List.of()))
         .willReturn(item(5L, KanbanColumn.BACKLOG, 0));
 
     mockMvc
@@ -368,10 +374,51 @@ class KanbanItemControllerTest {
   }
 
   @Test
+  void updateShouldPassDependenciesThroughAndReturnThem() throws Exception {
+    given(updateUseCase.execute(SUB, 5L, "Neu", "Body", null, null, java.util.List.of(2, 3)))
+        .willReturn(item(5L, KanbanColumn.BACKLOG, 0).withDependencies(java.util.List.of(2, 3)));
+
+    mockMvc
+        .perform(
+            put("/api/kanban/items/5")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Neu\",\"body\":\"Body\",\"dependencies\":[2,3]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dependencies[0]").value(2))
+        .andExpect(jsonPath("$.dependencies[1]").value(3));
+  }
+
+  @Test
+  void createShouldPassDependencies() throws Exception {
+    given(
+            createUseCase.execute(
+                eq(SUB),
+                eq("Neu"),
+                eq("b"),
+                eq(KanbanColumn.BACKLOG),
+                eq(KanbanItemType.ITEM),
+                isNull(),
+                isNull(),
+                eq(java.util.List.of(4))))
+        .willReturn(item(7L, KanbanColumn.BACKLOG, 0).withDependencies(java.util.List.of(4)));
+
+    mockMvc
+        .perform(
+            post("/api/kanban/items")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"title\":\"Neu\",\"body\":\"b\",\"column\":\"BACKLOG\",\"dependencies\":[4]}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.dependencies[0]").value(4));
+  }
+
+  @Test
   void updateWithInvalidParentShouldReturn400() throws Exception {
     willThrow(new IllegalArgumentException("parent epic 42 not found"))
         .given(updateUseCase)
-        .execute(any(), eq(5L), any(), any(), any(), any());
+        .execute(any(), eq(5L), any(), any(), any(), any(), any());
 
     mockMvc
         .perform(
@@ -386,7 +433,7 @@ class KanbanItemControllerTest {
   void updateForeignItemShouldReturn404() throws Exception {
     willThrow(new KanbanItemNotFoundException(5L))
         .given(updateUseCase)
-        .execute(any(), eq(5L), any(), any(), any(), any());
+        .execute(any(), eq(5L), any(), any(), any(), any(), any());
 
     mockMvc
         .perform(

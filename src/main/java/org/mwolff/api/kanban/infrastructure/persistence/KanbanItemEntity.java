@@ -45,6 +45,10 @@ class KanbanItemEntity {
   @Column(name = "shortcode", length = 16)
   private String shortcode;
 
+  /** Abhängigkeiten als CSV von Anzeige-Nummern (#352); {@code null} = keine. */
+  @Column(name = "dependencies", length = 255)
+  private String dependencies;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "column_name", nullable = false, length = 20)
   private KanbanColumn columnName;
@@ -147,6 +151,14 @@ class KanbanItemEntity {
 
   void setShortcode(String shortcode) {
     this.shortcode = shortcode;
+  }
+
+  String getDependencies() {
+    return dependencies;
+  }
+
+  void setDependencies(String dependencies) {
+    this.dependencies = dependencies;
   }
 
   KanbanColumn getColumnName() {

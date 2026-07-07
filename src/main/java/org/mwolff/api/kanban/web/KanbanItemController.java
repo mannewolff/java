@@ -95,7 +95,8 @@ public class KanbanItemController {
             body.column(),
             body.typeOrDefault(),
             body.parentId(),
-            body.shortcode());
+            body.shortcode(),
+            body.dependenciesOrEmpty());
     return ResponseEntity.status(HttpStatus.CREATED).body(KanbanItemResponse.from(created));
   }
 
@@ -111,7 +112,8 @@ public class KanbanItemController {
             body.title(),
             body.body(),
             body.shortcode(),
-            body.parentId()));
+            body.parentId(),
+            body.dependenciesOrEmpty()));
   }
 
   @PutMapping("/{id}/move")

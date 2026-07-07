@@ -1,5 +1,7 @@
 package org.mwolff.api.kanban.web.dto;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,4 +18,11 @@ public record UpdateKanbanItemRequest(
     @NotBlank @Size(max = KanbanItem.MAX_TITLE_LENGTH) String title,
     @NotNull @Size(max = KanbanItem.MAX_BODY_LENGTH) String body,
     @Size(max = KanbanItem.MAX_SHORTCODE_LENGTH) String shortcode,
-    Long parentId) {}
+    Long parentId,
+    List<Integer> dependencies) {
+
+  /** Abhängigkeiten oder leere Liste, falls null/missing — Domain normalisiert weiter. */
+  public List<Integer> dependenciesOrEmpty() {
+    return dependencies == null ? List.of() : dependencies;
+  }
+}

@@ -1047,10 +1047,21 @@ class KanbanUseCasesTest {
   }
 
   @Test
-  void updateSettingsWithNullFiltersFallsBackToDefault() {
+  void updateSettingsWithNullFiltersDefaultsWhenNothingStored() {
+    given(settings.findByUser(SUB_OWNER)).willReturn(Optional.empty());
     given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
     final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, null);
     assertThat(result.activeFilters()).isEqualTo(KanbanSettings.DEFAULT_FILTERS);
+  }
+
+  @Test
+  void updateSettingsWithNullFiltersPreservesExisting() {
+    given(settings.findByUser(SUB_OWNER))
+        .willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 5, java.util.Set.of("READY"))));
+    given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
+    final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, null);
+    assertThat(result.activeFilters()).containsExactly("READY");
+    assertThat(result.doneRetentionDays()).isEqualTo(10);
   }
 
   // ----- cleanup ------------------------------------------------------------

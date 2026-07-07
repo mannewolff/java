@@ -52,6 +52,11 @@ export interface KanbanEpic {
 
 export interface KanbanSettings {
   doneRetentionDays: number;
+  /**
+   * In der Listen-Ansicht aktive Filter-Keys (Spalten-Namen + 'archived'). Serverseitig
+   * persistiert (#346), damit die Auswahl Bereichswechsel und Reload überlebt.
+   */
+  activeFilters: string[];
 }
 
 export interface KanbanComment {
@@ -135,8 +140,14 @@ export function getKanbanSettings(): Promise<KanbanSettings> {
 
 export function updateKanbanSettings(
   doneRetentionDays: number,
+  activeFilters?: string[],
 ): Promise<KanbanSettings> {
-  return api.put<KanbanSettings>(`${PATH}/settings`, { doneRetentionDays });
+  // activeFilters weglassen (nicht senden), wenn nicht mitgegeben — das Backend behält dann
+  // die bestehenden Filter (partielles Update), sodass ein reines Retention-Update die in der
+  // Listen-Ansicht gesetzten Filter nicht zurücksetzt.
+  const body =
+    activeFilters === undefined ? { doneRetentionDays } : { doneRetentionDays, activeFilters };
+  return api.put<KanbanSettings>(`${PATH}/settings`, body);
 }
 
 export function listKanbanComments(itemId: number): Promise<KanbanComment[]> {

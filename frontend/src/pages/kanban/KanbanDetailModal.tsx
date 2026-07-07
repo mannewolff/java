@@ -38,11 +38,36 @@ interface KanbanDetailModalProps {
   item: KanbanItem;
   retentionDays: number;
   onClose: () => void;
-  onSubmit: (title: string, body: string, parentId: number | null) => Promise<void> | void;
+  onSubmit: (
+    title: string,
+    body: string,
+    parentId: number | null,
+    dependencies: number[],
+  ) => Promise<void> | void;
   /** Stellt ein archiviertes Item wieder her (#341). Nur relevant, wenn {@code item.archived}. */
   onRestore?: () => Promise<void> | void;
   /** Löscht ein archiviertes Item endgültig (#341), nach Bestätigung im Modal. */
   onForceDelete?: () => Promise<void> | void;
+}
+
+/**
+ * Parst die kommagetrennte Abhängigkeits-Eingabe in Nummern. Nur positive Ganzzahlen sind gültig;
+ * Leerzeichen/Leer-Tokens werden ignoriert, Duplikate entfernt. {@code valid=false} bei jedem
+ * nicht-numerischen oder nicht-positiven Token.
+ */
+export function parseDependencyInput(input: string): { deps: number[]; valid: boolean } {
+  const tokens = input
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const deps: number[] = [];
+  for (const token of tokens) {
+    if (!/^\d+$/.test(token)) return { deps: [], valid: false };
+    const n = Number(token);
+    if (n <= 0) return { deps: [], valid: false };
+    if (!deps.includes(n)) deps.push(n);
+  }
+  return { deps, valid: true };
 }
 
 /**
@@ -65,10 +90,14 @@ export default function KanbanDetailModal({
   onForceDelete,
 }: KanbanDetailModalProps): JSX.Element {
   const { username } = useAuth();
+  // Defensive: Altdaten/Fixtures ohne dependencies-Feld dürfen das Modal nicht crashen.
+  const itemDependencies = item.dependencies ?? [];
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
   const [parentId, setParentId] = useState<number | null>(item.parentId);
+  const [dependencies, setDependencies] = useState<string>(itemDependencies.join(', '));
+  const [depsError, setDepsError] = useState<string | null>(null);
   const [epics, setEpics] = useState<KanbanEpic[]>([]);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -89,9 +118,11 @@ export default function KanbanDetailModal({
       setTitle(item.title);
       setBody(item.body);
       setParentId(item.parentId);
+      setDependencies((item.dependencies ?? []).join(', '));
+      setDepsError(null);
       setConfirmingDelete(false);
     }
-  }, [open, item.title, item.body, item.parentId]);
+  }, [open, item.title, item.body, item.parentId, item.dependencies]);
 
   // Epic-Liste fuer die Zuordnungs-Auswahl laden (nur relevant fuer normale Items).
   useEffect(() => {
@@ -184,6 +215,8 @@ export default function KanbanDetailModal({
     setTitle(item.title);
     setBody(item.body);
     setParentId(item.parentId);
+    setDependencies(itemDependencies.join(', '));
+    setDepsError(null);
     setEditing(true);
   };
 
@@ -193,10 +226,16 @@ export default function KanbanDetailModal({
 
   const handleSave = async (): Promise<void> => {
     if (!canSubmit || saving) return;
+    const { deps, valid } = parseDependencyInput(dependencies);
+    if (!valid) {
+      setDepsError('Nur positive Nummern, kommagetrennt (z. B. 12, 34).');
+      return;
+    }
+    setDepsError(null);
     setSaving(true);
     try {
       // Ein Epic bekommt keinen Parent; sonst die (evtl. entfernte) Zuordnung uebergeben.
-      await onSubmit(title.trim(), body, canAssignEpic ? parentId : null);
+      await onSubmit(title.trim(), body, canAssignEpic ? parentId : null, deps);
       setEditing(false);
     } finally {
       setSaving(false);
@@ -293,11 +332,30 @@ export default function KanbanDetailModal({
                   ))}
                 </TextField>
               )}
+              <TextField
+                label="Abhängig von (Nummern, kommagetrennt)"
+                value={dependencies}
+                onChange={(e) => {
+                  setDependencies(e.target.value);
+                  if (depsError) setDepsError(null);
+                }}
+                error={depsError != null}
+                helperText={depsError ?? 'z. B. 12, 34'}
+                inputProps={{ 'aria-label': 'Abhängig von' }}
+                fullWidth
+              />
             </>
           ) : (
-            <Box aria-label="Beschreibung" sx={{ '& :first-of-type': { mt: 0 } }}>
-              <ReactMarkdown>{item.body}</ReactMarkdown>
-            </Box>
+            <>
+              <Box aria-label="Beschreibung" sx={{ '& :first-of-type': { mt: 0 } }}>
+                <ReactMarkdown>{item.body}</ReactMarkdown>
+              </Box>
+              {itemDependencies.length > 0 && (
+                <Typography variant="body2" color="text.secondary" aria-label="Abhängigkeiten">
+                  Abhängig von: {itemDependencies.map((n) => `#${n}`).join(', ')}
+                </Typography>
+              )}
+            </>
           )}
           {showDoneHint && (
             <Typography variant="caption" color="text.secondary">

@@ -64,6 +64,7 @@ function makeItem(overrides: Partial<KanbanItem> = {}): KanbanItem {
     number: 1,
     type: 'ITEM',
     parentId: null,
+    dependencies: [],
     ...overrides,
   };
 }
@@ -179,7 +180,7 @@ describe('KanbanDetailModal', () => {
     await user.type(titleInput, '  Neu  ');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body', null);
+    expect(onSubmit).toHaveBeenCalledWith('Neu', 'Alt-Body', null, []);
     // Nach dem Speichern wieder im Lesemodus (Bearbeiten-Button sichtbar).
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument(),
@@ -226,7 +227,7 @@ describe('KanbanDetailModal', () => {
     await user.selectOptions(screen.getByLabelText('Epic'), '7');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', 7);
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', 7, []);
   });
 
   it('entfernt die Epic-Zuordnung, wenn „(kein Epic)" gewählt wird (#339)', async () => {
@@ -249,7 +250,66 @@ describe('KanbanDetailModal', () => {
     await user.selectOptions(screen.getByLabelText('Epic'), '');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', null);
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', null, []);
+  });
+
+  it('übergibt die eingegebenen Abhängigkeits-Nummern an onSubmit (#353)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({})}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await user.type(screen.getByLabelText('Abhängig von'), '12, 34');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('Titel', '## Kontext\nBody-Text', null, [12, 34]);
+  });
+
+  it('zeigt vorhandene Abhängigkeiten im Lesemodus als #N (#353)', async () => {
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ dependencies: [12, 34] })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Abhängigkeiten')).toHaveTextContent(
+      'Abhängig von: #12, #34',
+    );
+  });
+
+  it('blockt das Speichern bei ungültiger Abhängigkeits-Eingabe (#353)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({})}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    await user.type(screen.getByLabelText('Abhängig von'), 'abc');
+    await user.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/Nur positive Nummern/)).toBeInTheDocument();
   });
 
   it('bietet Wiederherstellen/Endgültig-Löschen nur bei archivierten Items (#341)', async () => {

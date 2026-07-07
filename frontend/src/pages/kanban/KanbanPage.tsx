@@ -59,7 +59,7 @@ import KanbanEpicsView from './KanbanEpicsView';
 import KanbanListView from './KanbanListView';
 import KanbanNewItemModal from './KanbanNewItemModal';
 import KanbanSettingsDrawer from './KanbanSettingsDrawer';
-import { emptyBoard, moveItem } from './boardOps';
+import { emptyBoard, moveItem, unmetBacklogDependencies, type UnmetDependency } from './boardOps';
 
 const DEFAULT_RETENTION_DAYS = 5;
 
@@ -103,6 +103,14 @@ export default function KanbanPage(): JSX.Element {
   const [pendingDeleteEpic, setPendingDeleteEpic] = useState<KanbanEpic | null>(null);
   // Vorbelegtes Epic beim Anlegen eines Items aus der Epic-Detailansicht (#326).
   const [createParentId, setCreateParentId] = useState<number | null>(null);
+  // Offene Abhängigkeiten beim Verschieben nach READY (#353): löst einen Bestätigungsdialog aus,
+  // statt den Move sofort auszuführen. null = kein Dialog.
+  const [pendingDependencyMove, setPendingDependencyMove] = useState<{
+    itemId: number;
+    targetColumn: KanbanColumnId;
+    targetPosition: number;
+    unmet: UnmetDependency[];
+  } | null>(null);
 
   // Laufende Nummer je Drag (#316): nur der zuletzt gestartete Move darf reloaden bzw. bei Fehler
   // zurückrollen. So lässt ein verspäteter reload eines älteren Moves die Items nicht zurückspringen
@@ -194,10 +202,11 @@ export default function KanbanPage(): JSX.Element {
     title: string,
     body: string,
     parentId: number | null,
+    dependencies: number[],
   ): Promise<void> {
     if (!detailItem) return;
     try {
-      await updateKanbanItem(detailItem.id, title, body, null, parentId);
+      await updateKanbanItem(detailItem.id, title, body, null, parentId, dependencies);
       notify.success('Item gespeichert.');
       setDetailItem(null);
       await refresh();
@@ -311,22 +320,14 @@ export default function KanbanPage(): JSX.Element {
     }
   }
 
-  async function handleDragEnd(event: DragEndEvent): Promise<void> {
+  // Führt den eigentlichen Move aus (optimistisches Update + API + reload/rollback). Getrennt vom
+  // Drag-Handler, damit ihn auch die „Trotzdem verschieben"-Bestätigung (#353) aufrufen kann.
+  async function performMove(
+    itemId: number,
+    targetColumn: KanbanColumnId,
+    targetPosition: number,
+  ): Promise<void> {
     if (state.kind !== 'ready') return;
-    const { active, over } = event;
-    if (!over) return;
-
-    const itemId = Number(active.id);
-    const overData = over.data.current as
-      | { type: 'column'; column: KanbanColumnId }
-      | { type: 'item'; column: KanbanColumnId; position: number }
-      | undefined;
-    if (!overData) return;
-
-    const targetColumn = overData.column;
-    const targetPosition =
-      overData.type === 'item' ? overData.position : state.board[targetColumn].length;
-
     const previousBoard = state.board;
     const optimistic = moveItem(previousBoard, itemId, targetColumn, targetPosition);
     if (optimistic === previousBoard) return;
@@ -348,6 +349,40 @@ export default function KanbanPage(): JSX.Element {
         setState({ kind: 'ready', board: previousBoard });
       }
     }
+  }
+
+  async function handleDragEnd(event: DragEndEvent): Promise<void> {
+    if (state.kind !== 'ready') return;
+    const { active, over } = event;
+    if (!over) return;
+
+    const itemId = Number(active.id);
+    const overData = over.data.current as
+      | { type: 'column'; column: KanbanColumnId }
+      | { type: 'item'; column: KanbanColumnId; position: number }
+      | undefined;
+    if (!overData) return;
+
+    const targetColumn = overData.column;
+    const targetPosition =
+      overData.type === 'item' ? overData.position : state.board[targetColumn].length;
+
+    // Beim Verschieben nach READY warnen, wenn Abhängigkeiten noch in BACKLOG liegen (#353).
+    if (targetColumn === 'READY') {
+      const unmet = unmetBacklogDependencies(state.board, itemId);
+      if (unmet.length > 0) {
+        setPendingDependencyMove({ itemId, targetColumn, targetPosition, unmet });
+        return;
+      }
+    }
+    await performMove(itemId, targetColumn, targetPosition);
+  }
+
+  async function confirmDependencyMove(): Promise<void> {
+    if (!pendingDependencyMove) return;
+    const { itemId, targetColumn, targetPosition } = pendingDependencyMove;
+    setPendingDependencyMove(null);
+    await performMove(itemId, targetColumn, targetPosition);
   }
 
   const totalItems =
@@ -593,6 +628,33 @@ export default function KanbanPage(): JSX.Element {
           <Button onClick={() => setPendingArchive(null)}>Abbrechen</Button>
           <Button variant="contained" onClick={() => void confirmArchive()}>
             Archivieren
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={pendingDependencyMove != null}
+        onClose={() => setPendingDependencyMove(null)}
+        aria-labelledby="kanban-dependency-move-title"
+      >
+        <DialogTitle id="kanban-dependency-move-title">Abhängigkeiten noch offen</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            Folgende Einträge liegen noch im Backlog:
+            <ul>
+              {pendingDependencyMove?.unmet.map((dep) => (
+                <li key={dep.number}>
+                  #{dep.number} — {dep.title}
+                </li>
+              ))}
+            </ul>
+            Trotzdem nach „Ready" verschieben?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDependencyMove(null)}>Abbrechen</Button>
+          <Button variant="contained" onClick={() => void confirmDependencyMove()}>
+            Trotzdem verschieben
           </Button>
         </DialogActions>
       </Dialog>

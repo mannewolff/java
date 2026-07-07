@@ -227,10 +227,11 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
     title: string,
     body: string,
     parentId: number | null,
+    dependencies: number[],
   ): Promise<void> {
     if (!detailItem) return;
     try {
-      await updateKanbanItem(detailItem.id, title, body, null, parentId);
+      await updateKanbanItem(detailItem.id, title, body, null, parentId, dependencies);
       notify.success('Item gespeichert.');
       setDetailItem(null);
       setReloadNonce((n) => n + 1);

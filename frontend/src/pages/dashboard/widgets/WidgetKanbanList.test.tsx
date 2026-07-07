@@ -70,6 +70,7 @@ function makeItem(id: number, title: string, position: number, body = ''): Kanba
     number: id,
     type: 'ITEM' as const,
     parentId: null,
+    dependencies: [],
   };
 }
 

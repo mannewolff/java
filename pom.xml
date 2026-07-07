@@ -318,6 +318,9 @@
                                 <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemJpaRepository.class</exclude>
                                 <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsEntity.class</exclude>
                                 <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsJpaRepository.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAttachmentAdapter.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAttachmentEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAttachmentJpaRepository.class</exclude>
                                 <!-- TimeSeries Persistence -->
                                 <exclude>org/mwolff/api/timeseries/infrastructure/persistence/JpaTimeSeriesAdapter.class</exclude>
                                 <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntity.class</exclude>

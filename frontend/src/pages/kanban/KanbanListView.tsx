@@ -106,6 +106,9 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
   const retentionRef = useRef(retentionDays);
   retentionRef.current = retentionDays;
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sobald der User selbst einen Filter togglet, darf ein spät eintreffender Settings-Load
+  // seine Auswahl nicht mehr überschreiben (#347).
+  const userTouchedRef = useRef(false);
 
   useEffect(() => () => resizeCleanupRef.current?.(), []);
 
@@ -123,7 +126,7 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
     let cancelled = false;
     void getKanbanSettings()
       .then((s) => {
-        if (cancelled || !Array.isArray(s.activeFilters)) return;
+        if (cancelled || userTouchedRef.current || !Array.isArray(s.activeFilters)) return;
         setActiveFilters(
           new Set(s.activeFilters.filter((k): k is FilterKey => FILTER_KEYS.includes(k))),
         );
@@ -184,6 +187,7 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
   }, [reloadNonce, reloadKey]);
 
   function toggleFilter(key: FilterKey): void {
+    userTouchedRef.current = true;
     setActiveFilters((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);

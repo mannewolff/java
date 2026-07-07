@@ -95,6 +95,13 @@ class KanbanSettingsTest {
   }
 
   @Test
+  void parseOnlyUnknownKeysGivesEmptySet() {
+    // Grenzt gegen parseNullFallsBackToDefault ab: null -> Default, ausschliesslich
+    // unbekannte Keys -> bewusst leere Menge (kein Default-Fallback).
+    assertThat(KanbanSettings.parseFilters("bogus,xxx")).isEmpty();
+  }
+
+  @Test
   void orderedFiltersFollowCanonicalOrder() {
     assertThat(KanbanSettings.orderedFilters(Set.of("archived", "BACKLOG", "IN_REVIEW")))
         .containsExactly("BACKLOG", "IN_REVIEW", "archived");

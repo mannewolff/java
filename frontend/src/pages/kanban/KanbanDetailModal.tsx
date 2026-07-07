@@ -29,6 +29,7 @@ import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown'
 import { COLUMN_LABELS } from './columnMeta';
 import { epicShortcode } from './epicMeta';
 import { MODAL_BORDER, MODAL_TEXT_PRIMARY, MODAL_TEXT_SECONDARY, STATUS_COLORS } from './statusColors';
+import KanbanAttachmentList from './KanbanAttachmentList';
 import KanbanCommentForm from './KanbanCommentForm';
 import KanbanCommentList from './KanbanCommentList';
 
@@ -306,6 +307,8 @@ export default function KanbanDetailModal({
 
           {!editing && (
             <>
+              <Divider />
+              <KanbanAttachmentList itemId={item.id} />
               <Divider />
               <Stack spacing={1.5}>
                 <Typography variant="subtitle1">Kommentare</Typography>

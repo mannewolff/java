@@ -247,10 +247,18 @@ export default function KanbanDetailModal({
       open={open}
       onClose={onClose}
       scroll="paper"
-      maxWidth="sm"
+      maxWidth="lg"
       fullWidth
       aria-labelledby="kanban-detail-title"
-      PaperProps={{ sx: { borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,.24)' } }}
+      PaperProps={{
+        sx: {
+          borderRadius: '8px',
+          boxShadow: '0 8px 32px rgba(0,0,0,.24)',
+          // Desktop-Arbeitsfläche: breiter (lg ≈ 1200px) und hoch genug, damit man wie im
+          // GitHub-Issue-Panel viel auf einen Blick sieht, statt in einem schmalen Kasten zu scrollen.
+          minHeight: '70vh',
+        },
+      }}
     >
       <DialogTitle
         id="kanban-detail-title"

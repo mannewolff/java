@@ -1,6 +1,8 @@
 package org.mwolff.api.kanban.web;
 
 import org.mwolff.api.kanban.domain.EpicHasChildrenException;
+import org.mwolff.api.kanban.domain.KanbanAttachmentLimitExceededException;
+import org.mwolff.api.kanban.domain.KanbanAttachmentNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanCommentForbiddenException;
 import org.mwolff.api.kanban.domain.KanbanCommentNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
@@ -14,9 +16,22 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(basePackages = "org.mwolff.api.kanban.web")
 public class KanbanExceptionHandler {
 
-  @ExceptionHandler({KanbanItemNotFoundException.class, KanbanCommentNotFoundException.class})
+  @ExceptionHandler({
+    KanbanItemNotFoundException.class,
+    KanbanCommentNotFoundException.class,
+    KanbanAttachmentNotFoundException.class
+  })
   public ResponseEntity<Void> handleNotFound(RuntimeException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+  }
+
+  /**
+   * Upload über das Anhang-Limit hinaus (#350). 409 signalisiert einen per Löschen auflösbaren
+   * Zustandskonflikt.
+   */
+  @ExceptionHandler(KanbanAttachmentLimitExceededException.class)
+  public ResponseEntity<Void> handleAttachmentLimit(KanbanAttachmentLimitExceededException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).build();
   }
 
   @ExceptionHandler(KanbanCommentForbiddenException.class)

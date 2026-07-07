@@ -7,10 +7,12 @@ import {
   KANBAN_COLUMNS,
   forceDeleteKanbanItem,
   getKanbanEpics,
+  getKanbanSettings,
   listKanbanItems,
   moveKanbanItem,
   restoreKanbanItem,
   updateKanbanItem,
+  updateKanbanSettings,
   type KanbanColumn,
   type KanbanEpic,
   type KanbanItem,
@@ -31,6 +33,12 @@ const FILTERS: readonly { key: FilterKey; label: string }[] = [
   ...KANBAN_COLUMNS.map((c) => ({ key: c as FilterKey, label: COLUMN_LABELS[c] })),
   { key: ARCHIVED_KEY, label: 'Archiv' },
 ];
+
+/** Erlaubte Filter-Keys — filtert unbekannte Werte aus einer gespeicherten Antwort heraus. */
+const FILTER_KEYS: readonly string[] = FILTERS.map((f) => f.key);
+
+/** Entprellung der serverseitigen Filter-Persistenz, damit schnelles Klicken nicht viele PUTs auslöst. */
+const SAVE_DEBOUNCE_MS = 500;
 
 const EXCERPT_WIDTH_KEY = 'kanban.listExcerptWidth';
 
@@ -94,8 +102,50 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
   const draggingRef = useRef(false);
   // Entfernt die document-Listener eines gerade laufenden Resize-Drags bei Unmount (#316).
   const resizeCleanupRef = useRef<(() => void) | null>(null);
+  // Aktueller retentionDays-Wert für den entprellten Save (vermeidet stale closure).
+  const retentionRef = useRef(retentionDays);
+  retentionRef.current = retentionDays;
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => resizeCleanupRef.current?.(), []);
+
+  // Laufenden Save-Timer bei Unmount abräumen.
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    },
+    [],
+  );
+
+  // Gespeicherte Filter-Auswahl serverseitig laden (#346). Fehler bleiben still (Default-Filter
+  // bleiben aktiv), damit die Ansicht nie blockiert.
+  useEffect(() => {
+    let cancelled = false;
+    void getKanbanSettings()
+      .then((s) => {
+        if (cancelled || !Array.isArray(s.activeFilters)) return;
+        setActiveFilters(
+          new Set(s.activeFilters.filter((k): k is FilterKey => FILTER_KEYS.includes(k))),
+        );
+      })
+      .catch((e) => {
+        console.warn('Kanban-Listen-Filter konnten nicht geladen werden.', e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Entprelltes Persistieren der Filter. Best-Effort: schlägt der PUT fehl, wirken die Filter
+  // lokal weiter, es erscheint nur eine Konsolen-Warnung (kein Störer).
+  const scheduleFilterSave = useCallback((filters: Set<FilterKey>): void => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      void updateKanbanSettings(retentionRef.current, [...filters]).catch((e) => {
+        console.warn('Kanban-Listen-Filter konnten nicht gespeichert werden.', e);
+      });
+    }, SAVE_DEBOUNCE_MS);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,6 +188,7 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      scheduleFilterSave(next);
       return next;
     });
   }
@@ -176,10 +227,11 @@ export default function KanbanListView({ retentionDays, reloadKey = 0 }: Props):
     title: string,
     body: string,
     parentId: number | null,
+    dependencies: number[],
   ): Promise<void> {
     if (!detailItem) return;
     try {
-      await updateKanbanItem(detailItem.id, title, body, null, parentId);
+      await updateKanbanItem(detailItem.id, title, body, null, parentId, dependencies);
       notify.success('Item gespeichert.');
       setDetailItem(null);
       setReloadNonce((n) => n + 1);

@@ -36,6 +36,7 @@ public class KanbanSettingsController {
   public KanbanSettingsResponse update(
       JwtAuthenticationToken auth, @Valid @RequestBody UpdateKanbanSettingsRequest body) {
     return KanbanSettingsResponse.from(
-        updateUseCase.execute(auth.getToken().getSubject(), body.doneRetentionDays()));
+        updateUseCase.execute(
+            auth.getToken().getSubject(), body.doneRetentionDays(), body.activeFilters()));
   }
 }

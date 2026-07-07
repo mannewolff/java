@@ -1,6 +1,7 @@
 package org.mwolff.api.kanban.web.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
@@ -19,7 +20,8 @@ public record KanbanItemResponse(
     boolean archived,
     int number,
     KanbanItemType type,
-    Long parentId) {
+    Long parentId,
+    List<Integer> dependencies) {
 
   public static KanbanItemResponse from(KanbanItem item) {
     return new KanbanItemResponse(
@@ -34,6 +36,7 @@ public record KanbanItemResponse(
         item.archived(),
         item.number(),
         item.type(),
-        item.parentId());
+        item.parentId(),
+        item.dependencies());
   }
 }

@@ -28,6 +28,12 @@ public interface KanbanItemPort {
   Optional<KanbanItem> findById(long id);
 
   /**
+   * Löst eine Anzeige-Nummer (#187) eines Users auf das zugehörige Item auf — für die
+   * Abhängigkeits-Validierung (#352). User-isoliert: fremde Nummern liefern {@code empty}.
+   */
+  Optional<KanbanItem> findByUserAndNumber(String userSub, int number);
+
+  /**
    * Zählt alle Items, die dem Epic mit {@code epicId} zugeordnet sind ({@code parentId == epicId}),
    * inklusive archivierter Items. Grundlage des Referenz-Checks vor dem Löschen eines Epics (#330):
    * ein archiviertes Kind hält weiterhin eine Referenz und darf nicht verwaisen.

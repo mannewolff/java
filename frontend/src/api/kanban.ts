@@ -34,6 +34,8 @@ export interface KanbanItem {
   type: KanbanItemType;
   /** ID des zugeordneten Epics oder {@code null}, wenn keinem Epic zugeordnet (#321). */
   parentId: number | null;
+  /** Anzeige-Nummern der Einträge, von denen dieser abhängt (#352/#353); leer = keine. */
+  dependencies: number[];
 }
 
 export type KanbanBoard = Record<KanbanColumn, KanbanItem[]>;
@@ -52,6 +54,11 @@ export interface KanbanEpic {
 
 export interface KanbanSettings {
   doneRetentionDays: number;
+  /**
+   * In der Listen-Ansicht aktive Filter-Keys (Spalten-Namen + 'archived'). Serverseitig
+   * persistiert (#346), damit die Auswahl Bereichswechsel und Reload überlebt.
+   */
+  activeFilters: string[];
 }
 
 export interface KanbanComment {
@@ -78,6 +85,7 @@ export function createKanbanItem(
   type: KanbanItemType = 'ITEM',
   parentId: number | null = null,
   shortcode: string | null = null,
+  dependencies: number[] = [],
 ): Promise<KanbanItem> {
   return api.post<KanbanItem>(`${PATH}/items`, {
     title,
@@ -86,6 +94,7 @@ export function createKanbanItem(
     type,
     parentId,
     shortcode,
+    dependencies,
   });
 }
 
@@ -100,8 +109,15 @@ export function updateKanbanItem(
   body: string,
   shortcode: string | null = null,
   parentId: number | null = null,
+  dependencies: number[] = [],
 ): Promise<KanbanItem> {
-  return api.put<KanbanItem>(`${PATH}/items/${id}`, { title, body, shortcode, parentId });
+  return api.put<KanbanItem>(`${PATH}/items/${id}`, {
+    title,
+    body,
+    shortcode,
+    parentId,
+    dependencies,
+  });
 }
 
 /** Löscht ein Epic. Backend antwortet 409, wenn noch Items zugeordnet sind (#330/#331). */
@@ -135,8 +151,14 @@ export function getKanbanSettings(): Promise<KanbanSettings> {
 
 export function updateKanbanSettings(
   doneRetentionDays: number,
+  activeFilters?: string[],
 ): Promise<KanbanSettings> {
-  return api.put<KanbanSettings>(`${PATH}/settings`, { doneRetentionDays });
+  // activeFilters weglassen (nicht senden), wenn nicht mitgegeben — das Backend behält dann
+  // die bestehenden Filter (partielles Update), sodass ein reines Retention-Update die in der
+  // Listen-Ansicht gesetzten Filter nicht zurücksetzt.
+  const body =
+    activeFilters === undefined ? { doneRetentionDays } : { doneRetentionDays, activeFilters };
+  return api.put<KanbanSettings>(`${PATH}/settings`, body);
 }
 
 export function listKanbanComments(itemId: number): Promise<KanbanComment[]> {

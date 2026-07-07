@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyBoard, moveItem } from './boardOps';
+import { emptyBoard, moveItem, unmetBacklogDependencies } from './boardOps';
 import type { KanbanBoard, KanbanColumn, KanbanItem } from '../../api/kanban';
 
 function item(id: number, column: KanbanColumn, position: number, archived = false): KanbanItem {
@@ -16,6 +16,7 @@ function item(id: number, column: KanbanColumn, position: number, archived = fal
     number: id,
     type: 'ITEM' as const,
     parentId: null,
+    dependencies: [],
   };
 }
 
@@ -125,5 +126,43 @@ describe('moveItem — cross column', () => {
     });
     const next = moveItem(b, 1, 'IN_PROGRESS', 0);
     expect(next).toBe(b);
+  });
+});
+
+describe('unmetBacklogDependencies', () => {
+  it('meldet eine Abhängigkeit, die noch im Backlog liegt', () => {
+    const dep = { ...item(12, 'BACKLOG', 0), title: 'Vorarbeit' };
+    const target = { ...item(2, 'IN_PROGRESS', 0), dependencies: [12] };
+    const board = boardOf({ BACKLOG: [dep], IN_PROGRESS: [target] });
+
+    expect(unmetBacklogDependencies(board, 2)).toEqual([{ number: 12, title: 'Vorarbeit' }]);
+  });
+
+  it('meldet nichts, wenn die Abhängigkeit den Backlog verlassen hat', () => {
+    const dep = item(12, 'READY', 0);
+    const target = { ...item(2, 'IN_PROGRESS', 0), dependencies: [12] };
+    const board = boardOf({ READY: [dep], IN_PROGRESS: [target] });
+
+    expect(unmetBacklogDependencies(board, 2)).toEqual([]);
+  });
+
+  it('ignoriert nicht (mehr) existierende Abhängigkeits-Nummern', () => {
+    const target = { ...item(2, 'IN_PROGRESS', 0), dependencies: [999] };
+    const board = boardOf({ IN_PROGRESS: [target] });
+
+    expect(unmetBacklogDependencies(board, 2)).toEqual([]);
+  });
+
+  it('liefert leer, wenn das Item nicht im Board ist', () => {
+    expect(unmetBacklogDependencies(emptyBoard(), 42)).toEqual([]);
+  });
+
+  it('gibt nur die Backlog-Abhängigkeiten einer gemischten Liste zurück', () => {
+    const inBacklog = { ...item(1, 'BACKLOG', 0), title: 'A' };
+    const inReady = item(3, 'READY', 0);
+    const target = { ...item(9, 'IN_PROGRESS', 0), dependencies: [1, 3] };
+    const board = boardOf({ BACKLOG: [inBacklog], READY: [inReady], IN_PROGRESS: [target] });
+
+    expect(unmetBacklogDependencies(board, 9)).toEqual([{ number: 1, title: 'A' }]);
   });
 });

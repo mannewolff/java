@@ -1032,7 +1032,35 @@ class KanbanUseCasesTest {
   @Test
   void updateSettingsSavesNewValue() {
     given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
-    final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10);
+    final KanbanSettings result =
+        new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, List.of("BACKLOG"));
+    assertThat(result.doneRetentionDays()).isEqualTo(10);
+  }
+
+  @Test
+  void updateSettingsSanitizesFilters() {
+    given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
+    final KanbanSettings result =
+        new UpdateSettingsUseCase(settings)
+            .execute(SUB_OWNER, 10, List.of("BACKLOG", "bogus", "archived"));
+    assertThat(result.activeFilters()).containsExactlyInAnyOrder("BACKLOG", "archived");
+  }
+
+  @Test
+  void updateSettingsWithNullFiltersDefaultsWhenNothingStored() {
+    given(settings.findByUser(SUB_OWNER)).willReturn(Optional.empty());
+    given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
+    final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, null);
+    assertThat(result.activeFilters()).isEqualTo(KanbanSettings.DEFAULT_FILTERS);
+  }
+
+  @Test
+  void updateSettingsWithNullFiltersPreservesExisting() {
+    given(settings.findByUser(SUB_OWNER))
+        .willReturn(Optional.of(new KanbanSettings(SUB_OWNER, 5, java.util.Set.of("READY"))));
+    given(settings.save(any())).willAnswer(inv -> inv.getArgument(0));
+    final KanbanSettings result = new UpdateSettingsUseCase(settings).execute(SUB_OWNER, 10, null);
+    assertThat(result.activeFilters()).containsExactly("READY");
     assertThat(result.doneRetentionDays()).isEqualTo(10);
   }
 
@@ -1056,5 +1084,89 @@ class KanbanUseCasesTest {
     assertThat(archived).isEqualTo(5);
     verify(items, times(1)).archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OWNER), any());
     verify(items, times(1)).archiveDoneOlderThan(org.mockito.ArgumentMatchers.eq(SUB_OTHER), any());
+  }
+
+  // ----- dependencies (#352) ------------------------------------------------
+
+  private KanbanItem ownItemWithNumber(int number) {
+    return new KanbanItem(
+        1L,
+        SUB_OWNER,
+        "T",
+        "",
+        KanbanColumn.BACKLOG,
+        0,
+        Instant.EPOCH,
+        Instant.EPOCH,
+        null,
+        false,
+        number);
+  }
+
+  @Test
+  void createWithValidDependenciesPersistsThem() {
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(Optional.of(5)); // nextNumber = 6
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.findByUserAndNumber(SUB_OWNER, 3)).willReturn(Optional.of(ownItemWithNumber(3)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem created =
+        new CreateItemUseCase(items, clock)
+            .execute(SUB_OWNER, "T", "", KanbanColumn.BACKLOG, null, null, null, List.of(3));
+
+    assertThat(created.dependencies()).containsExactly(3);
+  }
+
+  @Test
+  void createWithUnknownDependencyThrows() {
+    given(items.getMaxNumberForUser(SUB_OWNER)).willReturn(Optional.empty());
+    given(items.findByUserAndColumn(SUB_OWNER, KanbanColumn.BACKLOG)).willReturn(List.of());
+    given(items.findByUserAndNumber(SUB_OWNER, 99)).willReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                new CreateItemUseCase(items, clock)
+                    .execute(
+                        SUB_OWNER, "T", "", KanbanColumn.BACKLOG, null, null, null, List.of(99)))
+        .isInstanceOf(IllegalArgumentException.class);
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void updateWithValidDependencyPersistsIt() {
+    given(items.findById(1L)).willReturn(Optional.of(ownItemWithNumber(7)));
+    given(items.findByUserAndNumber(SUB_OWNER, 3)).willReturn(Optional.of(ownItemWithNumber(3)));
+    given(items.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+    final KanbanItem updated =
+        new UpdateItemContentUseCase(items)
+            .execute(SUB_OWNER, 1L, "T", "B", null, null, List.of(3));
+
+    assertThat(updated.dependencies()).containsExactly(3);
+  }
+
+  @Test
+  void updateRejectsSelfReference() {
+    given(items.findById(1L)).willReturn(Optional.of(ownItemWithNumber(7)));
+
+    assertThatThrownBy(
+            () ->
+                new UpdateItemContentUseCase(items)
+                    .execute(SUB_OWNER, 1L, "T", "B", null, null, List.of(7)))
+        .isInstanceOf(IllegalArgumentException.class);
+    verify(items, never()).save(any());
+  }
+
+  @Test
+  void updateRejectsForeignUsersNumberAsDependency() {
+    given(items.findById(1L)).willReturn(Optional.of(ownItemWithNumber(7)));
+    // Nummer 3 gehört einem anderen User → user-isolierte Auflösung liefert empty → 400.
+    given(items.findByUserAndNumber(SUB_OWNER, 3)).willReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                new UpdateItemContentUseCase(items)
+                    .execute(SUB_OWNER, 1L, "T", "B", null, null, List.of(3)))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

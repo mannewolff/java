@@ -16,16 +16,20 @@ vi.mock('../../api/kanban', async () => {
     restoreKanbanItem: vi.fn(),
     forceDeleteKanbanItem: vi.fn(),
     getKanbanEpics: vi.fn(),
+    getKanbanSettings: vi.fn(),
+    updateKanbanSettings: vi.fn(),
   };
 });
 
 import {
   forceDeleteKanbanItem,
   getKanbanEpics,
+  getKanbanSettings,
   listKanbanItems,
   moveKanbanItem,
   restoreKanbanItem,
   updateKanbanItem,
+  updateKanbanSettings,
 } from '../../api/kanban';
 
 // Leichtgewichtiger Modal-Stub — wir testen nur die Verdrahtung aus der Liste.
@@ -62,6 +66,10 @@ const updateItem = updateKanbanItem as ReturnType<typeof vi.fn>;
 const restoreItem = restoreKanbanItem as ReturnType<typeof vi.fn>;
 const forceDeleteItem = forceDeleteKanbanItem as ReturnType<typeof vi.fn>;
 const listEpics = getKanbanEpics as ReturnType<typeof vi.fn>;
+const getSettings = getKanbanSettings as ReturnType<typeof vi.fn>;
+const putSettings = updateKanbanSettings as ReturnType<typeof vi.fn>;
+
+const ALL_COLUMNS = ['BACKLOG', 'READY', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
 function dragEvent(): { dataTransfer: { setData: ReturnType<typeof vi.fn>; effectAllowed: string } } {
   return { dataTransfer: { setData: vi.fn(), effectAllowed: '' } };
@@ -126,6 +134,10 @@ describe('KanbanListView', () => {
     forceDeleteItem.mockResolvedValue(undefined);
     listEpics.mockReset();
     listEpics.mockResolvedValue([]);
+    getSettings.mockReset();
+    getSettings.mockResolvedValue({ doneRetentionDays: 5, activeFilters: ALL_COLUMNS });
+    putSettings.mockReset();
+    putSettings.mockResolvedValue({ doneRetentionDays: 5, activeFilters: ALL_COLUMNS });
   });
 
   afterEach(() => {
@@ -418,6 +430,66 @@ describe('KanbanListView', () => {
 
     expect(await screen.findByText('Frisch angelegt')).toBeInTheDocument();
     expect(listItems).toHaveBeenCalledTimes(2);
+  });
+
+  it('lädt die gespeicherte Filter-Auswahl und wendet sie an (#346)', async () => {
+    // Server merkt sich: nur BACKLOG aktiv. Das Done-Item muss danach ausgeblendet sein.
+    getSettings.mockResolvedValue({ doneRetentionDays: 5, activeFilters: ['BACKLOG'] });
+    listItems.mockResolvedValue(
+      boardOf({
+        BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })],
+        DONE: [makeItem({ id: 2, number: 2, column: 'DONE', title: 'Done-Item' })],
+      }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    expect(await screen.findByText('Backlog-Item')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Done-Item')).not.toBeInTheDocument());
+    // Der Done-Chip ist nach dem Laden nicht mehr aktiv.
+    expect(screen.getByRole('button', { name: 'Filter Done' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('persistiert eine Filter-Änderung entprellt via updateKanbanSettings (#346)', async () => {
+    listItems.mockResolvedValue(
+      boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={7} /></NotifyProvider>);
+    await screen.findByText('Backlog-Item');
+
+    const user = userEvent.setup();
+    // Zwei schnelle Klicks (Done aus, dann wieder an) -> nur EIN PUT durch die Entprellung.
+    await user.click(screen.getByRole('button', { name: 'Filter Done' }));
+    await user.click(screen.getByRole('button', { name: 'Filter Done' }));
+
+    await waitFor(() => expect(putSettings).toHaveBeenCalledTimes(1));
+    const [days, filters] = putSettings.mock.calls[0];
+    expect(days).toBe(7);
+    // Nach dem zweiten Klick ist Done wieder aktiv -> alle fünf Spalten gespeichert.
+    expect(filters).toEqual(expect.arrayContaining(ALL_COLUMNS));
+    expect(filters).not.toContain('archived');
+  });
+
+  it('fängt einen Persistenz-Fehler still ab (kein Störer) (#346)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    putSettings.mockRejectedValue(new Error('boom'));
+    listItems.mockResolvedValue(
+      boardOf({ BACKLOG: [makeItem({ id: 1, number: 1, title: 'Backlog-Item' })] }),
+    );
+    render(<NotifyProvider><KanbanListView retentionDays={5} /></NotifyProvider>);
+
+    await screen.findByText('Backlog-Item');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filter Ready' }));
+
+    await waitFor(() => expect(putSettings).toHaveBeenCalled());
+    // Keine Fehler-Alert/Snackbar, die Liste bleibt bedienbar.
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('Backlog-Item')).toBeInTheDocument();
+    warn.mockRestore();
   });
 
   it('lädt NICHT neu, wenn der reloadKey-Prop unverändert bleibt (keine Endlosschleife)', async () => {

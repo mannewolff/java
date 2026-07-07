@@ -17,6 +17,10 @@ class KanbanSettingsEntity {
   @Column(name = "done_retention_days", nullable = false)
   private int doneRetentionDays;
 
+  /** Aktive Listen-Filter als CSV; {@code null} bei Legacy-Zeilen ohne gespeicherte Filter. */
+  @Column(name = "list_filters", length = 255)
+  private String listFilters;
+
   protected KanbanSettingsEntity() {
     // JPA
   }
@@ -36,5 +40,13 @@ class KanbanSettingsEntity {
 
   void setDoneRetentionDays(int doneRetentionDays) {
     this.doneRetentionDays = doneRetentionDays;
+  }
+
+  String getListFilters() {
+    return listFilters;
+  }
+
+  void setListFilters(String listFilters) {
+    this.listFilters = listFilters;
   }
 }

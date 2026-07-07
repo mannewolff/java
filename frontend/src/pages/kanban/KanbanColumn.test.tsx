@@ -19,6 +19,7 @@ function makeItem(id: number, title: string): KanbanItem {
     number: id,
     type: 'ITEM' as const,
     parentId: null,
+    dependencies: [],
   };
 }
 

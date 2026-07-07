@@ -39,17 +39,38 @@ class KanbanSettingsControllerTest {
 
   @Test
   void getReturnsCurrentValue() throws Exception {
-    given(getUseCase.execute(SUB)).willReturn(new KanbanSettings(SUB, 7));
+    given(getUseCase.execute(SUB))
+        .willReturn(new KanbanSettings(SUB, 7, java.util.Set.of("BACKLOG", "archived")));
 
     mockMvc
         .perform(get("/api/kanban/settings").with(userJwt()))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.doneRetentionDays").value(7));
+        .andExpect(jsonPath("$.doneRetentionDays").value(7))
+        .andExpect(jsonPath("$.activeFilters").isArray())
+        .andExpect(jsonPath("$.activeFilters[0]").value("BACKLOG"))
+        .andExpect(jsonPath("$.activeFilters[1]").value("archived"));
   }
 
   @Test
-  void putUpdatesValue() throws Exception {
-    given(updateUseCase.execute(SUB, 10)).willReturn(new KanbanSettings(SUB, 10));
+  void putUpdatesValueAndFilters() throws Exception {
+    given(updateUseCase.execute(SUB, 10, java.util.List.of("READY", "DONE")))
+        .willReturn(new KanbanSettings(SUB, 10, java.util.Set.of("READY", "DONE")));
+
+    mockMvc
+        .perform(
+            put("/api/kanban/settings")
+                .with(userJwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"doneRetentionDays\":10,\"activeFilters\":[\"READY\",\"DONE\"]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.doneRetentionDays").value(10))
+        .andExpect(
+            jsonPath("$.activeFilters", org.hamcrest.Matchers.containsInAnyOrder("READY", "DONE")));
+  }
+
+  @Test
+  void putWithoutFiltersPassesNull() throws Exception {
+    given(updateUseCase.execute(SUB, 10, null)).willReturn(new KanbanSettings(SUB, 10));
 
     mockMvc
         .perform(

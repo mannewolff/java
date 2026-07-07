@@ -51,6 +51,11 @@ interface KanbanItemJpaRepository extends JpaRepository<KanbanItemEntity, Long> 
   @Query("select max(i.number) from KanbanItemEntity i where i.userSub = :userSub")
   Optional<Integer> findMaxNumberByUserSub(@Param("userSub") String userSub);
 
+  // Auflösung einer Anzeige-Nummer → Item, user-isoliert (#352, für die Abhängigkeits-Validierung).
+  @Query("select i from KanbanItemEntity i where i.userSub = :userSub and i.number = :number")
+  Optional<KanbanItemEntity> findByUserSubAndNumber(
+      @Param("userSub") String userSub, @Param("number") int number);
+
   // clearAutomatically: nach dem Bulk-Update den Persistence-Context leeren, damit ein
   // anschließendes findById in derselben Transaktion den frischen Stand liest (nicht die
   // veraltete First-Level-Cache-Entity). Sonst sieht der Leser die Änderung nicht.

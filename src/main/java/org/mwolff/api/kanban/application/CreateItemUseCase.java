@@ -2,6 +2,7 @@ package org.mwolff.api.kanban.application;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 
 import org.mwolff.api.kanban.domain.KanbanColumn;
 import org.mwolff.api.kanban.domain.KanbanItem;
@@ -56,6 +57,20 @@ public class CreateItemUseCase {
       KanbanItemType type,
       Long parentId,
       String shortcode) {
+    return execute(userSub, title, body, column, type, parentId, shortcode, List.of());
+  }
+
+  /** Legt ein Item mit optionalen Abhängigkeiten an (#352). */
+  @Transactional
+  public KanbanItem execute(
+      String userSub,
+      String title,
+      String body,
+      KanbanColumn column,
+      KanbanItemType type,
+      Long parentId,
+      String shortcode,
+      List<Integer> dependencies) {
     final KanbanItemType itemType = type == null ? KanbanItemType.ITEM : type;
     EpicAssignment.validateParent(items, userSub, itemType, parentId);
 
@@ -67,7 +82,7 @@ public class CreateItemUseCase {
     final int nextNumber = items.getMaxNumberForUser(userSub).map(max -> max + 1).orElse(1);
     // Die „Kürzel nur an Epics"-Invariante prüft die Domain (KanbanItem) — ein Kürzel an einem
     // ITEM → IllegalArgumentException → 400 (#329).
-    return items.save(
+    final KanbanItem toSave =
         KanbanItem.newInstance(
                 userSub,
                 title,
@@ -78,6 +93,9 @@ public class CreateItemUseCase {
                 itemType,
                 parentId,
                 shortcode)
-            .withNumber(nextNumber));
+            .withNumber(nextNumber)
+            .withDependencies(dependencies);
+    DependencyValidation.validate(items, userSub, nextNumber, toSave.dependencies());
+    return items.save(toSave);
   }
 }

@@ -65,6 +65,34 @@ export function moveItem(
   };
 }
 
+/** Eine noch nicht erfüllte Abhängigkeit: der referenzierte Eintrag liegt noch in BACKLOG. */
+export interface UnmetDependency {
+  number: number;
+  title: string;
+}
+
+/**
+ * Ermittelt die Abhängigkeiten des Items {@code itemId}, deren zugehöriger Eintrag (per Anzeige-
+ * Nummer) aktuell noch in der BACKLOG-Spalte liegt (#353). Nicht (mehr) existierende oder
+ * archivierte Abhängigkeiten werden ignoriert. Basis für die Warnung beim Verschieben nach READY.
+ */
+export function unmetBacklogDependencies(board: KanbanBoard, itemId: number): UnmetDependency[] {
+  const source = findItem(board, itemId);
+  if (!source) return [];
+  const byNumber = new Map<number, KanbanItem>();
+  for (const col of KANBAN_COLUMNS) {
+    for (const item of board[col]) byNumber.set(item.number, item);
+  }
+  const unmet: UnmetDependency[] = [];
+  for (const depNumber of source.item.dependencies) {
+    const dep = byNumber.get(depNumber);
+    if (dep && dep.column === 'BACKLOG') {
+      unmet.push({ number: dep.number, title: dep.title });
+    }
+  }
+  return unmet;
+}
+
 /** Setzt position lückenlos 0..n-1 und korrigiert column-Feld pro Sicherheit. */
 function reindex(items: KanbanItem[], column: KanbanColumn): KanbanItem[] {
   return items.map((i, idx) => ({ ...i, column, position: idx }));

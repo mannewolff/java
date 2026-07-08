@@ -33,6 +33,14 @@ Beide Realms sind strukturell identisch. Sie definieren:
 Die Files sind **nicht-sensibel**: sie enthalten weder User-Daten noch Client-Secrets
 noch das Keycloak-Master-Realm. Sie können bedenkenlos eingecheckt werden.
 
+> **Board-Anbindung braucht KEINEN Keycloak-Client (#365/#369):** Die Anbindung des
+> Toolbox-Kanban an den 9-Schritt-Workflow läuft über einen Kanban-Access-Token (PAT,
+> Header `X-Kanban-Token`), der in der Web-UI erzeugt wird — nicht über Keycloak. Der
+> frühere CLI-Client `toolbox-cli` und der `offline_access`-Scope (Device-Flow) werden
+> dafür **bewusst nicht** reaktiviert. Beim Editieren der Realm-Exports also **keinen**
+> `toolbox-cli`-Client und **kein** `offline_access` wieder hinzufügen (in #335 entfernt).
+> Details zum PAT-Weg: [README → Toolbox als Board anbinden](../../README.md#toolbox-als-board-anbinden-9-schritt-workflow).
+
 ## Erst-Start (Dev)
 
 ```bash

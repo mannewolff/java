@@ -31,6 +31,9 @@ const TimeSeriesDetailPage = lazy(
 const IngestTokenSettingsPage = lazy(
   () => import('./pages/settings/IngestTokenSettingsPage'),
 );
+const KanbanTokenSettingsPage = lazy(
+  () => import('./pages/settings/KanbanTokenSettingsPage'),
+);
 
 export default function App() {
   return (
@@ -195,6 +198,14 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <IngestTokenSettingsPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings/kanban-tokens"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <KanbanTokenSettingsPage />
             </Suspense>
           }
         />

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Children, isValidElement, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -15,6 +16,8 @@ import {
   Typography,
 } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import {
   addKanbanComment,
@@ -28,7 +31,13 @@ import { useAuth } from '../../auth/useAuth';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
 import { COLUMN_LABELS } from './columnMeta';
 import { epicShortcode } from './epicMeta';
-import { MODAL_BORDER, MODAL_TEXT_PRIMARY, MODAL_TEXT_SECONDARY, STATUS_COLORS } from './statusColors';
+import {
+  MODAL_BORDER,
+  MODAL_HEADER_BG,
+  MODAL_TEXT_PRIMARY,
+  MODAL_TEXT_SECONDARY,
+  STATUS_COLORS,
+} from './statusColors';
 import KanbanAttachmentList from './KanbanAttachmentList';
 import KanbanCommentForm from './KanbanCommentForm';
 import KanbanCommentList from './KanbanCommentList';
@@ -48,6 +57,30 @@ interface KanbanDetailModalProps {
   onRestore?: () => Promise<void> | void;
   /** Löscht ein archiviertes Item endgültig (#341), nach Bestätigung im Modal. */
   onForceDelete?: () => Promise<void> | void;
+  /**
+   * Persistiert den geänderten Body nach einem Task-Checkbox-Klick, ohne das Modal zu schließen
+   * (#359). Wird nur im Lesemodus aufgerufen. Lehnt der Aufruf ab, nimmt das Modal die optimistische
+   * Umschaltung zurück. Ohne diesen Callback sind die Checkboxen deaktiviert.
+   */
+  onToggleTask?: (body: string) => Promise<void> | void;
+}
+
+/**
+ * Flippt in genau einer Body-Zeile die GitHub-Task-Markierung (`[ ]`↔`[x]`) und gibt den neuen Body
+ * zurück (#359). {@code line} ist 1-basiert (mdast-Position). Zeilenenden bleiben erhalten; trägt die
+ * Zeile keine Task-Markierung, bleibt der Body unverändert.
+ */
+export function toggleTaskLine(body: string, line: number): string {
+  const newline = body.includes('\r\n') ? '\r\n' : '\n';
+  const lines = body.split(/\r?\n/);
+  const index = line - 1;
+  if (index < 0 || index >= lines.length) return body;
+  lines[index] = lines[index].replace(
+    /^(\s*[-*+]\s+\[)([ xX])(\])/,
+    (_match, prefix: string, mark: string, suffix: string) =>
+      prefix + (mark === ' ' ? 'x' : ' ') + suffix,
+  );
+  return lines.join(newline);
 }
 
 /**
@@ -71,6 +104,37 @@ export function parseDependencyInput(input: string): { deps: number[]; valid: bo
 }
 
 /**
+ * GitHub-artige Typografie für die gerenderte Beschreibung (Issue #358): dezenter Rahmen,
+ * Abschnitts-Überschriften (h1/h2) mit Trennlinie darunter, ab h3 ohne Linie. Farben aus der
+ * zentralen Kit-Palette. Nur für die Beschreibung, nicht für die Kommentare.
+ */
+const descriptionSx = {
+  border: `1px solid ${MODAL_BORDER}`,
+  borderRadius: 1,
+  p: 2,
+  '& :first-of-type': { mt: 0 },
+  '& h1, & h2': {
+    fontWeight: 600,
+    fontSize: '1.15rem',
+    mt: 2,
+    pb: 0.5,
+    borderBottom: `1px solid ${MODAL_BORDER}`,
+  },
+  '& h3, & h4': { fontWeight: 600, fontSize: '1rem', mt: 1.5, mb: 0.5 },
+  '& p, & li': { lineHeight: 1.6, color: MODAL_TEXT_PRIMARY },
+  '& ul, & ol': { pl: 3, my: 1 },
+  '& code': {
+    backgroundColor: '#f4f5f7',
+    px: 0.5,
+    borderRadius: '3px',
+    fontFamily: 'monospace',
+    fontSize: '0.85em',
+  },
+  '& pre': { backgroundColor: '#f4f5f7', p: 1.5, borderRadius: 1, overflowX: 'auto' },
+  '& pre code': { backgroundColor: 'transparent', px: 0 },
+} as const;
+
+/**
  * Detail-Modal eines Kanban-Items. Es oeffnet im **Lesemodus**: der Markdown-Body wird gerendert
  * angezeigt, darunter die Kommentare (Vorlage board-ui). Ueber "Bearbeiten" wechselt es in den
  * **Edit-Modus** mit Titel-Feld und Roh-Markdown-Textarea; Speichern rendert wieder, Abbrechen
@@ -88,11 +152,15 @@ export default function KanbanDetailModal({
   onSubmit,
   onRestore,
   onForceDelete,
+  onToggleTask,
 }: KanbanDetailModalProps): JSX.Element {
   const { username } = useAuth();
   // Defensive: Altdaten/Fixtures ohne dependencies-Feld dürfen das Modal nicht crashen.
   const itemDependencies = item.dependencies ?? [];
   const [editing, setEditing] = useState(false);
+  // Lesemodus rendert aus renderedBody (nicht item.body), damit ein Task-Checkbox-Klick sofort
+  // optimistisch umschalten kann (#359); bei PUT-Fehler wird zurückgesetzt.
+  const [renderedBody, setRenderedBody] = useState(item.body);
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
   const [parentId, setParentId] = useState<number | null>(item.parentId);
@@ -123,6 +191,12 @@ export default function KanbanDetailModal({
       setConfirmingDelete(false);
     }
   }, [open, item.title, item.body, item.parentId, item.dependencies]);
+
+  // Lesemodus-Body an das (ggf. neu geladene) Item angleichen — nach erfolgreicher Persistenz
+  // eines Task-Toggles trägt item.body schon den neuen Stand, nach Fehler den alten (#359).
+  useEffect(() => {
+    setRenderedBody(item.body);
+  }, [item.body]);
 
   // Epic-Liste fuer die Zuordnungs-Auswahl laden (nur relevant fuer normale Items).
   useEffect(() => {
@@ -224,6 +298,17 @@ export default function KanbanDetailModal({
     setEditing(false);
   };
 
+  // ESC und Backdrop-Klick sollen sich wie „Abbrechen" verhalten: im Edit-Modus zurück in den
+  // Lesemodus (Draft verwerfen), nur im Lesemodus das Modal schließen. MUIs onClose feuert bei
+  // beidem — ohne diese Weiche würde ESC/Backdrop im Edit-Modus das Modal zumachen (#357).
+  const handleDialogClose = (): void => {
+    if (editing) {
+      cancelEditing();
+      return;
+    }
+    onClose();
+  };
+
   const handleSave = async (): Promise<void> => {
     if (!canSubmit || saving) return;
     const { deps, valid } = parseDependencyInput(dependencies);
@@ -242,10 +327,70 @@ export default function KanbanDetailModal({
     }
   };
 
+  // Checkboxen sind nur klickbar, wenn ein Persistenz-Callback existiert und das Item nicht
+  // archiviert ist (#359).
+  const canToggleTasks = !item.archived && typeof onToggleTask === 'function';
+
+  // Optimistischer Task-Toggle: sofort lokal umschalten, dann persistieren; bei Fehler zurück.
+  const handleToggleTask = (line: number): void => {
+    const next = toggleTaskLine(renderedBody, line);
+    if (next === renderedBody) return;
+    const previous = renderedBody;
+    setRenderedBody(next);
+    void Promise.resolve(onToggleTask?.(next)).catch(() => {
+      setRenderedBody(previous);
+    });
+  };
+
+  // Task-List-Checkboxen im gerenderten Markdown durch klickbare MUI-Checkboxen ersetzen (#359).
+  // Die Quellzeile kommt aus der mdast-Position des <li>; der disabled Default-Input wird entfernt.
+  const markdownComponents: Components = {
+    li({ node, children, className, ...props }) {
+      const isTask =
+        typeof className === 'string' && className.split(/\s+/).includes('task-list-item');
+      const line = node?.position?.start.line;
+      if (!isTask || line == null) {
+        return (
+          <li className={className} {...props}>
+            {children}
+          </li>
+        );
+      }
+      const inputChild = node?.children.find(
+        (child) => child.type === 'element' && child.tagName === 'input',
+      );
+      const checked =
+        inputChild != null && 'properties' in inputChild
+          ? Boolean(inputChild.properties?.checked)
+          : false;
+      const label = Children.toArray(children).filter(
+        (child) => !(isValidElement(child) && child.type === 'input'),
+      );
+      return (
+        <Box
+          component="li"
+          sx={{ listStyleType: 'none', display: 'flex', alignItems: 'flex-start' }}
+        >
+          <Checkbox
+            size="small"
+            checked={checked}
+            disabled={!canToggleTasks}
+            onChange={() => handleToggleTask(line)}
+            sx={{ p: 0, mr: 1, mt: '1px' }}
+            inputProps={{ 'aria-label': 'Aufgabe umschalten' }}
+          />
+          <Box component="span" sx={{ flex: 1 }}>
+            {label}
+          </Box>
+        </Box>
+      );
+    },
+  };
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleDialogClose}
       scroll="paper"
       maxWidth="lg"
       fullWidth
@@ -263,7 +408,7 @@ export default function KanbanDetailModal({
       <DialogTitle
         id="kanban-detail-title"
         data-testid="kanban-detail-header"
-        style={{ borderBottom: `1px solid ${MODAL_BORDER}` }}
+        style={{ borderBottom: `1px solid ${MODAL_BORDER}`, backgroundColor: MODAL_HEADER_BG }}
       >
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Chip
@@ -355,8 +500,10 @@ export default function KanbanDetailModal({
             </>
           ) : (
             <>
-              <Box aria-label="Beschreibung" sx={{ '& :first-of-type': { mt: 0 } }}>
-                <ReactMarkdown>{item.body}</ReactMarkdown>
+              <Box aria-label="Beschreibung" sx={descriptionSx}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {renderedBody}
+                </ReactMarkdown>
               </Box>
               {itemDependencies.length > 0 && (
                 <Typography variant="body2" color="text.secondary" aria-label="Abhängigkeiten">

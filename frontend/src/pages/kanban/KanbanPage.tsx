@@ -215,6 +215,27 @@ export default function KanbanPage(): JSX.Element {
     }
   }
 
+  // Task-Checkbox-Toggle (#359): nur den Body persistieren, Modal offen lassen. Bei Fehler wird
+  // die Rejection weitergereicht, damit das Modal die optimistische Umschaltung zurücknimmt.
+  async function handleToggleTaskDetail(body: string): Promise<void> {
+    if (!detailItem) return;
+    try {
+      const updated = await updateKanbanItem(
+        detailItem.id,
+        detailItem.title,
+        body,
+        null,
+        detailItem.parentId,
+        detailItem.dependencies ?? [],
+      );
+      setDetailItem(updated);
+      await refresh();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+      throw e;
+    }
+  }
+
   async function handleSubmitCreate(
     title: string,
     body: string,
@@ -576,6 +597,7 @@ export default function KanbanPage(): JSX.Element {
           retentionDays={retentionDays}
           onClose={() => setDetailItem(null)}
           onSubmit={handleSubmitDetail}
+          onToggleTask={handleToggleTaskDetail}
         />
       )}
 

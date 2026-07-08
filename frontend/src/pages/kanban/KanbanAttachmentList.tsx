@@ -4,6 +4,7 @@ import { Alert, Box, Button, CircularProgress, IconButton, Stack, Typography } f
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import { ApiError } from '../../api/client';
 import {
@@ -12,9 +13,11 @@ import {
   deleteAttachment,
   downloadAttachment,
   listAttachments,
+  previewKind,
   uploadAttachment,
   type KanbanAttachmentMeta,
 } from '../../api/kanbanAttachments';
+import KanbanAttachmentPreview from './KanbanAttachmentPreview';
 
 /** Formatiert eine Byte-Größe menschenlesbar (KB/MB). */
 function formatBytes(bytes: number): string {
@@ -33,6 +36,7 @@ export default function KanbanAttachmentList({ itemId }: { itemId: number }): JS
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<KanbanAttachmentMeta | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(async (): Promise<void> => {
@@ -139,6 +143,15 @@ export default function KanbanAttachmentList({ itemId }: { itemId: number }): JS
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
                 {formatBytes(a.sizeBytes)}
               </Typography>
+              {previewKind(a) && (
+                <IconButton
+                  size="small"
+                  aria-label={`Vorschau: ${a.filename}`}
+                  onClick={() => setPreviewing(a)}
+                >
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+              )}
               <IconButton
                 size="small"
                 aria-label={`Herunterladen: ${a.filename}`}
@@ -181,6 +194,14 @@ export default function KanbanAttachmentList({ itemId }: { itemId: number }): JS
           </Typography>
         )}
       </Box>
+
+      {previewing && (
+        <KanbanAttachmentPreview
+          itemId={itemId}
+          attachment={previewing}
+          onClose={() => setPreviewing(null)}
+        />
+      )}
     </Stack>
   );
 }

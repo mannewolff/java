@@ -44,6 +44,12 @@ export const MODAL_TEXT_SECONDARY = '#6b778c';
 export const COMMENT_BG = '#f8f8f8';
 
 /**
+ * Getönter Hintergrund der Modal-Kopfleiste (Issue #358) — angelehnt an die Meta-Leiste
+ * einer GitHub-Comment-Box. Teil derselben bewussten Ausnahme von "Farben nur über das Theme".
+ */
+export const MODAL_HEADER_BG = '#f7f8fa';
+
+/**
  * Kit-Farben fuer den primaeren "Anlegen"-Button im neuen Anlage-Modal (Issue #303),
  * 1:1 aus dem Referenz-Screenshot uebernommen.
  */

@@ -43,23 +43,33 @@ export async function uploadAttachment(
 }
 
 /**
- * Lädt einen Anhang authentifiziert als Blob und löst im Browser einen Download mit dem
- * Original-Dateinamen aus. Der Serve-Endpoint ist bearer-only, daher kein direktes `<a href>`.
+ * Lädt einen Anhang authentifiziert als Blob. Der Serve-Endpoint ist bearer-only (kein direktes
+ * `<a href>`), daher der Umweg über `authedFetch`. Der `Content-Disposition: attachment`-Header des
+ * Servers ist für einen fetch irrelevant — die Verwendung (Download vs. Vorschau) entscheidet der
+ * Aufrufer über die selbst erzeugte Object-URL bzw. den Blob (#360).
  */
-export async function downloadAttachment(
-  itemId: number,
-  id: number,
-  filename: string,
-): Promise<void> {
+export async function fetchAttachmentBlob(itemId: number, id: number): Promise<Blob> {
   const response = await authedFetch(
     `/api${base(itemId)}/${id}`,
     {},
     { suppressAuthExpired: true },
   );
   if (!response.ok) {
-    throw new ApiError(response.status, `Download fehlgeschlagen (${response.status})`, null);
+    throw new ApiError(response.status, `Laden fehlgeschlagen (${response.status})`, null);
   }
-  const blob = await response.blob();
+  return response.blob();
+}
+
+/**
+ * Lädt einen Anhang authentifiziert als Blob und löst im Browser einen Download mit dem
+ * Original-Dateinamen aus.
+ */
+export async function downloadAttachment(
+  itemId: number,
+  id: number,
+  filename: string,
+): Promise<void> {
+  const blob = await fetchAttachmentBlob(itemId, id);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -68,6 +78,24 @@ export async function downloadAttachment(
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
+}
+
+/** Vorschaufähige Anhang-Arten (#360). */
+export type PreviewKind = 'image' | 'pdf' | 'markdown';
+
+/**
+ * Entscheidet, ob und wie ein Anhang in der Vollbild-Vorschau darstellbar ist (#360). Bild und PDF
+ * werden strikt über den serverseitig per Magic-Bytes ermittelten `contentType` erkannt (eine als
+ * `.png` getarnte HTML-Datei kommt als `text/html` und fällt heraus). Markdown zusätzlich über die
+ * Dateiendung, weil Tika `.md` häufig als `text/plain` meldet. Alles andere: keine Vorschau.
+ */
+export function previewKind(meta: KanbanAttachmentMeta): PreviewKind | null {
+  const type = meta.contentType.toLowerCase();
+  if (type === 'image/png' || type === 'image/jpeg') return 'image';
+  if (type === 'application/pdf') return 'pdf';
+  const isMarkdownExt = /\.(md|markdown)$/i.test(meta.filename);
+  if (type === 'text/markdown' || (type.startsWith('text/') && isMarkdownExt)) return 'markdown';
+  return null;
 }
 
 /** Löscht einen Anhang. */

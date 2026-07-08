@@ -562,6 +562,8 @@ describe('KanbanDetailModal', () => {
 
     await screen.findByText('Kit-Look-Check');
     expect(screen.getByTestId('kanban-detail-header')).toHaveStyle({ borderBottomColor: '#e8e8e8' });
+    // GitHub-getönte Kopfleiste (#358).
+    expect(screen.getByTestId('kanban-detail-header')).toHaveStyle({ backgroundColor: '#f7f8fa' });
     expect(screen.getByTestId('kanban-comment-card-10')).toHaveStyle({
       backgroundColor: '#f8f8f8',
       borderColor: '#e8e8e8',

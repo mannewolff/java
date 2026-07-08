@@ -28,7 +28,13 @@ import { useAuth } from '../../auth/useAuth';
 import { cleanupCountdownLabel, cleanupDaysRemaining } from './cleanupCountdown';
 import { COLUMN_LABELS } from './columnMeta';
 import { epicShortcode } from './epicMeta';
-import { MODAL_BORDER, MODAL_TEXT_PRIMARY, MODAL_TEXT_SECONDARY, STATUS_COLORS } from './statusColors';
+import {
+  MODAL_BORDER,
+  MODAL_HEADER_BG,
+  MODAL_TEXT_PRIMARY,
+  MODAL_TEXT_SECONDARY,
+  STATUS_COLORS,
+} from './statusColors';
 import KanbanAttachmentList from './KanbanAttachmentList';
 import KanbanCommentForm from './KanbanCommentForm';
 import KanbanCommentList from './KanbanCommentList';
@@ -69,6 +75,37 @@ export function parseDependencyInput(input: string): { deps: number[]; valid: bo
   }
   return { deps, valid: true };
 }
+
+/**
+ * GitHub-artige Typografie für die gerenderte Beschreibung (Issue #358): dezenter Rahmen,
+ * Abschnitts-Überschriften (h1/h2) mit Trennlinie darunter, ab h3 ohne Linie. Farben aus der
+ * zentralen Kit-Palette. Nur für die Beschreibung, nicht für die Kommentare.
+ */
+const descriptionSx = {
+  border: `1px solid ${MODAL_BORDER}`,
+  borderRadius: 1,
+  p: 2,
+  '& :first-of-type': { mt: 0 },
+  '& h1, & h2': {
+    fontWeight: 600,
+    fontSize: '1.15rem',
+    mt: 2,
+    pb: 0.5,
+    borderBottom: `1px solid ${MODAL_BORDER}`,
+  },
+  '& h3, & h4': { fontWeight: 600, fontSize: '1rem', mt: 1.5, mb: 0.5 },
+  '& p, & li': { lineHeight: 1.6, color: MODAL_TEXT_PRIMARY },
+  '& ul, & ol': { pl: 3, my: 1 },
+  '& code': {
+    backgroundColor: '#f4f5f7',
+    px: 0.5,
+    borderRadius: '3px',
+    fontFamily: 'monospace',
+    fontSize: '0.85em',
+  },
+  '& pre': { backgroundColor: '#f4f5f7', p: 1.5, borderRadius: 1, overflowX: 'auto' },
+  '& pre code': { backgroundColor: 'transparent', px: 0 },
+} as const;
 
 /**
  * Detail-Modal eines Kanban-Items. Es oeffnet im **Lesemodus**: der Markdown-Body wird gerendert
@@ -274,7 +311,7 @@ export default function KanbanDetailModal({
       <DialogTitle
         id="kanban-detail-title"
         data-testid="kanban-detail-header"
-        style={{ borderBottom: `1px solid ${MODAL_BORDER}` }}
+        style={{ borderBottom: `1px solid ${MODAL_BORDER}`, backgroundColor: MODAL_HEADER_BG }}
       >
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Chip
@@ -366,7 +403,7 @@ export default function KanbanDetailModal({
             </>
           ) : (
             <>
-              <Box aria-label="Beschreibung" sx={{ '& :first-of-type': { mt: 0 } }}>
+              <Box aria-label="Beschreibung" sx={descriptionSx}>
                 <ReactMarkdown>{item.body}</ReactMarkdown>
               </Box>
               {itemDependencies.length > 0 && (

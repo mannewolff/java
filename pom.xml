@@ -331,6 +331,10 @@
                                 <exclude>org/mwolff/api/ingest/infrastructure/persistence/JpaIngestTokenAdapter.class</exclude>
                                 <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenEntity.class</exclude>
                                 <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenJpaRepository.class</exclude>
+                                <!-- Kanban-Access-Token Persistence (#363), IT-abgedeckt via JpaKanbanAccessTokenAdapterIT. -->
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAccessTokenAdapter.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAccessTokenEntity.class</exclude>
+                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAccessTokenJpaRepository.class</exclude>
                                 <!--
                                   IngestRateLimiter: In-Memory-Wrapper ohne fachliche Branches.
                                   Sha256TokenCryptoAdapter (seit #362 in common.token): hat Unit-Test
@@ -726,6 +730,7 @@
                                 <param>org.mwolff.api.dashboard.infrastructure.persistence.WidgetEntity</param>
                                 <param>org.mwolff.api.image.infrastructure.persistence.StoredImageEntity</param>
                                 <param>org.mwolff.api.ingest.infrastructure.persistence.IngestTokenEntity</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanAccessTokenEntity</param>
                                 <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanCommentEntity</param>
                                 <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanItemEntity</param>
                                 <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanSettingsEntity</param>
@@ -734,6 +739,7 @@
                                 <!-- Reine Mapping-/Delegations-Adapter ohne Branch-Logik, via *IT abgedeckt. -->
                                 <param>org.mwolff.api.dashboard.infrastructure.persistence.JpaDashboardAdapter</param>
                                 <param>org.mwolff.api.ingest.infrastructure.persistence.JpaIngestTokenAdapter</param>
+                                <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanAccessTokenAdapter</param>
                                 <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanAdapter</param>
                                 <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanCommentAdapter</param>
                                 <param>org.mwolff.api.timeseries.infrastructure.persistence.JpaTimeSeriesAdapter</param>

@@ -7,8 +7,14 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 import org.mwolff.api.auth.infrastructure.SecurityConfig;
+import org.mwolff.api.kanban.application.ResolveKanbanTokenUseCase;
+import org.mwolff.api.kanban.domain.KanbanAccessToken;
+import org.mwolff.api.kanban.web.KanbanSecurityConfig;
+import org.mwolff.api.kanban.web.KanbanTokenAuthFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -24,13 +30,18 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @WebMvcTest(controllers = MeController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, KanbanSecurityConfig.class})
 class SecurityConfigTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private CorsConfigurationSource corsConfigurationSource;
 
   @MockitoBean private JwtDecoder jwtDecoder;
+
+  // Board-PAT-Filter (#365) im Kontext (via echter KanbanSecurityConfig), damit die additive
+  // Filter-Verdrahtung der Default-Chain aktiv ist (ObjectProvider.ifAvailable greift). Der
+  // zugrunde liegende Resolve-UseCase ist ein Mock, den die PAT-Tests stubben.
+  @MockitoBean private ResolveKanbanTokenUseCase resolveKanbanTokenUseCase;
 
   @Test
   void shouldDenyAnonymousAccessToDashboards() throws Exception {
@@ -150,9 +161,40 @@ class SecurityConfigTest {
     assertThat(config.getAllowedMethods())
         .containsExactlyInAnyOrder("GET", "POST", "PUT", "DELETE", "OPTIONS");
     assertThat(config.getAllowedHeaders())
-        .containsExactlyInAnyOrder("Authorization", "Content-Type", "Accept", "X-Ingest-Token");
+        .containsExactlyInAnyOrder(
+            "Authorization", "Content-Type", "Accept", "X-Ingest-Token", "X-Kanban-Token");
     assertThat(config.getAllowCredentials()).isTrue();
     assertThat(config.getMaxAge()).isEqualTo(3600L);
+  }
+
+  @Test
+  void validKanbanPatGrantsKanbanRoleButNotDashboards() throws Exception {
+    // #365: Ein gueltiger PAT authentifiziert als ROLE_KANBAN. Kanban-Pfade sind erlaubt
+    // (hasAnyRole USER,KANBAN -> im Slice ohne Controller 404 = Auth durchgelassen); Dashboards
+    // bleiben JWT-USER-only -> mit PAT 403 (authentifiziert, aber falsche Rolle).
+    when(resolveKanbanTokenUseCase.execute("tk_valid"))
+        .thenReturn(
+            new KanbanAccessToken(1L, "user-1", "Manne", "Board", "h", Instant.EPOCH, null, false));
+
+    mockMvc
+        .perform(get("/api/kanban/items").header(KanbanTokenAuthFilter.HEADER, "tk_valid"))
+        .andExpect(status().isNotFound());
+
+    mockMvc
+        .perform(get("/api/dashboards/some-id").header(KanbanTokenAuthFilter.HEADER, "tk_valid"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void invalidKanbanPatIsRejected() throws Exception {
+    // #365: Ungueltiger/widerrufener PAT -> Filter leert den Context -> unauthentifiziert -> 401.
+    when(resolveKanbanTokenUseCase.execute("tk_bad"))
+        .thenThrow(
+            new org.mwolff.api.kanban.domain.InvalidKanbanTokenException("no matching token"));
+
+    mockMvc
+        .perform(get("/api/kanban/items").header(KanbanTokenAuthFilter.HEADER, "tk_bad"))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test

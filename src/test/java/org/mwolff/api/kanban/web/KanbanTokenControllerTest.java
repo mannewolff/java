@@ -50,6 +50,13 @@ class KanbanTokenControllerTest {
     return jwt().jwt(j -> j.subject(SUB)).authorities(new SimpleGrantedAuthority("ROLE_USER"));
   }
 
+  /** JWT mit leerem preferred_username — Fallback auf sub (deckt den isBlank()-Zweig). */
+  private static RequestPostProcessor userJwtWithBlankPreferredUsername() {
+    return jwt()
+        .jwt(j -> j.subject(SUB).claim("preferred_username", "   "))
+        .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+  }
+
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private ListKanbanTokensUseCase listUseCase;
@@ -105,6 +112,21 @@ class KanbanTokenControllerTest {
                 .content("{\"name\":\"Board\"}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.plaintext").value("tk_fallback"));
+  }
+
+  @Test
+  void createFallsBackToSubWhenPreferredUsernameBlank() throws Exception {
+    given(createUseCase.execute(SUB, SUB, "Board"))
+        .willReturn(new CreatedKanbanToken(token(101L, false), "tk_blank"));
+
+    mockMvc
+        .perform(
+            post("/api/kanban-tokens")
+                .with(userJwtWithBlankPreferredUsername())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Board\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.plaintext").value("tk_blank"));
   }
 
   @Test

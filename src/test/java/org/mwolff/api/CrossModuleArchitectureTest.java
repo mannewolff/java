@@ -67,10 +67,17 @@ class CrossModuleArchitectureTest {
             .ignoreDependency(
                 resideInAPackage("org.mwolff.api.kanban.."),
                 resideInAPackage("org.mwolff.api.common.token.."))
+            // Bewusste, dokumentierte Ausnahme (#365): Die zentrale SecurityConfig (auth) haengt
+            // den KanbanTokenAuthFilter (Board-PAT) in die Default-Chain ein. Die Chain-
+            // Verdrahtung ist bewusst zentral; die Kante auth -> kanban.web ist auf das
+            // Filter-Wiring begrenzt.
+            .ignoreDependency(
+                resideInAPackage("org.mwolff.api.auth.."),
+                resideInAPackage("org.mwolff.api.kanban.."))
             .as(
                 "Top-Level-Module unter org.mwolff.api dürfen sich nicht gegenseitig referenzieren "
                     + "(Ausnahmen: dokumentierte Kanten ingest → timeseries, image → dashboard, "
-                    + "ingest/kanban → common.token)")
+                    + "ingest/kanban → common.token, auth → kanban)")
             .because(
                 "modulübergreifende Zugriffe ohne definierten Port koppeln Features hart aneinander "
                     + "und unterlaufen die Hexagonal-Struktur (Issue #145)");

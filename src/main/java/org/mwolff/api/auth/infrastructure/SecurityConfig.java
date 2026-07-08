@@ -2,6 +2,8 @@ package org.mwolff.api.auth.infrastructure;
 
 import java.util.List;
 
+import org.mwolff.api.kanban.web.KanbanTokenAuthFilter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -11,6 +13,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,7 +34,9 @@ public class SecurityConfig {
    */
   @Bean
   @Order(2)
-  SecurityFilterChain filterChain(final HttpSecurity http) throws Exception {
+  SecurityFilterChain filterChain(
+      final HttpSecurity http, final ObjectProvider<KanbanTokenAuthFilter> kanbanTokenAuthFilter)
+      throws Exception {
     final JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
     jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(new JwtAuthoritiesConverter());
 
@@ -48,9 +53,11 @@ public class SecurityConfig {
                     // Phase 0 (#36-#38) und dem hexagonalen Refactor (#68).
                     .requestMatchers("/api/tools/**")
                     .hasRole("USER")
-                    // Kanban-Endpoints — gleicher Auth-Gate wie Dashboards (#99).
+                    // Kanban-Endpoints — Web-JWT (USER) ODER Board-PAT (KANBAN, #365). Der
+                    // KanbanTokenAuthFilter setzt bei gueltigem X-Kanban-Token ROLE_KANBAN;
+                    // /api/kanban-tokens/** bleibt bewusst USER-only (kein PAT-Self-Management).
                     .requestMatchers("/api/kanban/**")
-                    .hasRole("USER")
+                    .hasAnyRole("USER", "KANBAN")
                     // TimeSeries-Endpoints — gleicher Auth-Gate wie Dashboards (#90).
                     .requestMatchers("/api/timeseries/**")
                     .hasRole("USER")
@@ -101,6 +108,11 @@ public class SecurityConfig {
         .oauth2ResourceServer(
             oauth2 ->
                 oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
+    // Board-PAT (#365): additiv vor dem AnonymousAuthenticationFilter. Der Filter lebt im
+    // Kanban-Modul; via ObjectProvider bleibt diese Chain in Controller-Slice-Tests ohne den
+    // Bean lauffaehig (dort wird kein PAT verdrahtet), waehrend die Produktion ihn einhaengt.
+    kanbanTokenAuthFilter.ifAvailable(
+        filter -> http.addFilterBefore(filter, AnonymousAuthenticationFilter.class));
     return http.build();
   }
 
@@ -116,7 +128,7 @@ public class SecurityConfig {
         List.of("http://localhost:5173", "http://localhost:8080", "https://toolbox.mwolff.org"));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(
-        List.of("Authorization", "Content-Type", "Accept", "X-Ingest-Token"));
+        List.of("Authorization", "Content-Type", "Accept", "X-Ingest-Token", "X-Kanban-Token"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 

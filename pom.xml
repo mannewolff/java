@@ -355,6 +355,13 @@
                                 <exclude>org/mwolff/api/ingest/web/IngestTokenAuthFilter*</exclude>
                                 <exclude>org/mwolff/api/ingest/web/IngestRateLimitFilter*</exclude>
                                 <!--
+                                  KanbanTokenAuthFilter (#365): dieselbe Plumbing-Rolle wie der
+                                  Ingest-Auth-Filter (Spring-Security-Chain -> ResolveUseCase). Die
+                                  Fachlogik ist via KanbanTokenAuthFilterTest verifiziert; der
+                                  Branch-Count entsteht durch JVM-generierten Bytecode.
+                                -->
+                                <exclude>org/mwolff/api/kanban/web/KanbanTokenAuthFilter*</exclude>
+                                <!--
                                   OpenApiConfig: nur Bean-Wiring fuer springdoc-openapi (Title,
                                   Server-URLs, Security-Schemes). Wird via OpenApiSchemaIT
                                   gegen den vollen ApplicationContext verifiziert.
@@ -748,9 +755,11 @@
                                 <param>org.mwolff.api.tools.infrastructure.python.PythonToolsConfig</param>
                                 <param>org.mwolff.api.common.OpenApiConfig</param>
                                 <param>org.mwolff.api.ingest.web.IngestSecurityConfig</param>
+                                <param>org.mwolff.api.kanban.web.KanbanSecurityConfig</param>
                                 <param>org.mwolff.api.timeseries.web.CsvBulkParser*</param>
                                 <param>org.mwolff.api.ingest.web.IngestTokenAuthFilter*</param>
                                 <param>org.mwolff.api.ingest.web.IngestRateLimitFilter*</param>
+                                <param>org.mwolff.api.kanban.web.KanbanTokenAuthFilter*</param>
                             </excludedClasses>
                             <!--
                               Nachweislich aequivalente Mutanten (#207): renderScaledArgb

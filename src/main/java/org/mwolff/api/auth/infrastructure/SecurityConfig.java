@@ -57,6 +57,11 @@ public class SecurityConfig {
                     // Ingest-Token-Verwaltung: JWT-User legt Tokens fuer Maschinen an (#92).
                     .requestMatchers("/api/ingest-tokens/**")
                     .hasRole("USER")
+                    // Kanban-Access-Token-Verwaltung (#364): JWT-User legt Board-PATs an.
+                    // Bewusst NICHT per PAT verwaltbar (Least Privilege) — die PAT-Auth (#365)
+                    // gilt nur fuer /api/kanban/**, nicht fuer /api/kanban-tokens/**.
+                    .requestMatchers("/api/kanban-tokens/**")
+                    .hasRole("USER")
                     // Image-Store (#182): Upload UND Auslieferung nur fuer authentifizierte USER.
                     // Die Auslieferung ist bewusst auth-pflichtig — das Frontend laedt Bilder ueber
                     // den authentifizierten API-Client als Blob (kein direktes <img src>).

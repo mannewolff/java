@@ -6,6 +6,7 @@ import org.mwolff.api.kanban.domain.KanbanAttachmentNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanCommentForbiddenException;
 import org.mwolff.api.kanban.domain.KanbanCommentNotFoundException;
 import org.mwolff.api.kanban.domain.KanbanItemNotFoundException;
+import org.mwolff.api.kanban.domain.KanbanTokenNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,8 @@ public class KanbanExceptionHandler {
   @ExceptionHandler({
     KanbanItemNotFoundException.class,
     KanbanCommentNotFoundException.class,
-    KanbanAttachmentNotFoundException.class
+    KanbanAttachmentNotFoundException.class,
+    KanbanTokenNotFoundException.class
   })
   public ResponseEntity<Void> handleNotFound(RuntimeException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).build();

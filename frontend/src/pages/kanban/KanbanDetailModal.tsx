@@ -224,6 +224,17 @@ export default function KanbanDetailModal({
     setEditing(false);
   };
 
+  // ESC und Backdrop-Klick sollen sich wie „Abbrechen" verhalten: im Edit-Modus zurück in den
+  // Lesemodus (Draft verwerfen), nur im Lesemodus das Modal schließen. MUIs onClose feuert bei
+  // beidem — ohne diese Weiche würde ESC/Backdrop im Edit-Modus das Modal zumachen (#357).
+  const handleDialogClose = (): void => {
+    if (editing) {
+      cancelEditing();
+      return;
+    }
+    onClose();
+  };
+
   const handleSave = async (): Promise<void> => {
     if (!canSubmit || saving) return;
     const { deps, valid } = parseDependencyInput(dependencies);
@@ -245,7 +256,7 @@ export default function KanbanDetailModal({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleDialogClose}
       scroll="paper"
       maxWidth="lg"
       fullWidth

@@ -456,6 +456,78 @@ describe('KanbanDetailModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('ESC im Edit-Modus kehrt in den Lesemodus zurück, ohne onClose (#357)', async () => {
+    const onClose = vi.fn();
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ title: 'Alt' })}
+        retentionDays={5}
+        onClose={onClose}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+    expect(screen.getByLabelText('Titel')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    // Zurück im Lesemodus (Bearbeiten-Button sichtbar), Modal bleibt offen.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument(),
+    );
+    expect(screen.queryByLabelText('Titel')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('ESC im Lesemodus schließt das Modal (#357)', async () => {
+    const onClose = vi.fn();
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem()}
+        retentionDays={5}
+        onClose={onClose}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await user.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Backdrop-Klick im Edit-Modus kehrt in den Lesemodus zurück, ohne onClose (#357)', async () => {
+    const onClose = vi.fn();
+    const { baseElement } = render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ title: 'Alt' })}
+        retentionDays={5}
+        onClose={onClose}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const user = userEvent.setup();
+    await enterEdit(user);
+
+    const backdrop = baseElement.querySelector('.MuiBackdrop-root');
+    expect(backdrop).not.toBeNull();
+    await user.click(backdrop as Element);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('zeigt Status-Badge und Item-Nummer im Header (Kit-Optik)', async () => {
     render(
       <KanbanDetailModal

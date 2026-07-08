@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import KanbanDetailModal from './KanbanDetailModal';
+import KanbanDetailModal, { toggleTaskLine } from './KanbanDetailModal';
 import type { KanbanComment, KanbanEpic, KanbanItem } from '../../api/kanban';
 import {
   addKanbanComment,
@@ -570,6 +570,50 @@ describe('KanbanDetailModal', () => {
     });
   });
 
+  it('rendert Task-Listen als Checkboxen und toggelt nur die geklickte Zeile ohne zu schließen (#359)', async () => {
+    const onClose = vi.fn();
+    const onToggleTask = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ body: '- [ ] Eins\n- [ ] Zwei' })}
+        retentionDays={5}
+        onClose={onClose}
+        onSubmit={vi.fn()}
+        onToggleTask={onToggleTask}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    const checkboxes = screen.getAllByLabelText('Aufgabe umschalten');
+    expect(checkboxes).toHaveLength(2);
+
+    const user = userEvent.setup();
+    await user.click(checkboxes[1]);
+
+    // Nur Zeile 2 geflippt, Modal bleibt offen.
+    expect(onToggleTask).toHaveBeenCalledWith('- [ ] Eins\n- [x] Zwei');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('deaktiviert Task-Checkboxen bei archivierten Items (#359)', async () => {
+    render(
+      <KanbanDetailModal
+        open
+        item={makeItem({ archived: true, body: '- [ ] Eins' })}
+        retentionDays={5}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onToggleTask={vi.fn()}
+        onRestore={vi.fn()}
+        onForceDelete={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Noch keine Kommentare.');
+    expect(screen.getByLabelText('Aufgabe umschalten')).toBeDisabled();
+  });
+
   it('zeigt den Cleanup-Countdown für DONE-Items', async () => {
     const moved = new Date(Date.now() - 2 * 86_400_000).toISOString();
     render(
@@ -679,5 +723,36 @@ describe('KanbanDetailModal', () => {
     await user.click(screen.getByRole('button', { name: 'Löschen' }));
 
     await waitFor(() => expect(deleteKanbanComment).toHaveBeenCalledWith(1, 10));
+  });
+});
+
+describe('toggleTaskLine (#359)', () => {
+  it('flippt eine leere Box zu erledigt und zurück', () => {
+    expect(toggleTaskLine('- [ ] Tue X', 1)).toBe('- [x] Tue X');
+    expect(toggleTaskLine('- [x] Tue X', 1)).toBe('- [ ] Tue X');
+  });
+
+  it('flippt nur die angegebene Zeile, andere bleiben unberührt', () => {
+    const body = '- [ ] Eins\n- [ ] Zwei\n- [ ] Drei';
+    expect(toggleTaskLine(body, 2)).toBe('- [ ] Eins\n- [x] Zwei\n- [ ] Drei');
+  });
+
+  it('akzeptiert *- und +-Marker sowie Einrückung', () => {
+    expect(toggleTaskLine('  * [ ] Sub', 1)).toBe('  * [x] Sub');
+    expect(toggleTaskLine('+ [X] Groß-X', 1)).toBe('+ [ ] Groß-X');
+  });
+
+  it('erhält CRLF-Zeilenenden', () => {
+    expect(toggleTaskLine('- [ ] A\r\n- [ ] B', 2)).toBe('- [ ] A\r\n- [x] B');
+  });
+
+  it('lässt Zeilen ohne Task-Markierung unverändert', () => {
+    expect(toggleTaskLine('Nur Text', 1)).toBe('Nur Text');
+    expect(toggleTaskLine('- kein Task', 1)).toBe('- kein Task');
+  });
+
+  it('ignoriert out-of-range-Zeilen', () => {
+    expect(toggleTaskLine('- [ ] A', 5)).toBe('- [ ] A');
+    expect(toggleTaskLine('- [ ] A', 0)).toBe('- [ ] A');
   });
 });

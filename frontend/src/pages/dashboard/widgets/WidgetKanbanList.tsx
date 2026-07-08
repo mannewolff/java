@@ -235,6 +235,27 @@ export default function WidgetKanbanList({
     }
   }
 
+  // Task-Checkbox-Toggle (#359): nur den Body persistieren, Modal offen lassen; Rejection
+  // weiterreichen, damit das Modal die optimistische Umschaltung zurücknimmt.
+  async function handleToggleTask(body: string): Promise<void> {
+    if (!detailItem) return;
+    try {
+      const updated = await updateKanbanItem(
+        detailItem.id,
+        detailItem.title,
+        body,
+        null,
+        detailItem.parentId,
+        detailItem.dependencies ?? [],
+      );
+      setDetailItem(updated);
+      await reload();
+    } catch (e) {
+      notify.error(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen.');
+      throw e;
+    }
+  }
+
   return (
     <Paper
       variant={surface.variant}
@@ -379,6 +400,7 @@ export default function WidgetKanbanList({
           retentionDays={retentionDays}
           onClose={() => setDetailItem(null)}
           onSubmit={handleDetailSubmit}
+          onToggleTask={handleToggleTask}
         />
       )}
 

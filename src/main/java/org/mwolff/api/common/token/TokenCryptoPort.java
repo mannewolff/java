@@ -1,4 +1,4 @@
-package org.mwolff.api.ingest.domain;
+package org.mwolff.api.common.token;
 
 /**
  * Strategy fuer Token-Erzeugung und -Hashing — Infrastruktur-Adapter liefert eine
@@ -7,6 +7,9 @@ package org.mwolff.api.ingest.domain;
  * <p>Wir verwenden bewusst keinen bcrypt-Hash: Bcrypt ist randomisiert (Salt) und damit fuer
  * Direct-Lookup-via-Hash ungeeignet. Bei API-Tokens kommt die Brute-Force-Sicherheit aus der
  * Entropie des Plaintexts (256 bit / 64 Hex-Zeichen), nicht aus dem Hashing-Verfahren.
+ *
+ * <p>Liegt bewusst im modul-neutralen {@code common.token}-Paket, weil mehrere Feature-Module
+ * (Ingest, Kanban) denselben PAT-Hash-Mechanismus brauchen (Issue #362).
  */
 public interface TokenCryptoPort {
 

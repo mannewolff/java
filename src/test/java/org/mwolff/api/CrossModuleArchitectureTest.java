@@ -58,9 +58,19 @@ class CrossModuleArchitectureTest {
             .ignoreDependency(
                 resideInAPackage("org.mwolff.api.image.."),
                 resideInAPackage("org.mwolff.api.dashboard.."))
+            // Bewusste, dokumentierte Ausnahme (#362): Der PAT-Hash-Mechanismus liegt neutral in
+            // common.token; Feature-Module, die eigene API-Tokens ausstellen (Ingest, Kanban),
+            // dürfen darauf zugreifen. Die Gegenrichtung common → Feature bleibt verboten.
+            .ignoreDependency(
+                resideInAPackage("org.mwolff.api.ingest.."),
+                resideInAPackage("org.mwolff.api.common.token.."))
+            .ignoreDependency(
+                resideInAPackage("org.mwolff.api.kanban.."),
+                resideInAPackage("org.mwolff.api.common.token.."))
             .as(
                 "Top-Level-Module unter org.mwolff.api dürfen sich nicht gegenseitig referenzieren "
-                    + "(Ausnahmen: dokumentierte Kanten ingest → timeseries, image → dashboard)")
+                    + "(Ausnahmen: dokumentierte Kanten ingest → timeseries, image → dashboard, "
+                    + "ingest/kanban → common.token)")
             .because(
                 "modulübergreifende Zugriffe ohne definierten Port koppeln Features hart aneinander "
                     + "und unterlaufen die Hexagonal-Struktur (Issue #145)");

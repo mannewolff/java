@@ -1,4 +1,4 @@
-package org.mwolff.api.ingest.infrastructure.crypto;
+package org.mwolff.api.common.token;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

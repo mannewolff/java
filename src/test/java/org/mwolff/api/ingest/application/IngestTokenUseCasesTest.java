@@ -15,12 +15,12 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.mwolff.api.common.token.TokenCryptoPort;
 import org.mwolff.api.ingest.application.CreateIngestTokenUseCase.CreatedIngestToken;
 import org.mwolff.api.ingest.domain.IngestToken;
 import org.mwolff.api.ingest.domain.IngestTokenNotFoundException;
 import org.mwolff.api.ingest.domain.IngestTokenPort;
 import org.mwolff.api.ingest.domain.InvalidIngestTokenException;
-import org.mwolff.api.ingest.domain.TokenCryptoPort;
 
 class IngestTokenUseCasesTest {
 

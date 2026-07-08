@@ -1,4 +1,4 @@
-package org.mwolff.api.ingest.infrastructure.crypto;
+package org.mwolff.api.common.token;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -6,7 +6,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 
-import org.mwolff.api.ingest.domain.TokenCryptoPort;
 import org.springframework.stereotype.Component;
 
 /**

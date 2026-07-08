@@ -14,12 +14,14 @@ vi.mock('../../api/kanbanAttachments', async () => {
     uploadAttachment: vi.fn(),
     downloadAttachment: vi.fn(),
     deleteAttachment: vi.fn(),
+    fetchAttachmentBlob: vi.fn(),
   };
 });
 
 import {
   MAX_ATTACHMENT_BYTES,
   deleteAttachment,
+  fetchAttachmentBlob,
   listAttachments,
   uploadAttachment,
 } from '../../api/kanbanAttachments';
@@ -27,6 +29,7 @@ import {
 const list = listAttachments as ReturnType<typeof vi.fn>;
 const upload = uploadAttachment as ReturnType<typeof vi.fn>;
 const del = deleteAttachment as ReturnType<typeof vi.fn>;
+const fetchBlob = fetchAttachmentBlob as ReturnType<typeof vi.fn>;
 
 const ITEM = 5;
 
@@ -54,6 +57,7 @@ describe('KanbanAttachmentList', () => {
     upload.mockResolvedValue(meta());
     del.mockReset();
     del.mockResolvedValue(undefined);
+    fetchBlob.mockReset();
   });
 
   afterEach(() => cleanup());
@@ -125,6 +129,35 @@ describe('KanbanAttachmentList', () => {
     fireEvent.change(fileInput(), { target: { files: [file] } });
 
     expect(await screen.findByText('Upload fehlgeschlagen.')).toBeInTheDocument();
+  });
+
+  it('zeigt das Vorschau-Icon nur für vorschaufähige Anhänge (#360)', async () => {
+    list.mockResolvedValue([
+      meta({ id: 1, filename: 'doc.pdf', contentType: 'application/pdf' }),
+      meta({ id: 2, filename: 'notes.txt', contentType: 'text/plain' }),
+    ]);
+    render(<KanbanAttachmentList itemId={ITEM} />);
+
+    await screen.findByText('doc.pdf');
+    expect(screen.getByRole('button', { name: 'Vorschau: doc.pdf' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vorschau: notes.txt' })).not.toBeInTheDocument();
+  });
+
+  it('öffnet die Vollbild-Vorschau beim Klick auf das Vorschau-Icon (#360)', async () => {
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:mock'),
+      revokeObjectURL: vi.fn(),
+    });
+    fetchBlob.mockResolvedValue(new Blob([new Uint8Array([1])], { type: 'image/png' }));
+    list.mockResolvedValue([meta({ id: 3, filename: 'bild.png', contentType: 'image/png' })]);
+    render(<KanbanAttachmentList itemId={ITEM} />);
+
+    await screen.findByText('bild.png');
+    fireEvent.click(screen.getByRole('button', { name: 'Vorschau: bild.png' }));
+
+    expect(await screen.findByRole('button', { name: 'Vorschau schließen' })).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('meldet das 5er-Limit, wenn das Backend mit 409 antwortet', async () => {

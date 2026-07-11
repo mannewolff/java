@@ -168,7 +168,7 @@
                 <plugin>
                     <groupId>com.diffplug.spotless</groupId>
                     <artifactId>spotless-maven-plugin</artifactId>
-                    <version>2.43.0</version>
+                    <version>2.46.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -309,18 +309,6 @@
                                 <exclude>org/mwolff/api/dashboard/infrastructure/persistence/JpaDashboardAdapter.class</exclude>
                                 <exclude>org/mwolff/api/dashboard/infrastructure/persistence/WidgetEntity.class</exclude>
                                 <exclude>org/mwolff/api/dashboard/infrastructure/persistence/WidgetJpaRepository.class</exclude>
-                                <!-- Kanban Persistence -->
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAdapter.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanCommentAdapter.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanCommentEntity.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanCommentJpaRepository.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemEntity.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanItemJpaRepository.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsEntity.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanSettingsJpaRepository.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAttachmentAdapter.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAttachmentEntity.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAttachmentJpaRepository.class</exclude>
                                 <!-- TimeSeries Persistence -->
                                 <exclude>org/mwolff/api/timeseries/infrastructure/persistence/JpaTimeSeriesAdapter.class</exclude>
                                 <exclude>org/mwolff/api/timeseries/infrastructure/persistence/TimeSeriesEntity.class</exclude>
@@ -331,10 +319,6 @@
                                 <exclude>org/mwolff/api/ingest/infrastructure/persistence/JpaIngestTokenAdapter.class</exclude>
                                 <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenEntity.class</exclude>
                                 <exclude>org/mwolff/api/ingest/infrastructure/persistence/IngestTokenJpaRepository.class</exclude>
-                                <!-- Kanban-Access-Token Persistence (#363), IT-abgedeckt via JpaKanbanAccessTokenAdapterIT. -->
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/JpaKanbanAccessTokenAdapter.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAccessTokenEntity.class</exclude>
-                                <exclude>org/mwolff/api/kanban/infrastructure/persistence/KanbanAccessTokenJpaRepository.class</exclude>
                                 <!--
                                   IngestRateLimiter: In-Memory-Wrapper ohne fachliche Branches.
                                   Sha256TokenCryptoAdapter (seit #362 in common.token): hat Unit-Test
@@ -354,13 +338,6 @@
                                 -->
                                 <exclude>org/mwolff/api/ingest/web/IngestTokenAuthFilter*</exclude>
                                 <exclude>org/mwolff/api/ingest/web/IngestRateLimitFilter*</exclude>
-                                <!--
-                                  KanbanTokenAuthFilter (#365): dieselbe Plumbing-Rolle wie der
-                                  Ingest-Auth-Filter (Spring-Security-Chain -> ResolveUseCase). Die
-                                  Fachlogik ist via KanbanTokenAuthFilterTest verifiziert; der
-                                  Branch-Count entsteht durch JVM-generierten Bytecode.
-                                -->
-                                <exclude>org/mwolff/api/kanban/web/KanbanTokenAuthFilter*</exclude>
                                 <!--
                                   OpenApiConfig: nur Bean-Wiring fuer springdoc-openapi (Title,
                                   Server-URLs, Security-Schemes). Wird via OpenApiSchemaIT
@@ -409,7 +386,7 @@
                 <configuration>
                     <java>
                         <googleJavaFormat>
-                            <version>1.23.0</version>
+                            <version>1.35.0</version>
                             <style>GOOGLE</style>
                         </googleJavaFormat>
                         <removeUnusedImports/>
@@ -737,29 +714,20 @@
                                 <param>org.mwolff.api.dashboard.infrastructure.persistence.WidgetEntity</param>
                                 <param>org.mwolff.api.image.infrastructure.persistence.StoredImageEntity</param>
                                 <param>org.mwolff.api.ingest.infrastructure.persistence.IngestTokenEntity</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanAccessTokenEntity</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanCommentEntity</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanItemEntity</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.KanbanSettingsEntity</param>
                                 <param>org.mwolff.api.timeseries.infrastructure.persistence.TimeSeriesEntity</param>
                                 <param>org.mwolff.api.timeseries.infrastructure.persistence.TimeSeriesEntryEntity</param>
                                 <!-- Reine Mapping-/Delegations-Adapter ohne Branch-Logik, via *IT abgedeckt. -->
                                 <param>org.mwolff.api.dashboard.infrastructure.persistence.JpaDashboardAdapter</param>
                                 <param>org.mwolff.api.ingest.infrastructure.persistence.JpaIngestTokenAdapter</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanAccessTokenAdapter</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanAdapter</param>
-                                <param>org.mwolff.api.kanban.infrastructure.persistence.JpaKanbanCommentAdapter</param>
                                 <param>org.mwolff.api.timeseries.infrastructure.persistence.JpaTimeSeriesAdapter</param>
                                 <!-- Bean-Wiring ohne eigenstaendig testbares Verhalten. -->
                                 <param>org.mwolff.api.auth.infrastructure.SecurityConfig</param>
                                 <param>org.mwolff.api.tools.infrastructure.python.PythonToolsConfig</param>
                                 <param>org.mwolff.api.common.OpenApiConfig</param>
                                 <param>org.mwolff.api.ingest.web.IngestSecurityConfig</param>
-                                <param>org.mwolff.api.kanban.web.KanbanSecurityConfig</param>
                                 <param>org.mwolff.api.timeseries.web.CsvBulkParser*</param>
                                 <param>org.mwolff.api.ingest.web.IngestTokenAuthFilter*</param>
                                 <param>org.mwolff.api.ingest.web.IngestRateLimitFilter*</param>
-                                <param>org.mwolff.api.kanban.web.KanbanTokenAuthFilter*</param>
                             </excludedClasses>
                             <!--
                               Nachweislich aequivalente Mutanten (#207): renderScaledArgb

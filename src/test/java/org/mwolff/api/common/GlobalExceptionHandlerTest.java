@@ -105,8 +105,8 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void shouldMapMethodArgumentTypeMismatchToConsistentBadRequestFormat() throws Exception {
-    // given — z. B. GET /api/kanban/items?includeArchived=yes (Issue #297): Spring lehnt die
-    // Bindung des primitiven booleans ab, bevor der Controller ueberhaupt laeuft.
+    // given — z. B. ein GET mit ?includeArchived=yes auf einen boolean-Query-Parameter: Spring
+    // lehnt die Bindung des primitiven booleans ab, bevor der Controller ueberhaupt laeuft.
     final Method method = ExampleTarget.class.getDeclaredMethod("setName", String.class);
     final MethodParameter param = new MethodParameter(method, 0);
     final MethodArgumentTypeMismatchException ex =

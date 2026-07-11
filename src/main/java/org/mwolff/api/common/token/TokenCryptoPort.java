@@ -8,8 +8,9 @@ package org.mwolff.api.common.token;
  * Direct-Lookup-via-Hash ungeeignet. Bei API-Tokens kommt die Brute-Force-Sicherheit aus der
  * Entropie des Plaintexts (256 bit / 64 Hex-Zeichen), nicht aus dem Hashing-Verfahren.
  *
- * <p>Liegt bewusst im modul-neutralen {@code common.token}-Paket, weil mehrere Feature-Module
- * (Ingest, Kanban) denselben PAT-Hash-Mechanismus brauchen (Issue #362).
+ * <p>Liegt bewusst im modul-neutralen {@code common.token}-Paket, damit Feature-Module, die eigene
+ * API-Tokens ausstellen (Ingest), denselben PAT-Hash-Mechanismus wiederverwenden koennen (Issue
+ * #362).
  */
 public interface TokenCryptoPort {
 

@@ -13,7 +13,7 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
 
 /**
  * Projektweite Cross-Module-Architekturregel. Die per-Modul-Layer-Tests (Tools, TimeSeries, Ingest,
- * Dashboard, Kanban, Auth) prüfen nur die interne Hexagonal-Topologie eines Moduls — sie sehen
+ * Dashboard, Auth) prüfen nur die interne Hexagonal-Topologie eines Moduls — sie sehen
  * modulübergreifende Zugriffe nicht, weil sie jeweils nur ihr eigenes Package importieren.
  *
  * <p>Dieser Test schließt die Lücke: Jedes Top-Level-Package unter {@code org.mwolff.api} ist ein
@@ -59,25 +59,15 @@ class CrossModuleArchitectureTest {
                 resideInAPackage("org.mwolff.api.image.."),
                 resideInAPackage("org.mwolff.api.dashboard.."))
             // Bewusste, dokumentierte Ausnahme (#362): Der PAT-Hash-Mechanismus liegt neutral in
-            // common.token; Feature-Module, die eigene API-Tokens ausstellen (Ingest, Kanban),
-            // dürfen darauf zugreifen. Die Gegenrichtung common → Feature bleibt verboten.
+            // common.token; Feature-Module, die eigene API-Tokens ausstellen (Ingest), dürfen
+            // darauf zugreifen. Die Gegenrichtung common → Feature bleibt verboten.
             .ignoreDependency(
                 resideInAPackage("org.mwolff.api.ingest.."),
                 resideInAPackage("org.mwolff.api.common.token.."))
-            .ignoreDependency(
-                resideInAPackage("org.mwolff.api.kanban.."),
-                resideInAPackage("org.mwolff.api.common.token.."))
-            // Bewusste, dokumentierte Ausnahme (#365): Die zentrale SecurityConfig (auth) haengt
-            // den KanbanTokenAuthFilter (Board-PAT) in die Default-Chain ein. Die Chain-
-            // Verdrahtung ist bewusst zentral; die Kante auth -> kanban.web ist auf das
-            // Filter-Wiring begrenzt.
-            .ignoreDependency(
-                resideInAPackage("org.mwolff.api.auth.."),
-                resideInAPackage("org.mwolff.api.kanban.."))
             .as(
                 "Top-Level-Module unter org.mwolff.api dürfen sich nicht gegenseitig referenzieren "
                     + "(Ausnahmen: dokumentierte Kanten ingest → timeseries, image → dashboard, "
-                    + "ingest/kanban → common.token, auth → kanban)")
+                    + "ingest → common.token)")
             .because(
                 "modulübergreifende Zugriffe ohne definierten Port koppeln Features hart aneinander "
                     + "und unterlaufen die Hexagonal-Struktur (Issue #145)");

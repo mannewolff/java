@@ -1,6 +1,6 @@
 import { api } from './client';
 
-export type WidgetType = 'TEXTBOX' | 'KPI' | 'PLOT' | 'KANBAN_LIST' | 'DIVIDER' | 'IMAGE';
+export type WidgetType = 'TEXTBOX' | 'KPI' | 'PLOT' | 'DIVIDER' | 'IMAGE';
 
 /** Wire-Format eines Widgets — passt zu `WidgetDto` im Spring-Backend. */
 export interface WidgetDto {

@@ -30,7 +30,6 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { width: number; height: number
   KPI: { width: 2, height: 2 },
   TEXTBOX: { width: 4, height: 3 },
   PLOT: { width: 6, height: 4 },
-  KANBAN_LIST: { width: 3, height: 4 },
   DIVIDER: { ...DIVIDER_HORIZONTAL_SIZE },
   IMAGE: { width: 4, height: 4 },
 };
@@ -53,7 +52,6 @@ export const WIDGET_INITIAL_CONFIG: Record<WidgetType, string> = {
     defaultGranularity: null,
     overlays: [],
   }),
-  KANBAN_LIST: JSON.stringify({ column: 'BACKLOG', limit: 5 }),
   DIVIDER: JSON.stringify({ color: '', thickness: 2 }),
   IMAGE: JSON.stringify({
     imageId: null,

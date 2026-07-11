@@ -7,7 +7,7 @@ Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Sti
 
 ## Stack
 
-- Java 21, Spring Boot 3.5, Maven
+- Java 25, Spring Boot 3.5, Maven
 - MariaDB 11 (via Docker / Testcontainers)
 - Flyway für Schemamigrationen
 - Keycloak 26 (eigener Container, Realm-Config als Code in `infra/keycloak/`)

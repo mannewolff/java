@@ -21,7 +21,7 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 | Guide | Fokus | Wiederverwendbar |
 |---|---|---|
 | **CLAUDE.md** (diese Datei) | Projekt-Übersicht + Pflichtchecks | ❌ Projekt |
-| [CLAUDE-java.md](CLAUDE-java.md) | Java 21, Spring Boot 3, TDD, Coverage, Mutationstests | ✅ Allgemein |
+| [CLAUDE-java.md](CLAUDE-java.md) | Java 25, Spring Boot 3, TDD, Coverage, Mutationstests | ✅ Allgemein |
 | [CLAUDE-react.md](CLAUDE-react.md) | React 18, Vite, TypeScript, MUI, Lazy Loading, ESLint/A11y | ✅ Allgemein |
 | [CLAUDE-Python.md](CLAUDE-Python.md) | FastAPI, Pillow, rembg, python-tools Microservice | ❌ Projekt |
 | [CLAUDE-widget.md](CLAUDE-widget.md) | Dashboard-Widgets: Props-Vertrag, Config, Darstellung, neuer Typ | ❌ Projekt |
@@ -38,7 +38,7 @@ Diese Datei ist der Einstiegspunkt für alle Engineering-Regeln in diesem Projek
 
 | Schicht | Technologie |
 |---|---|
-| Backend-Sprache | Java 21 (LTS) |
+| Backend-Sprache | Java 25 (LTS) |
 | Backend-Framework | Spring Boot 3.5, Spring Data JPA, Spring Web |
 | Build (Backend) | Maven |
 | Datenbank | MariaDB 11 (Postgres-kompatible Patterns) |
@@ -152,7 +152,7 @@ Die früher in diesem Verzeichnis liegende `CLAUDE-content.md` aus dem mwolff.or
 
 ---
 
-**TL;DR:** Java 21 + Spring Boot 3 (TDD-pflichtig, 100 % Coverage). React 18 + TypeScript strict + MUI. Sicherheit > Korrektheit > Komfort. Vor jedem Push: `mvn verify` und `npm run build` grün. Plan-Mode und GitHub-Issues sind verbindlich (siehe Workflow).
+**TL;DR:** Java 25 + Spring Boot 3 (TDD-pflichtig, 100 % Coverage). React 18 + TypeScript strict + MUI. Sicherheit > Korrektheit > Komfort. Vor jedem Push: `mvn verify` und `npm run build` grün. Plan-Mode und GitHub-Issues sind verbindlich (siehe Workflow).
 
 ## Gedächtnis (Obsidian-Vault)
 

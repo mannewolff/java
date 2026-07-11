@@ -148,7 +148,7 @@ Dieses Feature ist **bewusst für Dev-Zwecke** vorgesehen. In Produktion ist es 
 ## 🐳 Container & Deployment
 
 - `Dockerfile`: Multi-Stage-Build, finale Stage als JRE (kein JDK in Produktion). Kein `sudo`, keine zusätzlichen Tools außer wirklich nötigem (`curl` nur für Healthcheck).
-- Container läuft idealerweise als Non-Root-User. Bei `eclipse-temurin:21-jre`: explizit Non-Root setzen, wenn das Image dies nicht schon tut.
+- Container läuft idealerweise als Non-Root-User. Bei `eclipse-temurin:25-jre`: explizit Non-Root setzen, wenn das Image dies nicht schon tut.
 - `docker-compose.yml`: keine Secrets als Klartext — über `.env` oder Compose-Secrets binden.
 - Healthcheck nutzt `/actuator/health` mit minimalen Informationen.
 

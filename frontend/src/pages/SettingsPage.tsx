@@ -87,17 +87,6 @@ export default function SettingsPage() {
             />
           </ListItemButton>
         </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton component={RouterLink} to="/settings/kanban-tokens">
-            <ListItemIcon>
-              <VpnKeyIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Kanban-Tokens"
-              secondary="Tokens für den Board-Adapter (tbx) auf dein Kanban-Board verwalten"
-            />
-          </ListItemButton>
-        </ListItem>
       </List>
 
       <Divider sx={{ my: 3 }} />

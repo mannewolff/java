@@ -23,16 +23,12 @@ const ImageManagerPage = lazy(() => import('./pages/tools/ImageManagerPage'));
 const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
 const ApiConsolePage = lazy(() => import('./pages/tools/ApiConsolePage'));
 const MarkdownToPdfPage = lazy(() => import('./pages/tools/MarkdownToPdfPage'));
-const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
 const TimeSeriesListPage = lazy(() => import('./pages/timeseries/TimeSeriesListPage'));
 const TimeSeriesDetailPage = lazy(
   () => import('./pages/timeseries/TimeSeriesDetailPage'),
 );
 const IngestTokenSettingsPage = lazy(
   () => import('./pages/settings/IngestTokenSettingsPage'),
-);
-const KanbanTokenSettingsPage = lazy(
-  () => import('./pages/settings/KanbanTokenSettingsPage'),
 );
 
 export default function App() {
@@ -160,15 +156,6 @@ export default function App() {
             </Suspense>
           }
         />
-        <Route path="/kanban" element={<Navigate to="/kanban/board" replace />} />
-        <Route
-          path="/kanban/:view"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <KanbanPage />
-            </Suspense>
-          }
-        />
         <Route
           path="/timeseries"
           element={
@@ -198,14 +185,6 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <IngestTokenSettingsPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/settings/kanban-tokens"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <KanbanTokenSettingsPage />
             </Suspense>
           }
         />

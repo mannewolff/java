@@ -83,7 +83,6 @@ Admin manuell auf `USER` promotet. Details und Admin-Workflow:
 │   ├── dashboard/                      # Dashboards + Widgets
 │   ├── image/                          # Bild-Speicher (StoredImage)
 │   ├── ingest/                         # Token-Ingestion für Zeitreihen (ohne Login)
-│   ├── kanban/                         # Kanban-Board (Items, Kommentare, Cleanup-Job)
 │   ├── timeseries/                     # Zeitreihen (Ingestion + Aggregation)
 │   ├── tools/                          # Tool-Proxy auf python-tools (Resize, Crop, RemBG)
 │   └── common/                         # GlobalExceptionHandler, SpaForwardingController, OpenApiConfig
@@ -101,7 +100,7 @@ Admin manuell auf `USER` promotet. Details und Admin-Workflow:
         ├── components/                 # geteilte UI-Bausteine
         ├── lib/                        # Frontend-Hilfsfunktionen
         ├── notify/                     # NotifyProvider (Snackbars)
-        ├── pages/                      # DashboardPage, SettingsPage + kanban/, timeseries/, mobile/, settings/, tools/*
+        ├── pages/                      # DashboardPage, SettingsPage + timeseries/, mobile/, settings/, tools/*
         └── api/                        # client.ts (fetch-Wrapper), <domain>.ts
 ```
 

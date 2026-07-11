@@ -117,7 +117,7 @@ Ausgeschlossen werden **ausschließlich**:
 - DTOs/Records/Projektionen **nur**, wenn sie keinerlei Logik enthalten (keine compact constructors, keine berechneten Felder).
 - **Infrastruktur-Adapter, Entities und Spring-Data-Repositories, die nur gegen eine echte
   Datenbank sinnvoll testbar sind** und dort per Testcontainers-`*IT` zu 100 % abgedeckt werden
-  (z. B. `JpaKanbanAdapter`, JPA-Entities, `*JpaRepository`). Die JaCoCo-Prüfung wertet die
+  (z. B. `JpaDashboardAdapter`, JPA-Entities, `*JpaRepository`). Die JaCoCo-Prüfung wertet die
   Unit-Coverage (surefire) aus; IT-Coverage fließt nicht in `jacoco.exec` ein, daher der
   Ausschluss trotz voller IT-Abdeckung. **Nicht** ausgeschlossen werden Adapter, die mit einem
   gemockten Repository unit-testbar sind (z. B. `JpaStoredImageAdapter`) — diese bleiben in der

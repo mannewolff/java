@@ -18,7 +18,7 @@ Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Sti
 ## Projektstruktur
 
 ```
-src/main/java/org/mwolff/api/      Application + Domain (appversion, auth, dashboard, image, ingest, kanban, timeseries, tools, common)
+src/main/java/org/mwolff/api/      Application + Domain (appversion, auth, dashboard, image, ingest, timeseries, tools, common)
 src/main/resources/                application.yml, Flyway-Migrationen
 src/test/java/org/mwolff/api/      Tests (*Test = schnell, *IT = Testcontainers)
 frontend/                          React-App (Vite + TS + MUI)
@@ -247,59 +247,7 @@ Alle UI-Routen sind hinter Keycloak-Login und erfordern Rolle `USER`. Backend-En
 | `/dashboards/:id` | `GET /api/dashboards/{id}`, `PUT /api/dashboards/{id}` | Detail mit Widgets, Layout speichern |
 | `/dashboards/:id` (inline rename) | `PUT /api/dashboards/{id}/name` | Inline-Rename |
 
-Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend), `KANBAN_LIST` (Mini-Board-Vorschau). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
-
-### Kanban-Board
-
-| Route | Endpoint | Zweck |
-|---|---|---|
-| `/kanban` | `GET/POST/PATCH/DELETE /api/kanban/items` | Vier-Spalten-Board (Backlog → In Progress → In Review → Done) |
-
-Drag & Drop zwischen Spalten und innerhalb einer Spalte (dnd-kit). Items können archiviert (Soft-Delete), wiederhergestellt oder endgültig gelöscht werden. DONE-Items werden nach konfigurierbaren Tagen automatisch bereinigt (`DoneItemCleanupJob`). Kommentarfunktion pro Item. Einstellungen (Retention-Tage, Archiv-Anzeige) über den Settings-Drawer.
-
-#### Toolbox als Board anbinden (9-Schritt-Workflow)
-
-Das eigene Kanban-Board kann als Issue-Tracker des Claude-Code-9-Schritt-Workflows dienen — der
-`board.mjs`-Adapter spricht dann statt GitHub-Issues das Toolbox-Board an. Die Authentifizierung
-läuft über einen **Kanban-Access-Token (PAT)**, nicht über Keycloak-Login (bewusste Entscheidung,
-siehe [`infra/keycloak/README.md`](infra/keycloak/README.md)).
-
-**Einrichtung (drei Schritte):**
-
-1. **Token erzeugen** in der Web-UI unter *Einstellungen → Kanban-Tokens → Neu*. Der Klartext
-   (`tk_…`) wird **einmalig** angezeigt — sofort kopieren. In der DB liegt nur der SHA-256-Hash.
-2. **CLI anmelden** mit dem `tbx`-Single-File-CLI (`cli/tbx.mjs`, zero deps):
-
-   ```bash
-   # Token via --token, Umgebungsvariable TBX_TOKEN oder stdin
-   node cli/tbx.mjs auth login --host https://toolbox.mwolff.org --token tk_...
-   node cli/tbx.mjs auth status     # Host + Token-Gültigkeit prüfen
-   ```
-
-   Der Token wird mit `0600` unter `~/.config/toolbox-cli/{config,tokens}.json` gespeichert.
-   Widerruf: `node cli/tbx.mjs auth logout` (löscht die lokale Kopie) bzw. in der Web-UI
-   (serverseitiger Widerruf).
-3. **Workflow umstellen** in `.claude/workflow.config.json`:
-
-   ```jsonc
-   {
-     "issueTracker": "toolbox",     // statt "github"
-     "codeHost": "github",          // bleibt github — PRs weiterhin über GitHub
-     "toolbox": { "host": "https://toolbox.mwolff.org" }
-   }
-   ```
-
-   Der Token-Header lautet `X-Kanban-Token`; der PAT wirkt **nur** auf `/api/kanban/**` (Dashboards
-   etc. bleiben JWT-only). Die Board-Nummer (`#N`) ist die Workflow-Adresse; Move/Comment lösen sie
-   intern auf die DB-`id` auf.
-
-**Vorwärts-Haken (heute noch nicht aktiv):** Für „mehrere Boards pro Repo" ist in der Config der
-Schlüssel `toolbox.board` reserviert (aktuell ignoriert). Sobald das Backend `KanbanItem` ein
-`project`-Feld erhält, wählt `toolbox.board` das Zielboard.
-
-**Folge-Task:** Der generische `toolbox`-Adapter in `.claude/kit/board.mjs` sollte ins
-[claude-workflow-kit](https://github.com/mannewolff/claude-workflow-kit) *upstreamed* werden, damit
-er beim nächsten Kit-Sync nicht überschrieben wird (Sync-Divergenz vermeiden).
+Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
 
 ### Zeitreihen
 

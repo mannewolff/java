@@ -13,8 +13,8 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 
 /**
  * Separate Filter-Chain fuer den oeffentlichen Ingest-Endpoint. Bewusst aus der zentralen {@code
- * SecurityConfig} herausgeloest, damit Slice-Tests anderer Controller (Dashboard, Kanban,
- * TimeSeries) keine Ingest-Beans wiren muessen.
+ * SecurityConfig} herausgeloest, damit Slice-Tests anderer Controller (Dashboard, TimeSeries) keine
+ * Ingest-Beans wiren muessen.
  *
  * <p>{@link IngestTokenAuthFilter} liest {@code X-Ingest-Token} und legt eine {@link
  * IngestTokenAuthentication} in den Context. Danach folgt {@link IngestRateLimitFilter} mit 60

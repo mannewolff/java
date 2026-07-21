@@ -8,7 +8,7 @@ Ergänzend zu [CLAUDE.md](CLAUDE.md), [CLAUDE-security.md](CLAUDE-security.md) u
 
 ## 1. Projektkontext
 
-- **Sprache:** Java 21 (LTS), keine Preview-Features ohne explizite Freigabe. Die Version wird durch `maven-enforcer-plugin` erzwungen, der Build bricht auf jeder anderen JDK-Hauptversion ab. Wenn lokal eine andere JDK aktiv ist, entweder `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` setzen oder `maven-toolchains-plugin` über `~/.m2/toolchains.xml` konfigurieren (Beispiel im Repo `infra/toolchains.xml.example`, sobald angelegt).
+- **Sprache:** Java 25 (LTS), keine Preview-Features ohne explizite Freigabe. Die Version wird durch `maven-enforcer-plugin` erzwungen, der Build bricht auf jeder anderen JDK-Hauptversion ab. Wenn lokal eine andere JDK aktiv ist, entweder `JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home` setzen oder `maven-toolchains-plugin` über `~/.m2/toolchains.xml` konfigurieren (Beispiel im Repo `infra/toolchains.xml.example`, sobald angelegt).
 - **Framework:** Spring Boot 3.5.
 - **Build:** Maven 3.9+. Compiler läuft mit `-Xlint:all -Werror`; jede Warnung bricht den Build. Enforcer prüft zusätzlich `dependencyConvergence` und `banDuplicatePomDependencyVersions`.
 - **Datenbank:** MariaDB 11 (Testcontainers in Integrationstests).
@@ -117,7 +117,7 @@ Ausgeschlossen werden **ausschließlich**:
 - DTOs/Records/Projektionen **nur**, wenn sie keinerlei Logik enthalten (keine compact constructors, keine berechneten Felder).
 - **Infrastruktur-Adapter, Entities und Spring-Data-Repositories, die nur gegen eine echte
   Datenbank sinnvoll testbar sind** und dort per Testcontainers-`*IT` zu 100 % abgedeckt werden
-  (z. B. `JpaKanbanAdapter`, JPA-Entities, `*JpaRepository`). Die JaCoCo-Prüfung wertet die
+  (z. B. `JpaDashboardAdapter`, JPA-Entities, `*JpaRepository`). Die JaCoCo-Prüfung wertet die
   Unit-Coverage (surefire) aus; IT-Coverage fließt nicht in `jacoco.exec` ein, daher der
   Ausschluss trotz voller IT-Abdeckung. **Nicht** ausgeschlossen werden Adapter, die mit einem
   gemockten Repository unit-testbar sind (z. B. `JpaStoredImageAdapter`) — diese bleiben in der

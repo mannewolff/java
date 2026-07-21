@@ -7,7 +7,7 @@ Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Sti
 
 ## Stack
 
-- Java 21, Spring Boot 3.5, Maven
+- Java 25, Spring Boot 3.5, Maven
 - MariaDB 11 (via Docker / Testcontainers)
 - Flyway für Schemamigrationen
 - Keycloak 26 (eigener Container, Realm-Config als Code in `infra/keycloak/`)
@@ -18,7 +18,7 @@ Spring Boot REST-API mit MariaDB **und React-Frontend (Vite + TS + MUI)** im Sti
 ## Projektstruktur
 
 ```
-src/main/java/org/mwolff/api/      Application + Domain (appversion, auth, dashboard, image, ingest, kanban, timeseries, tools, common)
+src/main/java/org/mwolff/api/      Application + Domain (appversion, auth, dashboard, image, ingest, timeseries, tools, common)
 src/main/resources/                application.yml, Flyway-Migrationen
 src/test/java/org/mwolff/api/      Tests (*Test = schnell, *IT = Testcontainers)
 frontend/                          React-App (Vite + TS + MUI)
@@ -247,15 +247,7 @@ Alle UI-Routen sind hinter Keycloak-Login und erfordern Rolle `USER`. Backend-En
 | `/dashboards/:id` | `GET /api/dashboards/{id}`, `PUT /api/dashboards/{id}` | Detail mit Widgets, Layout speichern |
 | `/dashboards/:id` (inline rename) | `PUT /api/dashboards/{id}/name` | Inline-Rename |
 
-Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend), `KANBAN_LIST` (Mini-Board-Vorschau). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
-
-### Kanban-Board
-
-| Route | Endpoint | Zweck |
-|---|---|---|
-| `/kanban` | `GET/POST/PATCH/DELETE /api/kanban/items` | Vier-Spalten-Board (Backlog → In Progress → In Review → Done) |
-
-Drag & Drop zwischen Spalten und innerhalb einer Spalte (dnd-kit). Items können archiviert (Soft-Delete), wiederhergestellt oder endgültig gelöscht werden. DONE-Items werden nach konfigurierbaren Tagen automatisch bereinigt (`DoneItemCleanupJob`). Kommentarfunktion pro Item. Einstellungen (Retention-Tage, Archiv-Anzeige) über den Settings-Drawer.
+Widget-Typen: `TEXTBOX` (Markdown + Live-Preview), `KPI` (Number + Trend). Grid auf `react-grid-layout`, Read/Edit-Modus-Trennung mit Draft-State.
 
 ### Zeitreihen
 

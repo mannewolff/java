@@ -13,7 +13,7 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
 
 /**
  * Projektweite Cross-Module-Architekturregel. Die per-Modul-Layer-Tests (Tools, TimeSeries, Ingest,
- * Dashboard, Kanban, Auth) prüfen nur die interne Hexagonal-Topologie eines Moduls — sie sehen
+ * Dashboard, Auth) prüfen nur die interne Hexagonal-Topologie eines Moduls — sie sehen
  * modulübergreifende Zugriffe nicht, weil sie jeweils nur ihr eigenes Package importieren.
  *
  * <p>Dieser Test schließt die Lücke: Jedes Top-Level-Package unter {@code org.mwolff.api} ist ein
@@ -58,9 +58,16 @@ class CrossModuleArchitectureTest {
             .ignoreDependency(
                 resideInAPackage("org.mwolff.api.image.."),
                 resideInAPackage("org.mwolff.api.dashboard.."))
+            // Bewusste, dokumentierte Ausnahme (#362): Der PAT-Hash-Mechanismus liegt neutral in
+            // common.token; Feature-Module, die eigene API-Tokens ausstellen (Ingest), dürfen
+            // darauf zugreifen. Die Gegenrichtung common → Feature bleibt verboten.
+            .ignoreDependency(
+                resideInAPackage("org.mwolff.api.ingest.."),
+                resideInAPackage("org.mwolff.api.common.token.."))
             .as(
                 "Top-Level-Module unter org.mwolff.api dürfen sich nicht gegenseitig referenzieren "
-                    + "(Ausnahmen: dokumentierte Kanten ingest → timeseries, image → dashboard)")
+                    + "(Ausnahmen: dokumentierte Kanten ingest → timeseries, image → dashboard, "
+                    + "ingest → common.token)")
             .because(
                 "modulübergreifende Zugriffe ohne definierten Port koppeln Features hart aneinander "
                     + "und unterlaufen die Hexagonal-Struktur (Issue #145)");

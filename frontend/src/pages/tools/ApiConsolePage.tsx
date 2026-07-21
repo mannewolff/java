@@ -71,7 +71,7 @@ export default function ApiConsolePage(): JSX.Element {
   const notify = useNotify();
 
   const [method, setMethod] = useState<HttpMethod>('GET');
-  const [path, setPath] = useState('/api/kanban/items');
+  const [path, setPath] = useState('/api/timeseries');
   const [headers, setHeaders] = useState<HeaderPair[]>([]);
   const [body, setBody] = useState('');
   const [authMode, setAuthMode] = useState<AuthMode>('bearer');
@@ -195,7 +195,7 @@ export default function ApiConsolePage(): JSX.Element {
               error={path.trim() !== '' && !pathValid}
               helperText={
                 path.trim() !== '' && !pathValid
-                  ? 'Nur eigene API (same-origin, z. B. /api/kanban/items)'
+                  ? 'Nur eigene API (same-origin, z. B. /api/timeseries)'
                   : ' '
               }
               inputProps={{ 'aria-label': 'Pfad' }}

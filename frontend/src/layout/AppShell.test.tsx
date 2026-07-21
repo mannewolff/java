@@ -66,9 +66,6 @@ function renderShell(initialEntry = '/dashboards/default') {
               <Route path="/tools/svg-to-png" element={<div>SVG to PNG</div>} />
               <Route path="/tools/color-picker" element={<div>Color Picker</div>} />
               <Route path="/tools/password" element={<div>Password</div>} />
-              <Route path="/kanban/board" element={<div>Kanban-Board-Inhalt</div>} />
-              <Route path="/kanban/list" element={<div>Kanban-Listen-Inhalt</div>} />
-              <Route path="/kanban/epics" element={<div>Kanban-Epics-Inhalt</div>} />
             </Route>
           </Routes>
         </KioskModeProvider>
@@ -102,21 +99,6 @@ describe('AppShell navigation', () => {
     // and the children of the collapsed groups stay hidden
     expect(screen.queryByText('SVG zu PNG')).not.toBeInTheDocument();
     expect(screen.queryByText('Passwortgenerator')).not.toBeInTheDocument();
-  });
-
-  it('Kanban ist eine aufklappbare Gruppe; Board/Liste/Epics navigieren (#328)', async () => {
-    // Auf /kanban/board ist die Kanban-Gruppe offen und alle drei Kinder sichtbar.
-    renderShell('/kanban/board');
-    expect(screen.getByText('Kanban')).toBeInTheDocument();
-    expect(screen.getByText('Board')).toBeInTheDocument();
-    expect(screen.getByText('Liste')).toBeInTheDocument();
-    expect(screen.getByText('Epics')).toBeInTheDocument();
-    expect(screen.getByText('Kanban-Board-Inhalt')).toBeInTheDocument();
-
-    // Klick auf "Liste" navigiert zu /kanban/list.
-    const user = userEvent.setup();
-    await user.click(screen.getByText('Liste'));
-    expect(screen.getByText('Kanban-Listen-Inhalt')).toBeInTheDocument();
   });
 
   it('auto-opens the group that contains the active route', () => {
@@ -266,17 +248,16 @@ describe('AppShell collapsed sidebar', () => {
     renderShell('/dashboards/default');
     const user = userEvent.setup();
 
-    // Klick aufs Kanban-Gruppen-Icon öffnet das Flyout mit Board/Liste/Epics.
-    await user.click(screen.getByRole('button', { name: 'Kanban' }));
-    const menu = await screen.findByRole('menu', { name: 'Kanban' });
-    expect(within(menu).getByText('Board')).toBeInTheDocument();
-    expect(within(menu).getByText('Liste')).toBeInTheDocument();
-    expect(within(menu).getByText('Epics')).toBeInTheDocument();
+    // Klick aufs Bildverarbeitungs-Gruppen-Icon öffnet das Flyout mit den Unterpunkten.
+    await user.click(screen.getByRole('button', { name: 'Bildverarbeitung' }));
+    const menu = await screen.findByRole('menu', { name: 'Bildverarbeitung' });
+    expect(within(menu).getByText('SVG zu PNG')).toBeInTheDocument();
+    expect(within(menu).getByText('Farbpipette')).toBeInTheDocument();
 
     // Auswahl navigiert und schließt das Flyout.
-    await user.click(within(menu).getByText('Liste'));
-    expect(screen.getByText('Kanban-Listen-Inhalt')).toBeInTheDocument();
-    expect(screen.queryByRole('menu', { name: 'Kanban' })).not.toBeInTheDocument();
+    await user.click(within(menu).getByText('SVG zu PNG'));
+    expect(screen.getByText('SVG to PNG')).toBeInTheDocument();
+    expect(screen.queryByRole('menu', { name: 'Bildverarbeitung' })).not.toBeInTheDocument();
   });
 });
 

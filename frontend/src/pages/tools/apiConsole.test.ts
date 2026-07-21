@@ -15,7 +15,7 @@ const origin = window.location.origin;
 function draft(over: Partial<RequestDraft> = {}): RequestDraft {
   return {
     method: 'GET',
-    path: '/api/kanban/items',
+    path: '/api/timeseries',
     headers: [],
     body: '',
     authMode: 'none',
@@ -25,7 +25,7 @@ function draft(over: Partial<RequestDraft> = {}): RequestDraft {
 
 describe('resolveSameOriginUrl', () => {
   it('akzeptiert relative /api-Pfade', () => {
-    expect(resolveSameOriginUrl('/api/kanban/items')).toBe(`${origin}/api/kanban/items`);
+    expect(resolveSameOriginUrl('/api/timeseries')).toBe(`${origin}/api/timeseries`);
   });
 
   it('akzeptiert absolute URLs auf der eigenen Origin', () => {

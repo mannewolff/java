@@ -23,7 +23,6 @@ const ImageManagerPage = lazy(() => import('./pages/tools/ImageManagerPage'));
 const PasswordPage = lazy(() => import('./pages/tools/PasswordPage'));
 const ApiConsolePage = lazy(() => import('./pages/tools/ApiConsolePage'));
 const MarkdownToPdfPage = lazy(() => import('./pages/tools/MarkdownToPdfPage'));
-const KanbanPage = lazy(() => import('./pages/kanban/KanbanPage'));
 const TimeSeriesListPage = lazy(() => import('./pages/timeseries/TimeSeriesListPage'));
 const TimeSeriesDetailPage = lazy(
   () => import('./pages/timeseries/TimeSeriesDetailPage'),
@@ -154,15 +153,6 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <MarkdownToPdfPage />
-            </Suspense>
-          }
-        />
-        <Route path="/kanban" element={<Navigate to="/kanban/board" replace />} />
-        <Route
-          path="/kanban/:view"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <KanbanPage />
             </Suspense>
           }
         />

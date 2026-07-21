@@ -3,10 +3,10 @@ package org.mwolff.api.ingest.application;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.mwolff.api.common.token.TokenCryptoPort;
 import org.mwolff.api.ingest.domain.IngestToken;
 import org.mwolff.api.ingest.domain.IngestTokenPort;
 import org.mwolff.api.ingest.domain.InvalidIngestTokenException;
-import org.mwolff.api.ingest.domain.TokenCryptoPort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 

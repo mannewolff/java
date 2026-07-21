@@ -33,6 +33,11 @@ Beide Realms sind strukturell identisch. Sie definieren:
 Die Files sind **nicht-sensibel**: sie enthalten weder User-Daten noch Client-Secrets
 noch das Keycloak-Master-Realm. Sie können bedenkenlos eingecheckt werden.
 
+> **Realm bewusst schlank (#335):** Der frühere CLI-Client `toolbox-cli` und der
+> `offline_access`-Scope (Device-Flow) wurden in #335 entfernt und werden **nicht**
+> reaktiviert. Beim Editieren der Realm-Exports also **keinen** `toolbox-cli`-Client
+> und **kein** `offline_access` wieder hinzufügen.
+
 ## Erst-Start (Dev)
 
 ```bash

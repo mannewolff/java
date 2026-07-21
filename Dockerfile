@@ -14,7 +14,7 @@ RUN if [ -n "${VITE_KEYCLOAK_URL}" ];     then export VITE_KEYCLOAK_URL="${VITE_
  && if [ -n "${VITE_KEYCLOAK_CLIENT_ID}" ]; then export VITE_KEYCLOAK_CLIENT_ID="${VITE_KEYCLOAK_CLIENT_ID}"; fi \
  && npm run build
 
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /workspace
 COPY pom.xml ./
 RUN mvn -B -q dependency:go-offline -P skip-frontend
@@ -22,7 +22,7 @@ COPY src ./src
 COPY --from=frontend-build /frontend/dist /workspace/src/main/resources/static
 RUN mvn -B -DskipTests -P skip-frontend package
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Install curl for the healthcheck. Done as root, before dropping privileges.

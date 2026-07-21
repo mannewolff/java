@@ -42,8 +42,8 @@ class IngestLayerArchitectureTest {
             // ist gewollt — daher kein "mayNotBeAccessedByAnyLayer".
             .mayOnlyBeAccessedByLayers("web")
             .whereLayer("infrastructure")
-            // Genauso wird IngestRateLimiter / Sha256TokenCryptoAdapter von der
-            // SecurityConfig referenziert — Wiring-Spezialfall, kein Bruch des Hexagons.
+            // Genauso wird IngestRateLimiter von der SecurityConfig referenziert —
+            // Wiring-Spezialfall, kein Bruch des Hexagons.
             .mayOnlyBeAccessedByLayers("infrastructure", "web")
             .whereLayer("application")
             .mayOnlyBeAccessedByLayers("web")

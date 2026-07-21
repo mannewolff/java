@@ -46,7 +46,7 @@ describe('ApiConsolePage', () => {
   it('rendert Überschrift und Default-Pfad', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'API-Konsole' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Pfad')).toHaveValue('/api/kanban/items');
+    expect(screen.getByLabelText('Pfad')).toHaveValue('/api/timeseries');
   });
 
   it('sendet mit Bearer-Token an die eigene API und zeigt den Response', async () => {
@@ -56,7 +56,7 @@ describe('ApiConsolePage', () => {
 
     await waitFor(() => expect(fetchFn).toHaveBeenCalled());
     const [url, init] = fetchFn.mock.calls[0];
-    expect(url).toBe(`${window.location.origin}/api/kanban/items`);
+    expect(url).toBe(`${window.location.origin}/api/timeseries`);
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer SESSION_TKN');
 
     const responsePanel = await screen.findByLabelText('Response');
@@ -72,7 +72,7 @@ describe('ApiConsolePage', () => {
 
     expect(screen.getByRole('button', { name: 'Senden' })).toBeDisabled();
     expect(
-      screen.getByText('Nur eigene API (same-origin, z. B. /api/kanban/items)'),
+      screen.getByText('Nur eigene API (same-origin, z. B. /api/timeseries)'),
     ).toBeInTheDocument();
   });
 
@@ -91,21 +91,23 @@ describe('ApiConsolePage', () => {
 
   it('speichert, lädt und löscht einen Request (localStorage, ohne Token)', async () => {
     renderPage();
-    await userEvent.type(screen.getByLabelText('Als…'), 'Kanban-Liste');
+    await userEvent.type(screen.getByLabelText('Als…'), 'Zeitreihen-Liste');
     await userEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(await screen.findByText('Request „Kanban-Liste" gespeichert')).toBeInTheDocument();
+    expect(await screen.findByText('Request „Zeitreihen-Liste" gespeichert')).toBeInTheDocument();
     // Token darf nicht im localStorage landen.
     expect(window.localStorage.getItem('toolbox-api-console-requests')).not.toContain(
       'SESSION_TKN',
     );
 
-    const savedEntry = screen.getByRole('button', { name: /Kanban-Liste — \/api\/kanban\/items/ });
+    const savedEntry = screen.getByRole('button', {
+      name: /Zeitreihen-Liste — \/api\/timeseries/,
+    });
     expect(savedEntry).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kanban-Liste löschen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Zeitreihen-Liste löschen' }));
     expect(
-      screen.queryByRole('button', { name: /Kanban-Liste — / }),
+      screen.queryByRole('button', { name: /Zeitreihen-Liste — / }),
     ).not.toBeInTheDocument();
   });
 });
